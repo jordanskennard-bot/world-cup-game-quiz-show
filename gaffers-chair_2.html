@@ -1,0 +1,1266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Official Global Soccer Trophy Game Show Quiz Cup</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:ital,wght@0,400;0,600;0,700;1,400&family=Barlow:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --green: #00c853;
+    --green-dark: #007a2d;
+    --red: #d50000;
+    --gold: #ffd600;
+    --studio-dark: #080c08;
+    --studio-mid: #111811;
+    --studio-light: #1c241c;
+    --border: #2a362a;
+    --text: #eef2ee;
+    --text-muted: #7a8f7a;
+    --correct: #00c853;
+    --wrong: #d50000;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Barlow', sans-serif;
+    background: var(--studio-dark);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: repeating-linear-gradient(0deg, transparent 0px, transparent 38px, rgba(255,255,255,0.012) 38px, rgba(255,255,255,0.012) 40px);
+    pointer-events: none;
+    z-index: 0;
+  }
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 1px, rgba(0,0,0,0.05) 1px, rgba(0,0,0,0.05) 2px);
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* TICKER */
+  .ticker {
+    background: var(--red);
+    padding: 7px 0;
+    overflow: hidden;
+    white-space: nowrap;
+    position: relative;
+    z-index: 10;
+    border-bottom: 2px solid var(--gold);
+  }
+  .ticker-track {
+    display: inline-flex;
+    animation: scroll-left 30s linear infinite;
+  }
+  .ticker-track span {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    padding: 0 36px;
+  }
+  .ticker-track span::after { content: '◆'; margin-left: 36px; color: rgba(255,255,255,0.35); }
+  @keyframes scroll-left { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+
+  /* HEADER */
+  header {
+    position: relative;
+    z-index: 10;
+    background: linear-gradient(160deg, #0e160e 0%, var(--studio-mid) 100%);
+    border-bottom: 3px solid var(--green-dark);
+    padding: 28px 24px 0;
+    overflow: hidden;
+  }
+  .bg-number {
+    position: absolute;
+    right: -20px;
+    bottom: -40px;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 240px;
+    color: rgba(0,200,83,0.04);
+    line-height: 1;
+    user-select: none;
+    pointer-events: none;
+  }
+  .header-inner {
+    max-width: 860px;
+    margin: 0 auto;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    padding-bottom: 20px;
+  }
+  .show-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(50px, 9vw, 84px);
+    letter-spacing: 5px;
+    line-height: 0.85;
+    color: var(--text);
+    text-shadow: 3px 3px 0 var(--green-dark), 6px 6px 0 rgba(0,0,0,0.5);
+  }
+  .show-sub {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 600;
+    font-size: 13px;
+    letter-spacing: 6px;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-top: 8px;
+  }
+  .live-bug {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+  }
+  .live-pill {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    background: var(--red);
+    padding: 5px 12px 5px 10px;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+  }
+  .live-dot {
+    width: 7px; height: 7px;
+    background: white;
+    border-radius: 50%;
+    animation: blink 1.2s ease-in-out infinite;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.1} }
+  .score-display {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 34px;
+    letter-spacing: 3px;
+    color: var(--green);
+    line-height: 1;
+    text-align: right;
+  }
+  .score-display small {
+    font-size: 11px;
+    letter-spacing: 4px;
+    color: var(--text-muted);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 600;
+    display: block;
+    text-transform: uppercase;
+  }
+
+  /* STAGE */
+  .stage {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 36px 24px 80px;
+    position: relative;
+    z-index: 10;
+  }
+
+  /* ROUND LABEL */
+  .round-label {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 28px;
+    animation: fadeUp 0.4s ease both;
+  }
+  .round-badge {
+    background: var(--green);
+    color: #000;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    padding: 5px 12px;
+  }
+  .round-name {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 28px;
+    letter-spacing: 3px;
+    color: var(--text-muted);
+  }
+  .round-progress {
+    margin-left: auto;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 13px;
+    letter-spacing: 2px;
+    color: var(--text-muted);
+  }
+
+  /* QUESTION CARD */
+  .question-card {
+    background: var(--studio-light);
+    border: 1px solid var(--border);
+    border-top: 4px solid var(--green);
+    padding: 36px 40px;
+    margin-bottom: 24px;
+    position: relative;
+    animation: fadeUp 0.5s ease both;
+  }
+  .question-card::before {
+    content: '"';
+    position: absolute;
+    top: 6px; left: 18px;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 90px;
+    color: rgba(0,200,83,0.07);
+    line-height: 1;
+    pointer-events: none;
+  }
+  .question-prompt {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 11px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 18px;
+  }
+  .question-lyrics {
+    font-family: 'Barlow', sans-serif;
+    font-style: italic;
+    font-size: clamp(18px, 3vw, 24px);
+    line-height: 1.6;
+    color: var(--text);
+    position: relative;
+    z-index: 1;
+  }
+  .blank-anthem {
+    font-style: normal !important;
+    font-size: 15px !important;
+    color: var(--text-muted) !important;
+    border: 1px dashed var(--border);
+    padding: 24px !important;
+    text-align: center;
+    letter-spacing: 0.5px;
+  }
+  .silence-icon {
+    display: block;
+    font-size: 38px;
+    margin-bottom: 12px;
+    opacity: 0.35;
+  }
+
+  /* OPTIONS */
+  .options-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    animation: fadeUp 0.6s ease both;
+  }
+  @media (max-width: 500px) { .options-grid { grid-template-columns: 1fr; } }
+
+  .option-btn {
+    background: var(--studio-mid);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--border);
+    color: var(--text);
+    padding: 18px 20px;
+    text-align: left;
+    cursor: pointer;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    transition: all 0.15s ease;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    position: relative;
+    overflow: hidden;
+  }
+  .option-btn::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--green);
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+  .option-btn:hover:not(:disabled) {
+    border-left-color: var(--green);
+    border-color: rgba(0,200,83,0.4);
+    transform: translateX(3px);
+  }
+  .option-btn:hover:not(:disabled)::after { opacity: 0.07; }
+  .option-letter {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px;
+    color: var(--text-muted);
+    min-width: 22px;
+    position: relative;
+    z-index: 1;
+    transition: color 0.15s;
+  }
+  .option-text { position: relative; z-index: 1; }
+  .option-btn:hover:not(:disabled) .option-letter { color: var(--green); }
+  .option-btn.correct { border-color: var(--correct); border-left-color: var(--correct); background: rgba(0,200,83,0.1); animation: correctPop 0.3s ease; }
+  .option-btn.correct .option-letter { color: var(--correct); }
+  .option-btn.wrong { border-color: var(--wrong); border-left-color: var(--wrong); background: rgba(213,0,0,0.1); }
+  .option-btn.wrong .option-letter { color: var(--wrong); }
+  .option-btn.reveal-correct { border-left-color: var(--correct); opacity: 0.45; }
+  .option-btn:disabled { cursor: not-allowed; }
+  @keyframes correctPop { 0%{transform:scale(1)} 50%{transform:scale(1.02)} 100%{transform:scale(1)} }
+
+  /* FEEDBACK */
+  .feedback {
+    padding: 16px 22px;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    display: none;
+    align-items: flex-start;
+    gap: 14px;
+    margin-top: 16px;
+    animation: slideIn 0.25s ease both;
+  }
+  .feedback.correct-fb { background: rgba(0,200,83,0.1); border-left: 4px solid var(--correct); color: var(--correct); display: flex; }
+  .feedback.wrong-fb { background: rgba(213,0,0,0.1); border-left: 4px solid var(--wrong); color: var(--wrong); display: flex; }
+  .fb-icon { font-size: 22px; margin-top: 1px; }
+  .fb-note { font-size: 13px; color: var(--text-muted); font-weight: 400; letter-spacing: 0.5px; text-transform: none; font-style: italic; margin-top: 4px; font-family: 'Barlow', sans-serif; line-height: 1.4; }
+  @keyframes slideIn { from{opacity:0;transform:translateY(-8px)} to{opacity:1;transform:translateY(0)} }
+
+  /* NEXT BUTTON */
+  .next-btn {
+    margin-top: 20px;
+    background: var(--green);
+    color: #000;
+    border: none;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px;
+    letter-spacing: 4px;
+    padding: 14px 36px;
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    gap: 10px;
+    transition: all 0.15s;
+    animation: fadeUp 0.3s ease both;
+  }
+  .next-btn:hover { background: #00e65c; transform: translateX(4px); }
+  .next-btn.visible { display: flex; }
+
+  /* END SCREEN */
+  #end-screen { display: none; animation: fadeUp 0.5s ease both; }
+  #end-screen.visible { display: block; }
+
+  .end-card {
+    background: var(--studio-light);
+    border: 1px solid var(--border);
+    border-top: 4px solid var(--gold);
+    padding: 52px 40px 44px;
+    text-align: center;
+  }
+  .end-label {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 11px;
+    letter-spacing: 5px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 14px;
+  }
+  .end-score {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(80px, 15vw, 130px);
+    color: var(--gold);
+    line-height: 1;
+    letter-spacing: 4px;
+    text-shadow: 4px 4px 0 rgba(0,0,0,0.5);
+  }
+  .end-denom {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 18px;
+    letter-spacing: 3px;
+    color: var(--text-muted);
+    margin-bottom: 28px;
+  }
+  .pundit-verdict {
+    font-family: 'Barlow', sans-serif;
+    font-style: italic;
+    font-size: 19px;
+    color: var(--text);
+    max-width: 500px;
+    margin: 0 auto 12px;
+    line-height: 1.55;
+    border-left: 3px solid var(--gold);
+    padding-left: 20px;
+    text-align: left;
+  }
+  .pundit-name {
+    font-style: normal;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 12px;
+    letter-spacing: 3px;
+    color: var(--gold);
+    text-transform: uppercase;
+    display: block;
+    margin-top: 8px;
+  }
+  .star-row {
+    display: flex;
+    justify-content: center;
+    gap: 4px;
+    font-size: 26px;
+    margin: 24px 0 32px;
+  }
+  .replay-btn {
+    background: transparent;
+    border: 2px solid var(--green);
+    color: var(--green);
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 20px;
+    letter-spacing: 4px;
+    padding: 12px 32px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .replay-btn:hover { background: var(--green); color: #000; }
+
+  @keyframes fadeUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+
+  /* BONUS OFFER SCREEN */
+  #bonus-offer-screen { display: none; animation: fadeUp 0.5s ease both; }
+  #bonus-offer-screen.visible { display: block; }
+  .bonus-offer-card {
+    background: var(--studio-light);
+    border: 1px solid var(--border);
+    border-top: 4px solid var(--gold);
+    padding: 52px 40px 44px;
+    text-align: center;
+  }
+  .bonus-eyebrow {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 11px;
+    letter-spacing: 5px;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 14px;
+  }
+  .bonus-offer-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(42px, 8vw, 72px);
+    letter-spacing: 4px;
+    color: var(--text);
+    line-height: 1;
+    margin-bottom: 16px;
+  }
+  .bonus-offer-desc {
+    font-family: 'Barlow', sans-serif;
+    font-style: italic;
+    font-size: 17px;
+    color: var(--text-muted);
+    max-width: 440px;
+    margin: 0 auto 36px;
+    line-height: 1.5;
+  }
+  .bonus-offer-desc strong { color: var(--gold); font-style: normal; }
+  .bonus-btns {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .bonus-yes-btn {
+    background: var(--gold);
+    color: #000;
+    border: none;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px;
+    letter-spacing: 4px;
+    padding: 14px 40px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .bonus-yes-btn:hover { background: #ffe033; transform: translateY(-2px); }
+  .bonus-skip-btn {
+    background: transparent;
+    border: 2px solid var(--border);
+    color: var(--text-muted);
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px;
+    letter-spacing: 4px;
+    padding: 14px 40px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .bonus-skip-btn:hover { border-color: var(--text-muted); color: var(--text); }
+
+  /* KARAOKE SCREEN */
+  #karaoke-screen { display: none; animation: fadeUp 0.5s ease both; }
+  #karaoke-screen.visible { display: block; }
+  .karaoke-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+  }
+  .karaoke-title-block {}
+  .karaoke-badge {
+    background: var(--gold);
+    color: #000;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    padding: 4px 12px;
+    display: inline-block;
+    margin-bottom: 6px;
+  }
+  .karaoke-song-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(28px, 5vw, 48px);
+    letter-spacing: 3px;
+    color: var(--text);
+    line-height: 1;
+  }
+  .karaoke-artist {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 14px;
+    letter-spacing: 3px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    margin-top: 4px;
+  }
+  .karaoke-bonus-pts {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 42px;
+    color: var(--gold);
+    text-align: right;
+    line-height: 1;
+  }
+  .karaoke-bonus-pts small {
+    display: block;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+  }
+
+  /* VIDEO */
+  .karaoke-video-wrap {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16/9;
+    background: #000;
+    margin-bottom: 20px;
+    overflow: hidden;
+  }
+  .karaoke-video-wrap video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  /* LYRICS DISPLAY */
+  .karaoke-stage {
+    background: var(--studio-light);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--gold);
+    padding: 28px 32px;
+    min-height: 120px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    margin-bottom: 16px;
+    position: relative;
+    overflow: hidden;
+  }
+  .karaoke-stage::before {
+    content: '🎤';
+    position: absolute;
+    right: 16px; top: 12px;
+    font-size: 28px;
+    opacity: 0.15;
+  }
+  .lyric-line {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: clamp(22px, 4vw, 36px);
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: var(--text-muted);
+    line-height: 1.3;
+    transition: all 0.3s ease;
+    opacity: 0.4;
+  }
+  .lyric-line.active {
+    color: var(--gold);
+    opacity: 1;
+    font-size: clamp(26px, 5vw, 44px);
+    text-shadow: 0 0 30px rgba(255,214,0,0.4);
+  }
+  .lyric-line.past {
+    color: var(--text-muted);
+    opacity: 0.25;
+    font-size: clamp(16px, 2.5vw, 22px);
+  }
+
+  /* KARAOKE PROGRESS */
+  .karaoke-progress-bar {
+    height: 4px;
+    background: var(--border);
+    margin-bottom: 20px;
+    position: relative;
+    overflow: hidden;
+  }
+  .karaoke-progress-fill {
+    height: 100%;
+    background: var(--gold);
+    width: 0%;
+    transition: width 0.5s linear;
+  }
+
+  .karaoke-finish-btn {
+    background: var(--gold);
+    color: #000;
+    border: none;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px;
+    letter-spacing: 4px;
+    padding: 14px 36px;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: none;
+  }
+  .karaoke-finish-btn.visible { display: inline-block; }
+  .karaoke-finish-btn:hover { background: #ffe033; transform: translateX(3px); }
+
+  /* OPENING SCREEN */
+  #opening-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 70vh;
+    text-align: center;
+    animation: fadeUp 0.6s ease both;
+  }
+  #opening-screen.hidden { display: none; }
+
+  .opening-eyebrow {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 12px;
+    letter-spacing: 6px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 20px;
+  }
+  .opening-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(48px, 10vw, 100px);
+    letter-spacing: 4px;
+    line-height: 0.88;
+    color: var(--text);
+    text-shadow: 4px 4px 0 var(--green-dark), 8px 8px 0 rgba(0,0,0,0.5);
+    margin-bottom: 24px;
+  }
+  .opening-title .gold { color: var(--gold); text-shadow: 3px 3px 0 rgba(0,0,0,0.4); }
+  .opening-divider {
+    width: 80px;
+    height: 3px;
+    background: var(--green);
+    margin: 0 auto 28px;
+  }
+  .opening-tagline {
+    font-family: 'Barlow', sans-serif;
+    font-style: italic;
+    font-size: 18px;
+    color: var(--text-muted);
+    margin-bottom: 48px;
+    max-width: 400px;
+  }
+  .start-btn {
+    background: var(--green);
+    color: #000;
+    border: none;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 26px;
+    letter-spacing: 5px;
+    padding: 18px 52px;
+    cursor: pointer;
+    transition: all 0.15s;
+    position: relative;
+    overflow: hidden;
+  }
+  .start-btn::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: white;
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+  .start-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,200,83,0.3); }
+  .start-btn:hover::after { opacity: 0.08; }
+  .start-btn:active { transform: translateY(0); }
+  .round-preview {
+    margin-top: 36px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 13px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+  .round-preview-badge {
+    background: var(--studio-light);
+    border: 1px solid var(--border);
+    padding: 4px 12px;
+    color: var(--green);
+    font-weight: 700;
+  }
+
+  /* OUTRO SCREEN */
+  #outro-screen {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 60vh;
+    text-align: center;
+    animation: fadeUp 0.5s ease both;
+  }
+  #outro-screen.visible { display: flex; }
+  .outro-icon {
+    font-size: 56px;
+    margin-bottom: 20px;
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.08)} }
+  .outro-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(36px, 7vw, 64px);
+    letter-spacing: 4px;
+    color: var(--text);
+    margin-bottom: 12px;
+  }
+  .outro-sub {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 14px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 32px;
+  }
+  .outro-dots {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+  }
+  .outro-dot {
+    width: 10px; height: 10px;
+    background: var(--green);
+    border-radius: 50%;
+    animation: dotBounce 1.2s ease-in-out infinite;
+  }
+  .outro-dot:nth-child(2) { animation-delay: 0.2s; }
+  .outro-dot:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes dotBounce { 0%,100%{transform:translateY(0);opacity:0.3} 50%{transform:translateY(-10px);opacity:1} }
+</style>
+</head>
+<body>
+
+<div class="ticker">
+  <div class="ticker-track">
+    <span>The Official Global Soccer Trophy Game Show Quiz Cup</span>
+    <span>National Anthems Round</span>
+    <span>Can You Name That Nation?</span>
+    <span>Live Now</span>
+    <span>The Official Global Soccer Trophy Game Show Quiz Cup</span>
+    <span>National Anthems Round</span>
+    <span>Can You Name That Nation?</span>
+    <span>Live Now</span>
+  </div>
+</div>
+
+<header>
+  <div class="bg-number" id="bg-number">1</div>
+  <div class="header-inner">
+    <div>
+      <div class="show-title">The Official<br>Global Soccer<br>Trophy Game<br>Show Quiz Cup</div>
+      <div class="show-sub">The Official Global Soccer Trophy Game Show Quiz Cup</div>
+    </div>
+    <div class="live-bug">
+      <div class="live-pill"><div class="live-dot"></div> Live</div>
+      <div class="score-display">
+        <small>Score</small>
+        <span id="header-score">0</span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="stage">
+
+  <!-- OPENING SCREEN -->
+  <div id="opening-screen">
+    <div class="opening-eyebrow">Welcome to</div>
+    <div class="opening-title">
+      The Official<br>
+      <span class="gold">Global Soccer</span><br>
+      Trophy Game<br>Show Quiz Cup
+    </div>
+    <div class="opening-divider"></div>
+    <div class="opening-tagline">Think you know the beautiful game? Let's find out.</div>
+    <button class="start-btn" onclick="beginGame()">Kick Off ▶</button>
+    <div class="round-preview">
+      <span>Up first:</span>
+      <span class="round-preview-badge">Round 1</span>
+      <span>National Anthems</span>
+    </div>
+  </div>
+
+  <!-- OUTRO SCREEN -->
+  <div id="outro-screen">
+    <div class="outro-icon">🏆</div>
+    <div class="outro-title">Round 1 Complete</div>
+    <div class="outro-sub">The verdict is in...</div>
+    <div class="outro-dots">
+      <div class="outro-dot"></div>
+      <div class="outro-dot"></div>
+      <div class="outro-dot"></div>
+    </div>
+  </div>
+
+  <div id="game-screen">
+    <div class="round-label">
+      <div class="round-badge">Round 1</div>
+      <div class="round-name">National Anthems</div>
+      <div class="round-progress" id="progress-label">Question 1 of 4</div>
+    </div>
+
+    <div class="question-card" id="question-card">
+      <div class="question-prompt">🎵 Identify the nation from these anthem lyrics</div>
+      <div id="question-lyrics"></div>
+    </div>
+
+    <div class="options-grid" id="options-grid"></div>
+
+    <div class="feedback" id="feedback">
+      <span class="fb-icon" id="fb-icon"></span>
+      <div>
+        <div id="fb-text"></div>
+        <div class="fb-note" id="fb-note"></div>
+      </div>
+    </div>
+
+    <button class="next-btn" id="next-btn" onclick="nextQuestion()">
+      Next Question →
+    </button>
+  </div>
+
+  <!-- BONUS OFFER SCREEN -->
+  <div id="bonus-offer-screen">
+    <div class="bonus-offer-card">
+      <div class="bonus-eyebrow">⭐ Bonus Round Available</div>
+      <div class="bonus-offer-title">Karaoke Challenge</div>
+      <div class="bonus-offer-desc">
+        Sing along to <strong>Futbol</strong> by Maryla Rodowicz — the song performed at the 1974 World Cup opening ceremony. Nail it and earn <strong>+2 bonus points</strong>. No pressure. Well, a little pressure.
+      </div>
+      <div class="bonus-btns">
+        <button class="bonus-yes-btn" onclick="startKaraoke()">🎤 Let's Go!</button>
+        <button class="bonus-skip-btn" onclick="skipBonus()">Skip →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- KARAOKE SCREEN -->
+  <div id="karaoke-screen">
+    <div class="karaoke-header">
+      <div class="karaoke-title-block">
+        <div class="karaoke-badge">Bonus Round · Karaoke</div>
+        <div class="karaoke-song-title">Futbol</div>
+        <div class="karaoke-artist">Maryla Rodowicz · TVP 1974</div>
+      </div>
+      <div class="karaoke-bonus-pts">
+        <small>Bonus Points</small>
+        +2
+      </div>
+    </div>
+
+    <div class="karaoke-video-wrap">
+      <video id="karaoke-video" src="Maryla_Rodowicz_-_Futbol__TVP_1974_.mp4" playsinline></video>
+    </div>
+
+    <div class="karaoke-progress-bar">
+      <div class="karaoke-progress-fill" id="karaoke-progress-fill"></div>
+    </div>
+
+    <div class="karaoke-stage" id="karaoke-stage">
+      <div class="lyric-line" id="lyric-prev"></div>
+      <div class="lyric-line active" id="lyric-curr">Get ready...</div>
+      <div class="lyric-line" id="lyric-next"></div>
+    </div>
+
+    <button class="karaoke-finish-btn" id="karaoke-finish-btn" onclick="finishKaraoke()">
+      🏆 Claim Bonus Points →
+    </button>
+  </div>
+
+  <div id="end-screen">
+    <div class="end-card">
+      <div class="end-label">Full Time · Round 1 Complete</div>
+      <div class="end-score" id="end-score">0</div>
+      <div class="end-denom" id="end-denom">out of 4</div>
+      <div class="pundit-verdict" id="pundit-verdict"></div>
+      <div class="star-row" id="star-row"></div>
+      <button class="replay-btn" onclick="restartGame()">↩ Play Again</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // ─── AUDIO CONFIG ───────────────────────────────────────────────────────────
+  // Place all audio files in the same folder as this HTML file.
+  // Update the AUDIO_PATH if your files are in a subfolder e.g. 'audio/'
+  const AUDIO_PATH = '';
+
+  const AUDIO = {
+    roundIntro:  'round1_intro',
+    roundOutro:  'round1_outro',
+    questions:   ['Q1', 'Q2', 'Q3', 'Q4'],
+    correct:     ['Correct_1','Correct_2','Correct_3','Correct_4','Correct_5',
+                  'Correct_6','Correct_7','Correct_8','Correct_9','Correct_10',
+                  'Correct_11','Correct_12','Correct_13','Correct_14','Correct_15',
+                  'Correct_16','Correct_17'],
+    wrong:       ['Incorrect_1','Incorrect_2','Incorrect_3','Incorrect_4','Incorrect_5',
+                  'Incorrect_6','Incorrect_7','Incorrect_8','Incorrect_9'],
+    verdicts:    ['Verdict_1','Verdict_2','Verdict_3','Verdict_4','Verdict_5']
+  };
+
+  // Audio player — stops any current clip and plays a new one
+  let currentAudio = null;
+  function playAudio(filename) {
+    if (!filename) return Promise.resolve();
+    if (currentAudio) { currentAudio.pause(); currentAudio.currentTime = 0; }
+    const src = AUDIO_PATH + filename + '.mp3';
+    currentAudio = new Audio(src);
+    return currentAudio.play().catch(() => {});
+  }
+
+  // Play audio and call a function when it finishes (or after a fallback timeout)
+  function playAudioThen(filename, callback, fallbackMs = 4000) {
+    if (!filename) { setTimeout(callback, 500); return; }
+    if (currentAudio) { currentAudio.pause(); currentAudio.currentTime = 0; }
+    const src = AUDIO_PATH + filename + '.mp3';
+    currentAudio = new Audio(src);
+    let called = false;
+    const done = () => { if (!called) { called = true; callback(); } };
+    currentAudio.addEventListener('ended', done);
+    currentAudio.addEventListener('error', () => setTimeout(done, 300));
+    // Fallback in case audio duration is unknown or file is missing
+    currentAudio.play().catch(() => setTimeout(done, fallbackMs));
+    // Also set a max wait based on audio duration once metadata loads
+    currentAudio.addEventListener('loadedmetadata', () => {
+      const dur = (currentAudio.duration || 0) * 1000 + 500;
+      setTimeout(done, dur);
+    });
+  }
+
+  function pickRandom(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+  // ─── GAME DATA ───────────────────────────────────────────────────────────────
+  const questions = [
+    {
+      lyrics: "May impure blood water our furrows",
+      answer: "France",
+      distractors: ["USA", "Spain", "Czechia"],
+      note: "La Marseillaise — written in 1792 during the French Revolution.",
+      audio: AUDIO.questions[0]
+    },
+    {
+      lyrics: "Mercenary swords, they are feeble reeds... already the Eagle of Austria has lost its feathers.",
+      answer: "Italy",
+      distractors: ["Austria", "Germany", "Hong Kong"],
+      note: "Il Canto degli Italiani — written by Goffredo Mameli in 1847.",
+      audio: AUDIO.questions[1]
+    },
+    {
+      lyrics: "To the King of Spain I have always given honour.",
+      answer: "Netherlands",
+      distractors: ["Spain", "Ireland", "Argentina"],
+      note: "Het Wilhelmus — the oldest national anthem in the world, dating to the 16th century.",
+      audio: AUDIO.questions[2]
+    },
+    {
+      lyrics: null,
+      answer: "Spain",
+      distractors: ["Democratic Republic of Congo", "Bhutan", "Austria"],
+      note: "La Marcha Real — one of only four national anthems in the world with no official lyrics.",
+      audio: AUDIO.questions[3]
+    }
+  ];
+
+  const verdicts = [
+    { min: 4, stars: 5, text: "Extraordinary. Absolutely extraordinary. This person knows their anthems. You'd clean up at any pub quiz in the country.", pundit: "The Gaffer", audio: AUDIO.verdicts[4] },
+    { min: 3, stars: 4, text: "Good showing. Not perfect — but you've clearly done your homework. Most pundits couldn't do better.", pundit: "The Gaffer", audio: AUDIO.verdicts[3] },
+    { min: 2, stars: 3, text: "Look, it's not terrible. But it's not good either. You'd have been found out on the big stage.", pundit: "The Gaffer", audio: AUDIO.verdicts[2] },
+    { min: 1, stars: 2, text: "Difficult to watch, if I'm honest. You got lucky with one. The rest? We'll draw a veil over it.", pundit: "The Gaffer", audio: AUDIO.verdicts[1] },
+    { min: 0, stars: 1, text: "I've seen better performances from a reserve keeper on a wet Tuesday in Stoke. Did you even try?", pundit: "The Gaffer", audio: AUDIO.verdicts[0] }
+  ];
+
+  // ─── STATE ───────────────────────────────────────────────────────────────────
+  let current = 0;
+  let score = 0;
+  let answered = false;
+
+  function shuffle(arr) { return [...arr].sort(() => Math.random() - 0.5); }
+
+  // ─── INIT ────────────────────────────────────────────────────────────────────
+
+  // Called when player clicks Kick Off on opening screen
+  function beginGame() {
+    document.getElementById('opening-screen').classList.add('hidden');
+    document.getElementById('game-screen').style.display = 'block';
+    playAudio(AUDIO.roundIntro);
+    loadQuestion();
+  }
+
+  // ─── LOAD QUESTION ───────────────────────────────────────────────────────────
+  function loadQuestion() {
+    answered = false;
+    const q = questions[current];
+    document.getElementById('progress-label').textContent = `Question ${current + 1} of ${questions.length}`;
+    document.getElementById('bg-number').textContent = current + 1;
+
+    // Play question audio
+    setTimeout(() => playAudio(q.audio), 200);
+
+    // Lyrics
+    const lyricsEl = document.getElementById('question-lyrics');
+    if (!q.lyrics) {
+      lyricsEl.className = 'blank-anthem';
+      lyricsEl.innerHTML = `<span class="silence-icon">🔇</span>This country's national anthem is famous for having no official lyrics at all. Which nation does it belong to?`;
+    } else {
+      lyricsEl.className = 'question-lyrics';
+      lyricsEl.textContent = `"${q.lyrics}"`;
+    }
+
+    // Reset feedback + next
+    document.getElementById('feedback').className = 'feedback';
+    document.getElementById('next-btn').classList.remove('visible');
+
+    // Build options
+    const options = shuffle([q.answer, ...q.distractors]);
+    const letters = ['A','B','C','D'];
+    const grid = document.getElementById('options-grid');
+    grid.innerHTML = '';
+    options.forEach((opt, i) => {
+      const btn = document.createElement('button');
+      btn.className = 'option-btn';
+      btn.innerHTML = `<span class="option-letter">${letters[i]}</span><span class="option-text">${opt}</span>`;
+      btn.onclick = () => handleAnswer(opt, btn, q);
+      grid.appendChild(btn);
+    });
+
+    // Re-animate
+    ['question-card','options-grid'].forEach(id => {
+      const el = document.getElementById(id);
+      el.style.animation = 'none';
+      el.offsetHeight;
+      el.style.animation = '';
+    });
+  }
+
+  // ─── HANDLE ANSWER ───────────────────────────────────────────────────────────
+  function handleAnswer(chosen, btn, q) {
+    if (answered) return;
+    answered = true;
+    const isCorrect = chosen === q.answer;
+
+    document.querySelectorAll('.option-btn').forEach(b => {
+      b.disabled = true;
+      if (b.querySelector('.option-text').textContent === q.answer && !isCorrect) {
+        b.classList.add('reveal-correct');
+      }
+    });
+
+    const fb = document.getElementById('feedback');
+    if (isCorrect) {
+      score++;
+      btn.classList.add('correct');
+      fb.className = 'feedback correct-fb';
+      document.getElementById('fb-icon').textContent = '✓';
+      document.getElementById('fb-text').textContent = 'Correct!';
+      playAudio(pickRandom(AUDIO.correct));
+    } else {
+      btn.classList.add('wrong');
+      fb.className = 'feedback wrong-fb';
+      document.getElementById('fb-icon').textContent = '✗';
+      document.getElementById('fb-text').textContent = `Unlucky — it was ${q.answer}`;
+      playAudio(pickRandom(AUDIO.wrong));
+    }
+
+    document.getElementById('fb-note').textContent = q.note;
+    document.getElementById('header-score').textContent = score;
+    document.getElementById('next-btn').classList.add('visible');
+  }
+
+  // ─── NEXT QUESTION ───────────────────────────────────────────────────────────
+  function nextQuestion() {
+    current++;
+    if (current >= questions.length) showOutroThenBonus();
+    else loadQuestion();
+  }
+
+  // ─── OUTRO → BONUS OFFER ─────────────────────────────────────────────────────
+  function showOutroThenBonus() {
+    document.getElementById('game-screen').style.display = 'none';
+    document.getElementById('outro-screen').classList.add('visible');
+    playAudioThen(AUDIO.roundOutro, () => {
+      document.getElementById('outro-screen').classList.remove('visible');
+      document.getElementById('bonus-offer-screen').classList.add('visible');
+    }, 5000);
+  }
+
+  // ─── KARAOKE DATA ─────────────────────────────────────────────────────────────
+  // Timestamps in seconds — tweak these to match your MP4 recording
+  // Format: { t: seconds_from_start, text: 'lyric line' }
+  const lyrics = [
+    { t: 0,    text: '🎵 ...' },
+    { t: 6,    text: 'Futbol, futbol, yeah...' },
+    { t: 10,   text: 'Futbol, futbol, futbol,' },
+    { t: 13,   text: 'Przeżyjmy to jeszcze raz' },
+    { t: 18,   text: 'Gdy piłka w grze wyjdzie na strzał,' },
+    { t: 23,   text: 'Śledzi jej lot cały świat' },
+    { t: 28,   text: 'Piłka jest okrągła jak' },
+    { t: 31,   text: 'Ziemski glob, ziemski glob' },
+    { t: 36,   text: 'Na świecie tym są takie dni,' },
+    { t: 41,   text: 'Gdy niebo drży, bo padł gol' },
+    { t: 46,   text: 'To był strzał, to jest szał,' },
+    { t: 50,   text: 'To jest sport, to sport' },
+    { t: 54,   text: 'Futbol, futbol, futbol' },
+    { t: 58,   text: 'W to dzisiaj gra cały świat,' },
+    { t: 63,   text: 'Bo dobry mecz to piękna rzecz,' },
+    { t: 68,   text: 'Wśród wielu szans twoja jest' },
+    { t: 73,   text: 'Czym jest futbol, futbol' },
+    { t: 78,   text: 'To każdy wie, każdy wie' },
+    { t: 83,   text: 'Każdy, kto wie, co znaczy to' },
+    { t: 88,   text: 'Zerwać się z miejsc, krzyknąć GOL!' },
+    { t: 93,   text: 'Gra jest grą, play is play' },
+    { t: 98,   text: 'Graj, graj fair, fair play' },
+    { t: 103,  text: 'Fussball, Fussball, Fussball' },
+    { t: 108,  text: 'Spiel heute abend, heute abend' },
+    { t: 113,  text: 'Football, football, football' },
+    { t: 118,  text: 'For everyone is the fun' },
+    { t: 123,  text: 'Futbol, futbol, futbol!' },
+    { t: 128,  text: '🎵 ...' },
+  ];
+
+  let karaokeInterval = null;
+
+  function startKaraoke() {
+    document.getElementById('bonus-offer-screen').classList.remove('visible');
+    document.getElementById('karaoke-screen').classList.add('visible');
+    const video = document.getElementById('karaoke-video');
+    video.currentTime = 0;
+    video.play().catch(() => {});
+
+    karaokeInterval = setInterval(() => {
+      const t = video.currentTime;
+      const duration = video.duration || 165;
+      // Progress bar
+      document.getElementById('karaoke-progress-fill').style.width = `${(t / duration) * 100}%`;
+      // Find current lyric index
+      let idx = 0;
+      for (let i = 0; i < lyrics.length; i++) {
+        if (t >= lyrics[i].t) idx = i;
+      }
+      document.getElementById('lyric-prev').textContent = idx > 0 ? lyrics[idx - 1].text : '';
+      document.getElementById('lyric-prev').className = 'lyric-line past';
+      document.getElementById('lyric-curr').textContent = lyrics[idx].text;
+      document.getElementById('lyric-curr').className = 'lyric-line active';
+      document.getElementById('lyric-next').textContent = idx < lyrics.length - 1 ? lyrics[idx + 1].text : '';
+      document.getElementById('lyric-next').className = 'lyric-line';
+
+      // Show finish button near the end
+      if (t >= duration - 10 || t >= lyrics[lyrics.length - 1].t) {
+        document.getElementById('karaoke-finish-btn').classList.add('visible');
+      }
+    }, 250);
+
+    // Also show finish button when video ends
+    video.addEventListener('ended', () => {
+      clearInterval(karaokeInterval);
+      document.getElementById('karaoke-progress-fill').style.width = '100%';
+      document.getElementById('lyric-curr').textContent = '🎉 Bellissimo!';
+      document.getElementById('karaoke-finish-btn').classList.add('visible');
+    });
+  }
+
+  function finishKaraoke() {
+    clearInterval(karaokeInterval);
+    const video = document.getElementById('karaoke-video');
+    video.pause();
+    score += 2;
+    document.getElementById('header-score').textContent = score;
+    document.getElementById('karaoke-screen').classList.remove('visible');
+    showEndScreen();
+  }
+
+  function skipBonus() {
+    document.getElementById('bonus-offer-screen').classList.remove('visible');
+    showEndScreen();
+  }
+
+  // ─── END SCREEN ──────────────────────────────────────────────────────────────
+  function showEndScreen() {
+    const end = document.getElementById('end-screen');
+    end.classList.add('visible');
+    document.getElementById('end-score').textContent = score;
+    document.getElementById('end-denom').textContent = `out of ${questions.length + 2}`;
+
+    const verdict = verdicts.find(v => score >= v.min);
+    document.getElementById('pundit-verdict').innerHTML =
+      `"${verdict.text}"<span class="pundit-name">— ${verdict.pundit}</span>`;
+
+    document.getElementById('star-row').innerHTML =
+      Array(5).fill(0).map((_,i) =>
+        `<span style="opacity:${i < verdict.stars ? 1 : 0.15}">${i < verdict.stars ? '⭐' : '☆'}</span>`
+      ).join('');
+
+    playAudio(verdict.audio);
+  }
+
+  // ─── RESTART ─────────────────────────────────────────────────────────────────
+  function restartGame() {
+    current = 0; score = 0; answered = false;
+    clearInterval(karaokeInterval);
+    document.getElementById('header-score').textContent = '0';
+    document.getElementById('end-screen').classList.remove('visible');
+    document.getElementById('outro-screen').classList.remove('visible');
+    document.getElementById('bonus-offer-screen').classList.remove('visible');
+    document.getElementById('karaoke-screen').classList.remove('visible');
+    document.getElementById('karaoke-finish-btn').classList.remove('visible');
+    document.getElementById('karaoke-progress-fill').style.width = '0%';
+    const video = document.getElementById('karaoke-video');
+    video.pause(); video.currentTime = 0;
+    document.getElementById('game-screen').style.display = 'none';
+    document.getElementById('opening-screen').classList.remove('hidden');
+  }
+
+  // ─── START ───────────────────────────────────────────────────────────────────
+  // Show opening screen on load — game starts when player clicks Kick Off
+  document.getElementById('game-screen').style.display = 'none';
+</script>
+</body>
+</html>
