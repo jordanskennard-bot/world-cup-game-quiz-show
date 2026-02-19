@@ -1023,9 +1023,15 @@ document.getElementById('game-code').textContent = gameCode;
 const playerUrl = window.location.origin + window.location.pathname.replace('host-complete.html', 'player-complete.html') + '?code=' + gameCode;
 document.getElementById('join-url').textContent = playerUrl;
 
+console.log('Player URL:', playerUrl);
+console.log('Attempting to generate QR code...');
+
 // Generate QR code - wait for library to load
 setTimeout(() => {
   const qrDiv = document.getElementById('qr-code');
+  console.log('QR div found:', qrDiv);
+  console.log('QRCode library available:', typeof QRCode);
+  
   qrDiv.innerHTML = ''; // Clear first
   
   try {
@@ -1037,10 +1043,10 @@ setTimeout(() => {
       colorDark: "#000000",
       colorLight: "#ffffff"
     });
-    console.log('QR Code generated');
+    console.log('QR Code generated successfully!');
   } catch (error) {
-    console.error('QR error:', error);
-    qrDiv.innerHTML = '<div style="padding: 80px 20px; text-align: center; font-size: 14px; color: #666;">QR Code Error<br>Use URL below</div>';
+    console.error('QR generation error:', error);
+    qrDiv.innerHTML = '<div style="padding: 80px 20px; text-align: center; font-size: 14px; color: #666;">QR Error: ' + error.message + '<br>Use URL below</div>';
   }
 }, 1000);
 
