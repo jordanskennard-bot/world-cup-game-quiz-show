@@ -544,8 +544,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
 
-<!-- QR Code Generator - Updated library -->
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<!-- QR Code Generator - trying alternative CDN -->
+<script src="https://unpkg.com/qrcodejs2@0.0.2/qrcode.min.js"></script>
 
 <script>
 // ═══════════════════════════════════════════════════════════════════════════
@@ -630,31 +630,30 @@ document.getElementById('game-code').textContent = gameCode;
 const playerUrl = window.location.origin + window.location.pathname.replace('host-complete.html', 'player-complete.html') + '?code=' + gameCode;
 document.getElementById('join-url').textContent = playerUrl;
 
-// Generate QR code using qrcode.js library
-const qrCanvas = document.getElementById('qr-code');
-if (typeof QRCode !== 'undefined' && QRCode.toCanvas) {
-  QRCode.toCanvas(qrCanvas, playerUrl, {
-    width: 220,
-    margin: 2,
-    color: {
-      dark: '#000000',
-      light: '#ffffff'
+// Generate QR code - wait a moment for library to load
+setTimeout(() => {
+  const qrDiv = document.getElementById('qr-code');
+  
+  if (typeof QRCode !== 'undefined') {
+    try {
+      new QRCode(qrDiv, {
+        text: playerUrl,
+        width: 220,
+        height: 220,
+        colorDark: "#000000",
+        colorLight: "#ffffff",
+        correctLevel: QRCode.CorrectLevel.M
+      });
+      console.log('QR Code generated successfully');
+    } catch (error) {
+      console.error('QR generation error:', error);
+      qrDiv.innerHTML = '<div style="padding: 80px 20px; text-align: center; font-size: 14px; color: #666;">QR Code Error<br>Use URL below</div>';
     }
-  }, function (error) {
-    if (error) {
-      console.error('QR Code generation error:', error);
-      qrCanvas.getContext('2d').fillText('QR Error - Use URL', 10, 110);
-    }
-  });
-} else {
-  console.error('QRCode library not loaded');
-  const ctx = qrCanvas.getContext('2d');
-  ctx.fillStyle = '#666';
-  ctx.font = '14px Arial';
-  ctx.textAlign = 'center';
-  ctx.fillText('QR Code Unavailable', 110, 100);
-  ctx.fillText('Use URL below', 110, 120);
-}
+  } else {
+    console.error('QRCode library not available');
+    qrDiv.innerHTML = '<div style="padding: 80px 20px; text-align: center; font-size: 14px; color: #666;">QR Code Unavailable<br>Please use URL below</div>';
+  }
+}, 500);
 
 gameRef.set({
   code: gameCode,
