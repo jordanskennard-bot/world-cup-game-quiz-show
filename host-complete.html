@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -543,8 +544,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
 
-<!-- QR Code Generator -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<!-- QR Code Generator - Updated library -->
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 
 <script>
 // ═══════════════════════════════════════════════════════════════════════════
@@ -629,21 +630,31 @@ document.getElementById('game-code').textContent = gameCode;
 const playerUrl = window.location.origin + window.location.pathname.replace('host-complete.html', 'player-complete.html') + '?code=' + gameCode;
 document.getElementById('join-url').textContent = playerUrl;
 
-// Generate QR code with error handling
-setTimeout(() => {
-  try {
-    new QRCode(document.getElementById('qr-code'), {
-      text: playerUrl,
-      width: 220,
-      height: 220,
-      colorDark: "#000000",
-      colorLight: "#ffffff"
-    });
-  } catch (error) {
-    console.error('QR Code error:', error);
-    document.getElementById('qr-code').innerHTML = '<div style="padding: 60px 20px; text-align: center; font-size: 14px;">QR unavailable<br>Use URL below</div>';
-  }
-}, 100);
+// Generate QR code using qrcode.js library
+const qrCanvas = document.getElementById('qr-code');
+if (typeof QRCode !== 'undefined' && QRCode.toCanvas) {
+  QRCode.toCanvas(qrCanvas, playerUrl, {
+    width: 220,
+    margin: 2,
+    color: {
+      dark: '#000000',
+      light: '#ffffff'
+    }
+  }, function (error) {
+    if (error) {
+      console.error('QR Code generation error:', error);
+      qrCanvas.getContext('2d').fillText('QR Error - Use URL', 10, 110);
+    }
+  });
+} else {
+  console.error('QRCode library not loaded');
+  const ctx = qrCanvas.getContext('2d');
+  ctx.fillStyle = '#666';
+  ctx.font = '14px Arial';
+  ctx.textAlign = 'center';
+  ctx.fillText('QR Code Unavailable', 110, 100);
+  ctx.fillText('Use URL below', 110, 120);
+}
 
 gameRef.set({
   code: gameCode,
