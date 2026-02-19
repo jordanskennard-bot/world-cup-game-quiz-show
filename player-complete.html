@@ -786,67 +786,37 @@ document.getElementById('code-input').focus();
 
 function joinGame(event) {
   event.preventDefault();
-  
-  console.log('Join game button clicked');
+  console.log('Join clicked');
   
   gameCode = document.getElementById('code-input').value.toUpperCase().trim();
   playerName = document.getElementById('name-input').value.trim();
   
-  console.log('Game code:', gameCode);
-  console.log('Player name:', playerName);
-  
   if (!gameCode || !playerName) {
-    showError('Please enter both code and name');
+    alert('Please enter code and name');
     return;
   }
   
-  if (gameCode.length !== 4) {
-    showError('Game code must be 4 characters');
-    return;
-  }
-  
-  console.log('Checking if game exists...');
   gameRef = database.ref('games/' + gameCode);
-  
-  // Check if game exists
-  gameRef.once('value', (snapshot) => {
-    console.log('Game snapshot received:', snapshot.exists());
-    
+  gameRef.once('value').then((snapshot) => {
     if (!snapshot.exists()) {
-      showError('Game not found. Check the code.');
+      alert('Game not found');
       return;
     }
     
-    console.log('Game data:', snapshot.val());
-    
-    if (snapshot.val().started) {
-      showError('Game already started');
-      return;
-    }
-    
-    // Generate player ID
-    playerId = 'player_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-    
-    console.log('Adding player to game:', playerId);
-    
-    // Add player to game
-    gameRef.child('players/' + playerId).set({
+    playerId = 'player_' + Date.now();
+    return gameRef.child('players/' + playerId).set({
       name: playerName,
       score: 0,
       joinedAt: Date.now()
-    }).then(() => {
-      console.log('Player added successfully!');
-      // Switch to waiting screen
-      document.getElementById('join-screen').classList.add('hidden');
-      document.getElementById('waiting-screen').classList.add('active');
-      document.getElementById('waiting-name').textContent = playerName;
-      document.getElementById('waiting-code').textContent = gameCode;
-      
-      // Listen for game start
-      listenForGameStart();
-    }).catch((error) => {
-      showError('Failed to join: ' + error.message);
     });
+  }).then(() => {
+    document.getElementById('join-screen').classList.add('hidden');
+    document.getElementById('waiting-screen').classList.add('active');
+    document.getElementById('waiting-name').textContent = playerName;
+    document.getElementById('waiting-code').textContent = gameCode;
+    listenForGameStart();
+  }).catch((error) => {
+    alert('Error: ' + error.message);
   });
 }
 
