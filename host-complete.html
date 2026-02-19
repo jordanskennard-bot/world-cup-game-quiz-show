@@ -154,22 +154,28 @@
     border-radius: 12px;
     margin-bottom: 30px;
     border: 3px solid var(--motd-navy);
+    display: flex;
+    justify-content: center;
+    align-items: center;
   }
   
   #qr-code {
     width: 220px;
     height: 220px;
-    display: block;
-    margin: 0 auto;
+    display: flex;
+    justify-content: center;
+    align-items: center;
   }
   
-  #qr-code canvas {
-    display: block !important;
-  }
-  
+  #qr-code canvas,
   #qr-code img {
+    max-width: 220px !important;
+    max-height: 220px !important;
     display: block !important;
-    margin: 0 auto;
+  }
+  
+  #qr-code > * {
+    margin: 0 !important;
   }
   
   .join-url {
