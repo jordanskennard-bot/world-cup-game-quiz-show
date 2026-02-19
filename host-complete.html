@@ -153,11 +153,23 @@
     padding: 25px;
     border-radius: 12px;
     margin-bottom: 30px;
+    border: 3px solid var(--motd-navy);
   }
   
   #qr-code {
     width: 220px;
     height: 220px;
+    display: block;
+    margin: 0 auto;
+  }
+  
+  #qr-code canvas {
+    display: block !important;
+  }
+  
+  #qr-code img {
+    display: block !important;
+    margin: 0 auto;
   }
   
   .join-url {
@@ -479,7 +491,7 @@
       <div class="lobby-subtitle">Scan QR code or visit URL below</div>
       
       <div class="qr-code-container">
-        <canvas id="qr-code"></canvas>
+        <div id="qr-code"></div>
       </div>
       
       <div class="join-url" id="join-url">Loading...</div>
