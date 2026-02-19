@@ -626,14 +626,24 @@ let answerRevealed = false;
 
 document.getElementById('game-code').textContent = gameCode;
 
-const playerUrl = window.location.origin + window.location.pathname.replace('host.html', 'player.html') + '?code=' + gameCode;
+const playerUrl = window.location.origin + window.location.pathname.replace('host-complete.html', 'player-complete.html') + '?code=' + gameCode;
 document.getElementById('join-url').textContent = playerUrl;
 
-new QRCode(document.getElementById('qr-code'), {
-  text: playerUrl,
-  width: 220,
-  height: 220
-});
+// Generate QR code with error handling
+setTimeout(() => {
+  try {
+    new QRCode(document.getElementById('qr-code'), {
+      text: playerUrl,
+      width: 220,
+      height: 220,
+      colorDark: "#000000",
+      colorLight: "#ffffff"
+    });
+  } catch (error) {
+    console.error('QR Code error:', error);
+    document.getElementById('qr-code').innerHTML = '<div style="padding: 60px 20px; text-align: center; font-size: 14px;">QR unavailable<br>Use URL below</div>';
+  }
+}, 100);
 
 gameRef.set({
   code: gameCode,
