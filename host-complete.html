@@ -645,6 +645,7 @@ document.getElementById('join-url').textContent = playerUrl;
 // Generate QR code - wait a moment for library to load
 setTimeout(() => {
   const qrDiv = document.getElementById('qr-code');
+  qrDiv.innerHTML = ''; // Clear any existing content first
   
   if (typeof QRCode !== 'undefined') {
     try {
