@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -242,6 +243,19 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+    position: relative;
+  }
+  
+  .player-team-badge {
+    position: absolute;
+    top: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--motd-gold);
+    padding: 5px 15px;
+    border-radius: 20px;
+    font-size: 20px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
   }
   
   .player-name-display {
@@ -308,6 +322,7 @@
     font-size: 18px;
     font-weight: 600;
     flex: 1;
+    color: var(--text);
   }
   
   .answer-btn.selected {
@@ -346,6 +361,226 @@
     margin-bottom: 10px;
   }
   
+  /* SABOTAGE BUTTON */
+  .sabotage-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.9);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    animation: fadeIn 0.3s ease;
+  }
+  
+  .sabotage-overlay.active {
+    display: flex;
+  }
+  
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  
+  .sabotage-container {
+    text-align: center;
+    animation: zoomIn 0.3s ease;
+  }
+  
+  @keyframes zoomIn {
+    from { transform: scale(0.8); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+  }
+  
+  .sabotage-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 48px;
+    color: var(--motd-magenta);
+    text-shadow: 0 0 30px rgba(212,20,90,0.8);
+    margin-bottom: 20px;
+    letter-spacing: 3px;
+  }
+  
+  .sabotage-subtitle {
+    font-family: 'Barlow', sans-serif;
+    font-size: 20px;
+    color: var(--text-muted);
+    margin-bottom: 30px;
+  }
+  
+  .sabotage-timer {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 64px;
+    color: var(--motd-gold);
+    margin-bottom: 30px;
+    text-shadow: 0 0 20px rgba(255,198,41,0.6);
+  }
+  
+  .sabotage-btn {
+    background: linear-gradient(135deg, #ff0000 0%, #cc0000 100%);
+    color: white;
+    border: 3px solid var(--motd-gold);
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 42px;
+    letter-spacing: 5px;
+    padding: 30px 60px;
+    border-radius: 12px;
+    cursor: pointer;
+    box-shadow: 0 8px 40px rgba(255,0,0,0.6);
+    transition: all 0.2s;
+    animation: pulse 1s ease-in-out infinite;
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  .sabotage-btn:active {
+    transform: scale(0.95);
+  }
+  
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); box-shadow: 0 8px 40px rgba(255,0,0,0.6); }
+    50% { transform: scale(1.05); box-shadow: 0 12px 60px rgba(255,0,0,0.9); }
+  }
+  
+  .sabotage-warning {
+    font-family: 'Barlow', sans-serif;
+    font-size: 14px;
+    color: var(--motd-magenta);
+    margin-top: 20px;
+    font-style: italic;
+  }
+  
+  /* LEAD PLAYER CONTROLS */
+  .lead-controls {
+    display: none;
+    gap: 10px;
+    margin-top: 20px;
+  }
+  
+  .lead-controls.visible {
+    display: flex;
+  }
+  
+  .lead-btn {
+    flex: 1;
+    background: var(--motd-gold);
+    color: #000;
+    border: none;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 20px;
+    letter-spacing: 3px;
+    padding: 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  
+  .lead-btn:active {
+    transform: scale(0.98);
+  }
+  
+  .lead-btn.primary {
+    background: linear-gradient(135deg, var(--motd-magenta) 0%, var(--motd-red) 100%);
+    color: white;
+  }
+  
+  .lead-badge {
+    background: var(--motd-gold);
+    color: #000;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 14px;
+    letter-spacing: 2px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    display: inline-block;
+    margin-left: 8px;
+  }
+  
+  /* ROUND 3 - VOTING */
+  .voting-screen {
+    display: none;
+    flex-direction: column;
+    flex: 1;
+  }
+  
+  .voting-screen.active {
+    display: flex;
+  }
+  
+  .voting-header {
+    background: var(--motd-navy);
+    border: 2px solid var(--motd-gold);
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+    text-align: center;
+  }
+  
+  .voting-header-text {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--motd-gold);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+  }
+  
+  .vote-options {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    flex: 1;
+    overflow-y: auto;
+  }
+  
+  .vote-btn {
+    background: var(--motd-dark-navy);
+    border: 3px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  .vote-btn:active:not(.disabled):not(.voted):not(.own-answer) {
+    transform: scale(0.98);
+  }
+  
+  .vote-player-name {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--motd-cyan);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  
+  .vote-answer-text {
+    font-family: 'Barlow', sans-serif;
+    font-size: 18px;
+    line-height: 1.4;
+    color: var(--text);
+  }
+  
+  .vote-btn.voted {
+    border-color: var(--motd-gold);
+    background: rgba(255,198,41,0.15);
+  }
+  
+  .vote-btn.own-answer {
+    opacity: 0.5;
+    cursor: not-allowed;
+    border-style: dashed;
+  }
+  
+  .vote-btn.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  
   .hidden {
     display: none !important;
   }
@@ -380,7 +615,7 @@
   <!-- WAITING SCREEN -->
   <div class="waiting-screen" id="waiting-screen">
     <div class="waiting-title">You're In!</div>
-    <div class="waiting-message">Waiting for host to start the game...</div>
+    <div class="waiting-message" id="waiting-message">Waiting for host to start the game...</div>
     
     <div class="player-info">
       <div class="player-info-label">Your Name</div>
@@ -392,13 +627,20 @@
       <div class="player-info-value" id="waiting-code"></div>
     </div>
     
-    <div class="spinner"></div>
+    <div class="lead-controls" id="waiting-lead-controls">
+      <button class="lead-btn primary" onclick="startGameAsLead()">🎮 Start Game</button>
+    </div>
+    
+    <div class="spinner" id="waiting-spinner"></div>
   </div>
 
   <!-- GAME SCREEN -->
   <div class="game-screen" id="game-screen">
     <div class="player-header">
-      <div class="player-name-display" id="player-name-header"></div>
+      <div class="player-team-badge" id="player-team-badge" style="display: none;"></div>
+      <div>
+        <span class="player-name-display" id="player-name-header"></span>
+      </div>
       <div class="player-score-display"><span id="player-score">0</span> pts</div>
     </div>
     
@@ -411,6 +653,44 @@
     <div class="status-message hidden" id="status-message">
       <div class="status-icon" id="status-icon">✓</div>
       <div class="status-message-text" id="status-text"></div>
+    </div>
+    
+    <div class="lead-controls" id="game-lead-controls">
+      <button class="lead-btn" id="reveal-lead-btn" onclick="revealAnswerAsLead()">Reveal Answer</button>
+      <button class="lead-btn primary" id="next-lead-btn" onclick="nextQuestionAsLead()">Next →</button>
+    </div>
+  </div>
+
+  <!-- ROUND 3 - VOTING SCREEN -->
+  <div class="voting-screen" id="voting-screen">
+    <div class="player-header">
+      <div class="player-team-badge" id="voting-team-badge" style="display: none;"></div>
+      <div class="player-name-display" id="voting-player-name"></div>
+      <div class="player-score-display"><span id="voting-score">0</span> pts</div>
+    </div>
+    
+    <div class="voting-header">
+      <div class="voting-header-text" id="voting-header-text">Vote for the best answer!</div>
+    </div>
+    
+    <div class="vote-options" id="vote-options"></div>
+    
+    <div class="status-message hidden" id="voting-status">
+      <div class="status-icon" id="voting-status-icon">✓</div>
+      <div class="status-message-text" id="voting-status-text"></div>
+    </div>
+  </div>
+
+  <!-- SABOTAGE BUTTON OVERLAY -->
+  <div class="sabotage-overlay" id="sabotage-overlay">
+    <div class="sabotage-container">
+      <div class="sabotage-title">⚠️ SECRET WEAPON ⚠️</div>
+      <div class="sabotage-subtitle">Steal 5 points from the other team!</div>
+      <div class="sabotage-timer" id="sabotage-timer">10</div>
+      <button class="sabotage-btn" onclick="useSabotage()">
+        💣 SABOTAGE 💣
+      </button>
+      <div class="sabotage-warning">Only you can see this! Use it wisely...</div>
     </div>
   </div>
 
@@ -461,6 +741,19 @@ const ROUND_1_QUESTIONS = [
   }
 ];
 
+// Round 3 - Interview Questions
+const ROUND_3_QUESTIONS = [
+  {
+    question: "The team looked tired. What did you give them at half time?"
+  },
+  {
+    question: "What are you most concerned about in the next round?"
+  },
+  {
+    question: "Is there anything keeping you up at night?"
+  }
+];
+
 // ═══════════════════════════════════════════════════════════════════════════
 // PLAYER STATE
 // ═══════════════════════════════════════════════════════════════════════════
@@ -471,6 +764,12 @@ let playerId = '';
 let gameRef = null;
 let currentScore = 0;
 let currentQuestionIndex = -1;
+let currentRound = 1;
+let round3CurrentQ = -1;
+let myRound3Answers = {};
+let sabotageTimer = null;
+let sabotageTimeLeft = 10;
+let isLeadPlayer = false;
 
 // Check if code is in URL
 const urlParams = new URLSearchParams(window.location.search);
@@ -550,6 +849,30 @@ function showError(message) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 function listenForGameStart() {
+  // Listen for team assignment
+  gameRef.child('players/' + playerId + '/team').on('value', (snapshot) => {
+    const teamNumber = snapshot.val();
+    if (teamNumber) {
+      // Get team info
+      gameRef.child('team' + teamNumber).once('value', (teamSnapshot) => {
+        const teamInfo = teamSnapshot.val();
+        if (teamInfo) {
+          // Update waiting screen with team info
+          const teamDisplay = document.createElement('div');
+          teamDisplay.className = 'player-info';
+          teamDisplay.style.cssText = 'border-color: ' + (teamNumber === 1 ? '#4dd4e8' : '#d4145a');
+          teamDisplay.innerHTML = `
+            <div class="player-info-label">Your Team</div>
+            <div class="player-info-value">${teamInfo.flag} ${teamInfo.name}</div>
+          `;
+          
+          const waitingCode = document.getElementById('waiting-code').parentElement;
+          waitingCode.parentElement.insertBefore(teamDisplay, waitingCode.nextSibling);
+        }
+      });
+    }
+  });
+  
   gameRef.child('started').on('value', (snapshot) => {
     if (snapshot.val() === true) {
       startPlaying();
@@ -568,12 +891,46 @@ function startPlaying() {
   document.getElementById('game-screen').classList.add('active');
   document.getElementById('player-name-header').textContent = playerName;
   
-  // Listen for current question
-  gameRef.child('currentQuestion').on('value', (snapshot) => {
-    const questionIndex = snapshot.val();
-    if (questionIndex !== null && questionIndex !== currentQuestionIndex) {
-      loadQuestion(questionIndex);
+  // Show team badge if assigned
+  gameRef.child('players/' + playerId + '/team').once('value', (snapshot) => {
+    const teamNumber = snapshot.val();
+    if (teamNumber) {
+      gameRef.child('team' + teamNumber).once('value', (teamSnapshot) => {
+        const teamInfo = teamSnapshot.val();
+        if (teamInfo) {
+          const badge = document.getElementById('player-team-badge');
+          badge.textContent = teamInfo.flag + ' ' + teamInfo.name;
+          badge.style.display = 'block';
+        }
+      });
     }
+  });
+  
+  // Listen for sabotage button activation
+  gameRef.child('sabotage/' + playerId).on('value', (snapshot) => {
+    const sabotageData = snapshot.val();
+    if (sabotageData && sabotageData.active) {
+      showSabotageButton();
+    }
+  });
+  
+  // Listen for round changes
+  gameRef.child('round').on('value', (snapshot) => {
+    currentRound = snapshot.val() || 1;
+    if (currentRound === 3) {
+      startRound3();
+    }
+  });
+  
+  // Listen for current question (Round 1)
+  gameRef.child('currentQuestion').on('value', (snapshot) => {
+    if (currentRound === 1) {
+      const questionIndex = snapshot.val();
+      if (questionIndex !== null && questionIndex !== currentQuestionIndex) {
+        loadQuestion(questionIndex);
+      }
+    }
+  });
   });
 }
 
@@ -657,10 +1014,287 @@ window.addEventListener('beforeunload', (e) => {
   }
 });
 
+// ═══════════════════════════════════════════════════════════════════════════
+// ROUND 3 - INTERVIEW & VOTING
+// ═══════════════════════════════════════════════════════════════════════════
+
+function startRound3() {
+  document.getElementById('game-screen').classList.remove('active');
+  document.getElementById('voting-screen').classList.add('active');
+  document.getElementById('voting-player-name').textContent = playerName;
+  document.getElementById('voting-score').textContent = currentScore;
+  
+  // Show team badge
+  gameRef.child('players/' + playerId + '/team').once('value', (snapshot) => {
+    const teamNumber = snapshot.val();
+    if (teamNumber) {
+      gameRef.child('team' + teamNumber).once('value', (teamSnapshot) => {
+        const teamInfo = teamSnapshot.val();
+        if (teamInfo) {
+          const badge = document.getElementById('voting-team-badge');
+          badge.textContent = teamInfo.flag + ' ' + teamInfo.name;
+          badge.style.display = 'block';
+        }
+      });
+    }
+  });
+  
+  // Listen for Round 3 questions
+  gameRef.child('currentRound3Question').on('value', (snapshot) => {
+    const questionIndex = snapshot.val();
+    if (questionIndex !== null && questionIndex !== round3CurrentQ) {
+      round3CurrentQ = questionIndex;
+      loadRound3Question(questionIndex);
+    }
+  });
+}
+
+function loadRound3Question(index) {
+  if (index >= ROUND_3_QUESTIONS.length) return;
+  
+  const q = ROUND_3_QUESTIONS[index];
+  document.getElementById('voting-header-text').textContent = q.question;
+  document.getElementById('voting-status').classList.add('hidden');
+  
+  // Get this player's answer options from Firebase
+  gameRef.child('round3/' + index + '/playerOptions/' + playerId).once('value', (snapshot) => {
+    const options = snapshot.val();
+    if (options && options.length > 0) {
+      showRound3AnswerOptions(options, index);
+    } else {
+      // Host hasn't set options yet, wait
+      document.getElementById('vote-options').innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-muted);">Waiting for question...</div>';
+      
+      // Listen for when options are set
+      gameRef.child('round3/' + index + '/playerOptions/' + playerId).on('value', (snap) => {
+        const opts = snap.val();
+        if (opts && opts.length > 0) {
+          showRound3AnswerOptions(opts, index);
+        }
+      });
+    }
+  });
+}
+
+function showRound3AnswerOptions(options, questionIndex) {
+  const optionsContainer = document.getElementById('vote-options');
+  const letters = ['A', 'B', 'C', 'D'];
+  
+  optionsContainer.innerHTML = options.map((answer, i) => `
+    <button class="vote-btn" id="round3-answer-${i}" onclick="submitRound3Answer('${answer.replace(/'/g, "\\'")}', ${questionIndex})">
+      <div class="vote-player-name">Option ${letters[i]}</div>
+      <div class="vote-answer-text">${answer}</div>
+    </button>
+  `).join('');
+}
+
+function submitRound3Answer(answer, questionIndex) {
+  // Check if already submitted
+  if (myRound3Answers[questionIndex]) {
+    return;
+  }
+  
+  myRound3Answers[questionIndex] = answer;
+  
+  // Submit to Firebase
+  gameRef.child('round3/' + questionIndex + '/submissions/' + playerId).set({
+    answer: answer,
+    votes: 0,
+    timestamp: Date.now()
+  });
+  
+  // Show status and switch to voting view
+  document.getElementById('voting-status-icon').textContent = '✓';
+  document.getElementById('voting-status-text').textContent = 'Answer submitted! Now vote for the best answer...';
+  document.getElementById('voting-status').classList.remove('hidden');
+  
+  // Disable answer buttons
+  document.querySelectorAll('.vote-btn').forEach(btn => {
+    btn.classList.add('disabled');
+    btn.onclick = null;
+  });
+  
+  // Listen for all submissions to enable voting
+  setTimeout(() => {
+    listenForVoting(questionIndex);
+  }, 2000);
+}
+
+function listenForVoting(questionIndex) {
+  gameRef.child('round3/' + questionIndex + '/submissions').on('value', (snapshot) => {
+    const submissions = snapshot.val() || {};
+    const submissionArray = Object.entries(submissions).map(([pid, data]) => ({
+      playerId: pid,
+      playerName: players[pid]?.name || 'Unknown',
+      answer: data.answer,
+      votes: data.votes || 0
+    }));
+    
+    // Check if all players submitted
+    const totalPlayers = Object.keys(players).length;
+    if (submissionArray.length >= totalPlayers) {
+      showVotingOptions(submissionArray, questionIndex);
+    }
+  });
+}
+
+function showVotingOptions(submissions, questionIndex) {
+  document.getElementById('voting-header-text').textContent = 'Vote for the best answer!';
+  const optionsContainer = document.getElementById('vote-options');
+  
+  optionsContainer.innerHTML = submissions.map((sub, i) => {
+    const isOwn = sub.playerId === playerId;
+    return `
+      <button class="vote-btn ${isOwn ? 'own-answer' : ''}" id="vote-option-${i}" 
+              onclick="${isOwn ? '' : `voteForAnswer('${sub.playerId}', ${questionIndex})`}" 
+              ${isOwn ? 'disabled' : ''}>
+        <div class="vote-player-name">${sub.playerName}${isOwn ? ' (You)' : ''}</div>
+        <div class="vote-answer-text">${sub.answer}</div>
+      </button>
+    `;
+  }).join('');
+}
+
+function voteForAnswer(targetPlayerId, questionIndex) {
+  // Check if already voted
+  gameRef.child('round3/' + questionIndex + '/votes/' + playerId).once('value', (snapshot) => {
+    if (snapshot.exists()) {
+      return; // Already voted
+    }
+    
+    // Record vote
+    gameRef.child('round3/' + questionIndex + '/votes/' + playerId).set(targetPlayerId);
+    
+    // Increment vote count for target player
+    gameRef.child('round3/' + questionIndex + '/submissions/' + targetPlayerId).once('value', (snap) => {
+      const currentVotes = snap.val()?.votes || 0;
+      gameRef.child('round3/' + questionIndex + '/submissions/' + targetPlayerId + '/votes').set(currentVotes + 1);
+    });
+    
+    // Give voter a point for participating
+    gameRef.child('players/' + playerId + '/score').once('value', (snap) => {
+      const newScore = (snap.val() || 0) + 1;
+      gameRef.child('players/' + playerId + '/score').set(newScore);
+    });
+    
+    // Show voted status
+    document.querySelectorAll('.vote-btn').forEach((btn, i) => {
+      if (btn.id === 'vote-option-' + Array.from(document.querySelectorAll('.vote-btn')).findIndex(b => b.onclick && b.onclick.toString().includes(targetPlayerId))) {
+        btn.classList.add('voted');
+      }
+      btn.classList.add('disabled');
+      btn.onclick = null;
+    });
+    
+    document.getElementById('voting-status-icon').textContent = '🎉';
+    document.getElementById('voting-status-text').textContent = 'Vote recorded!';
+    document.getElementById('voting-status').classList.remove('hidden');
+    
+    // Add haptic feedback
+    if (navigator.vibrate) {
+      navigator.vibrate(50);
+    }
+  });
+}
+
+// Store players reference for voting
+let players = {};
+gameRef.child('players').on('value', (snapshot) => {
+  players = snapshot.val() || {};
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CLEANUP & UTILITIES
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SABOTAGE BUTTON
+// ═══════════════════════════════════════════════════════════════════════════
+
+function showSabotageButton() {
+  const overlay = document.getElementById('sabotage-overlay');
+  overlay.classList.add('active');
+  
+  sabotageTimeLeft = 10;
+  document.getElementById('sabotage-timer').textContent = sabotageTimeLeft;
+  
+  // Countdown timer
+  sabotageTimer = setInterval(() => {
+    sabotageTimeLeft--;
+    document.getElementById('sabotage-timer').textContent = sabotageTimeLeft;
+    
+    if (sabotageTimeLeft <= 0) {
+      hideSabotageButton();
+    }
+  }, 1000);
+  
+  // Vibrate if available
+  if (navigator.vibrate) {
+    navigator.vibrate([200, 100, 200]);
+  }
+}
+
+function hideSabotageButton() {
+  clearInterval(sabotageTimer);
+  document.getElementById('sabotage-overlay').classList.remove('active');
+}
+
+function useSabotage() {
+  // Get player's team and target the other team
+  gameRef.child('players/' + playerId + '/team').once('value', (snapshot) => {
+    const myTeam = snapshot.val();
+    const targetTeam = myTeam === 1 ? 2 : 1;
+    
+    // Trigger sabotage
+    gameRef.child('sabotageUsed').set({
+      userId: playerId,
+      targetTeam: targetTeam,
+      timestamp: Date.now()
+    });
+    
+    // Hide button
+    hideSabotageButton();
+    
+    // Show success message
+    alert('💣 SABOTAGE ACTIVATED! -5 points from the other team!');
+    
+    // Vibrate success
+    if (navigator.vibrate) {
+      navigator.vibrate([100, 50, 100, 50, 100]);
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CLEANUP & UTILITIES
+// ═══════════════════════════════════════════════════════════════════════════
+
 // Auto-uppercase game code as user types
 document.getElementById('code-input').addEventListener('input', (e) => {
   e.target.value = e.target.value.toUpperCase();
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LEAD PLAYER CONTROLS
+// ═══════════════════════════════════════════════════════════════════════════
+
+function startGameAsLead() {
+  if (!isLeadPlayer) return;
+  gameRef.update({ started: true, currentQuestion: 0 });
+}
+
+function revealAnswerAsLead() {
+  if (!isLeadPlayer) return;
+  gameRef.update({ revealAnswer: true });
+}
+
+function nextQuestionAsLead() {
+  if (!isLeadPlayer) return;
+  gameRef.child('currentQuestion').once('value', (snapshot) => {
+    const current = snapshot.val() || 0;
+    gameRef.update({ nextQuestion: current + 1 });
+  });
+}
 </script>
 
 </body>
