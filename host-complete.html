@@ -879,8 +879,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
 
-<!-- QR Code Generator - trying alternative CDN -->
-<script src="https://unpkg.com/qrcodejs2@0.0.2/qrcode.min.js"></script>
+<!-- QR Code Generator - using stable version -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
 <script>
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1023,43 +1023,26 @@ document.getElementById('game-code').textContent = gameCode;
 const playerUrl = window.location.origin + window.location.pathname.replace('host-complete.html', 'player-complete.html') + '?code=' + gameCode;
 document.getElementById('join-url').textContent = playerUrl;
 
-// Generate QR code - wait a moment for library to load
+// Generate QR code - wait for library to load
 setTimeout(() => {
   const qrDiv = document.getElementById('qr-code');
-  qrDiv.innerHTML = ''; // Clear any existing content first
+  qrDiv.innerHTML = ''; // Clear first
   
-  if (typeof QRCode !== 'undefined') {
-    try {
-      new QRCode(qrDiv, {
-        text: playerUrl,
-        width: 220,
-        height: 220,
-        colorDark: "#000000",
-        colorLight: "#ffffff",
-        correctLevel: QRCode.CorrectLevel.M
-      });
-      
-      // Remove duplicate elements - library sometimes creates both canvas AND img
-      setTimeout(() => {
-        const children = qrDiv.children;
-        if (children.length > 1) {
-          // Keep only the first element (usually the canvas)
-          while (children.length > 1) {
-            qrDiv.removeChild(children[1]);
-          }
-        }
-      }, 50);
-      
-      console.log('QR Code generated successfully');
-    } catch (error) {
-      console.error('QR generation error:', error);
-      qrDiv.innerHTML = '<div style="padding: 80px 20px; text-align: center; font-size: 14px; color: #666;">QR Code Error<br>Use URL below</div>';
-    }
-  } else {
-    console.error('QRCode library not available');
-    qrDiv.innerHTML = '<div style="padding: 80px 20px; text-align: center; font-size: 14px; color: #666;">QR Code Unavailable<br>Please use URL below</div>';
+  try {
+    // Simple QR code generation
+    const qr = new QRCode(qrDiv, {
+      text: playerUrl,
+      width: 220,
+      height: 220,
+      colorDark: "#000000",
+      colorLight: "#ffffff"
+    });
+    console.log('QR Code generated');
+  } catch (error) {
+    console.error('QR error:', error);
+    qrDiv.innerHTML = '<div style="padding: 80px 20px; text-align: center; font-size: 14px; color: #666;">QR Code Error<br>Use URL below</div>';
   }
-}, 500);
+}, 1000);
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TEAM SELECTION
