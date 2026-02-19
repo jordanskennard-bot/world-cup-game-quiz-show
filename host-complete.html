@@ -1044,6 +1044,18 @@ setTimeout(() => {
       colorLight: "#ffffff"
     });
     console.log('QR Code generated successfully!');
+    
+    // Remove duplicate elements after a moment
+    setTimeout(() => {
+      const children = qrDiv.children;
+      if (children.length > 1) {
+        // Keep only the first element
+        while (children.length > 1) {
+          qrDiv.removeChild(children[1]);
+        }
+        console.log('Removed duplicate QR elements');
+      }
+    }, 100);
   } catch (error) {
     console.error('QR generation error:', error);
     qrDiv.innerHTML = '<div style="padding: 80px 20px; text-align: center; font-size: 14px; color: #666;">QR Error: ' + error.message + '<br>Use URL below</div>';
@@ -1705,7 +1717,6 @@ function showFinalScreen() {
       <div class="score-points" style="font-size: 42px;">${team2Score}</div>
     </div>
   `;
-  }).join('');
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
