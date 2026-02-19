@@ -771,7 +771,7 @@
   <div class="main-content">
     
     <!-- TEAM SELECTION SCREEN -->
-    <div class="team-selection-screen" id="team-selection-screen">
+    <div class="team-selection-screen hidden" id="team-selection-screen">
       <div class="team-selection-title">Select Teams</div>
       <div class="team-selection-subtitle">Choose 2 countries to compete</div>
       
@@ -789,7 +789,7 @@
     </div>
 
     <!-- LOBBY SCREEN -->
-    <div class="lobby-screen hidden" id="lobby-screen">
+    <div class="lobby-screen" id="lobby-screen">
       <div class="lobby-title">Waiting for Players...</div>
       <div class="lobby-subtitle">Scan QR code or visit URL below</div>
       
@@ -808,6 +808,10 @@
         </div>
         <div class="players-grid" id="players-grid"></div>
       </div>
+      
+      <button class="start-game-btn" id="select-teams-btn" disabled onclick="showTeamSelection()">
+        Select Teams & Start
+      </button>
     </div>
 
     <!-- GAME SCREEN -->
@@ -1125,6 +1129,12 @@ function updateSelectedTeamsDisplay() {
   }
 }
 
+function showTeamSelection() {
+  // Hide lobby, show team selection
+  document.getElementById('lobby-screen').classList.add('hidden');
+  document.getElementById('team-selection-screen').classList.remove('hidden');
+}
+
 function confirmTeams() {
   if (!team1 || !team2) return;
   
@@ -1137,9 +1147,9 @@ function confirmTeams() {
     teamsSelected: true
   });
   
-  // Hide team selection, show lobby
+  // Hide team selection, start game directly
   document.getElementById('team-selection-screen').classList.add('hidden');
-  document.getElementById('lobby-screen').classList.remove('hidden');
+  startGame();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1161,6 +1171,13 @@ gameRef.set({
 
 gameRef.child('players').on('value', (snapshot) => {
   players = snapshot.val() || {};
+  
+  // Enable select teams button if at least 2 players
+  const playerCount = Object.keys(players).length;
+  const selectTeamsBtn = document.getElementById('select-teams-btn');
+  if (selectTeamsBtn) {
+    selectTeamsBtn.disabled = playerCount < 2;
+  }
   
   // Assign players to teams if teams are selected
   if (teamsSelected && team1 && team2) {
