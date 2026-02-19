@@ -663,6 +663,18 @@ setTimeout(() => {
         colorLight: "#ffffff",
         correctLevel: QRCode.CorrectLevel.M
       });
+      
+      // Remove duplicate elements - library sometimes creates both canvas AND img
+      setTimeout(() => {
+        const children = qrDiv.children;
+        if (children.length > 1) {
+          // Keep only the first element (usually the canvas)
+          while (children.length > 1) {
+            qrDiv.removeChild(children[1]);
+          }
+        }
+      }, 50);
+      
       console.log('QR Code generated successfully');
     } catch (error) {
       console.error('QR generation error:', error);
