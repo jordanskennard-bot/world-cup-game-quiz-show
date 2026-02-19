@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Quiz Player - Mobile</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:ital,wght@0,400;0,600;0,700;1,400&family=Barlow:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+
+<!-- 
+  FIREBASE SETUP REQUIRED
+  Replace the firebaseConfig below with YOUR EXACT SAME CONFIG from host-complete.html
+-->
+
+<style>
+  :root {
+    --motd-magenta: #d4145a;
+    --motd-red: #c81e5b;
+    --motd-navy: #2c3e69;
+    --motd-dark-navy: #1a2540;
+    --motd-cyan: #4dd4e8;
+    --motd-gold: #ffc629;
+    --text: #ffffff;
+    --text-muted: #a8b4d0;
+    --border: #3e5c8f;
+  }
+  
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  
+  body {
+    font-family: 'Barlow', sans-serif;
+    background: linear-gradient(135deg, var(--motd-dark-navy) 0%, var(--motd-navy) 100%);
+    color: var(--text);
+    min-height: 100vh;
+    touch-action: manipulation;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  
+  .container {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+  }
+  
+  /* JOIN SCREEN */
+  .join-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+  }
+  
+  .join-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 48px;
+    letter-spacing: 3px;
+    color: var(--text);
+    text-shadow: 0 0 30px rgba(212,20,90,0.8);
+    margin-bottom: 10px;
+    text-align: center;
+  }
+  
+  .join-subtitle {
+    font-family: 'Barlow', sans-serif;
+    font-size: 16px;
+    color: var(--text-muted);
+    margin-bottom: 40px;
+    text-align: center;
+  }
+  
+  .join-form {
+    width: 100%;
+    max-width: 400px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  
+  .input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .input-label {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 14px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+  
+  .input-field {
+    background: var(--motd-navy);
+    border: 2px solid var(--border);
+    color: var(--text);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 20px;
+    font-weight: 600;
+    padding: 16px;
+    border-radius: 8px;
+    text-transform: uppercase;
+    letter-spacing: 4px;
+    text-align: center;
+  }
+  
+  .input-field:focus {
+    outline: none;
+    border-color: var(--motd-cyan);
+  }
+  
+  .input-field.name-input {
+    text-transform: none;
+    letter-spacing: 1px;
+  }
+  
+  .join-btn {
+    background: linear-gradient(135deg, var(--motd-magenta) 0%, var(--motd-red) 100%);
+    color: white;
+    border: none;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 28px;
+    letter-spacing: 4px;
+    padding: 18px;
+    border-radius: 8px;
+    cursor: pointer;
+    box-shadow: 0 4px 20px rgba(212,20,90,0.5);
+    transition: all 0.2s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  .join-btn:active {
+    transform: translateY(2px);
+  }
+  
+  .error-message {
+    background: var(--motd-magenta);
+    color: white;
+    padding: 12px;
+    border-radius: 6px;
+    font-size: 14px;
+    text-align: center;
+    display: none;
+  }
+  
+  .error-message.show {
+    display: block;
+    animation: shake 0.3s ease;
+  }
+  
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-10px); }
+    75% { transform: translateX(10px); }
+  }
+  
+  /* WAITING SCREEN */
+  .waiting-screen {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    text-align: center;
+  }
+  
+  .waiting-screen.active {
+    display: flex;
+  }
+  
+  .waiting-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 36px;
+    letter-spacing: 3px;
+    color: var(--motd-cyan);
+    margin-bottom: 20px;
+  }
+  
+  .waiting-message {
+    font-family: 'Barlow', sans-serif;
+    font-size: 18px;
+    color: var(--text-muted);
+    margin-bottom: 40px;
+  }
+  
+  .player-info {
+    background: var(--motd-navy);
+    border: 2px solid var(--motd-cyan);
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+  }
+  
+  .player-info-label {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 12px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+  }
+  
+  .player-info-value {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 32px;
+    letter-spacing: 3px;
+    color: var(--motd-cyan);
+  }
+  
+  .spinner {
+    width: 50px;
+    height: 50px;
+    border: 4px solid var(--border);
+    border-top-color: var(--motd-cyan);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+  
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+  
+  /* GAME SCREEN */
+  .game-screen {
+    display: none;
+    flex-direction: column;
+    flex: 1;
+  }
+  
+  .game-screen.active {
+    display: flex;
+  }
+  
+  .player-header {
+    background: var(--motd-navy);
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .player-name-display {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 18px;
+    font-weight: 600;
+  }
+  
+  .player-score-display {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 32px;
+    color: var(--motd-cyan);
+  }
+  
+  .question-prompt {
+    background: var(--motd-navy);
+    border: 3px solid var(--motd-gold);
+    border-radius: 8px;
+    padding: 25px;
+    margin-bottom: 20px;
+    text-align: center;
+  }
+  
+  .question-prompt-text {
+    font-family: 'Barlow', sans-serif;
+    font-size: 18px;
+    line-height: 1.5;
+    color: var(--text);
+  }
+  
+  .answer-options {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    flex: 1;
+  }
+  
+  .answer-btn {
+    background: var(--motd-dark-navy);
+    border: 3px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    cursor: pointer;
+    transition: all 0.2s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  .answer-btn:active:not(.disabled) {
+    transform: scale(0.98);
+  }
+  
+  .answer-btn-letter {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 32px;
+    color: var(--motd-cyan);
+    min-width: 40px;
+  }
+  
+  .answer-btn-text {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 18px;
+    font-weight: 600;
+    flex: 1;
+  }
+  
+  .answer-btn.selected {
+    border-color: var(--motd-cyan);
+    background: rgba(77,212,232,0.2);
+    animation: pulse 0.3s ease;
+  }
+  
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.02); }
+  }
+  
+  .answer-btn.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  
+  .status-message {
+    background: var(--motd-navy);
+    border: 2px solid var(--motd-cyan);
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+    margin-top: 20px;
+  }
+  
+  .status-message-text {
+    font-family: 'Barlow', sans-serif;
+    font-size: 16px;
+    color: var(--motd-cyan);
+  }
+  
+  .status-icon {
+    font-size: 32px;
+    margin-bottom: 10px;
+  }
+  
+  .hidden {
+    display: none !important;
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  
+  <!-- JOIN SCREEN -->
+  <div class="join-screen" id="join-screen">
+    <div class="join-title">Join Game</div>
+    <div class="join-subtitle">Enter your details to play</div>
+    
+    <form class="join-form" onsubmit="joinGame(event)">
+      <div class="input-group">
+        <label class="input-label">Game Code</label>
+        <input type="text" class="input-field" id="code-input" maxlength="4" placeholder="XXXX" required autocomplete="off">
+      </div>
+      
+      <div class="input-group">
+        <label class="input-label">Your Name</label>
+        <input type="text" class="input-field name-input" id="name-input" maxlength="20" placeholder="Enter name" required autocomplete="off">
+      </div>
+      
+      <div class="error-message" id="error-message"></div>
+      
+      <button type="submit" class="join-btn">Join Game</button>
+    </form>
+  </div>
+
+  <!-- WAITING SCREEN -->
+  <div class="waiting-screen" id="waiting-screen">
+    <div class="waiting-title">You're In!</div>
+    <div class="waiting-message">Waiting for host to start the game...</div>
+    
+    <div class="player-info">
+      <div class="player-info-label">Your Name</div>
+      <div class="player-info-value" id="waiting-name"></div>
+    </div>
+    
+    <div class="player-info">
+      <div class="player-info-label">Game Code</div>
+      <div class="player-info-value" id="waiting-code"></div>
+    </div>
+    
+    <div class="spinner"></div>
+  </div>
+
+  <!-- GAME SCREEN -->
+  <div class="game-screen" id="game-screen">
+    <div class="player-header">
+      <div class="player-name-display" id="player-name-header"></div>
+      <div class="player-score-display"><span id="player-score">0</span> pts</div>
+    </div>
+    
+    <div class="question-prompt">
+      <div class="question-prompt-text" id="question-text">Loading...</div>
+    </div>
+    
+    <div class="answer-options" id="answer-options"></div>
+    
+    <div class="status-message hidden" id="status-message">
+      <div class="status-icon" id="status-icon">✓</div>
+      <div class="status-message-text" id="status-text"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════
+// FIREBASE CONFIGURATION
+// ═══════════════════════════════════════════════════════════════════════════
+const firebaseConfig = {
+  apiKey: "AIzaSyAHgjTr_l8_dbNeSAmWkTh5NXg94fAh0QQ",
+  authDomain: "soccer-quiz-game-cf039.firebaseapp.com",
+  databaseURL: "https://soccer-quiz-game-cf039-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "soccer-quiz-game-cf039",
+  storageBucket: "soccer-quiz-game-cf039.firebasestorage.app",
+  messagingSenderId: "561666470759",
+  appId: "1:561666470759:web:036f2dd3ad884a12cef5c2"
+};
+
+// Initialize Firebase
+firebase.initializeApp(firebaseConfig);
+const database = firebase.database();
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GAME DATA - MUST MATCH HOST EXACTLY
+// ═══════════════════════════════════════════════════════════════════════════
+
+const ROUND_1_QUESTIONS = [
+  {
+    question: "Mercenary swords, they are feeble reeds... already the Eagle of Austria has lost its feathers.",
+    answers: ["Italy", "Austria", "Germany", "Hong Kong"]
+  },
+  {
+    question: "To the King of Spain I have always given honour.",
+    answers: ["Netherlands", "Spain", "Ireland", "Argentina"]
+  },
+  {
+    question: "This country's national anthem is famous for having no official lyrics at all. Which nation?",
+    answers: ["Spain", "DR Congo", "Bhutan", "Austria"]
+  },
+  {
+    question: "Which one of these was NOT an official World Cup song?",
+    answers: ["Balls Balls Balls", "World Cup Willie", "Far Away In America", "Meat Pie, Sausage Roll"]
+  }
+];
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PLAYER STATE
+// ═══════════════════════════════════════════════════════════════════════════
+
+let gameCode = '';
+let playerName = '';
+let playerId = '';
+let gameRef = null;
+let currentScore = 0;
+let currentQuestionIndex = -1;
+
+// Check if code is in URL
+const urlParams = new URLSearchParams(window.location.search);
+if (urlParams.has('code')) {
+  document.getElementById('code-input').value = urlParams.get('code');
+}
+
+// Auto-focus code input
+document.getElementById('code-input').focus();
+
+// ═══════════════════════════════════════════════════════════════════════════
+// JOIN GAME
+// ═══════════════════════════════════════════════════════════════════════════
+
+function joinGame(event) {
+  event.preventDefault();
+  
+  gameCode = document.getElementById('code-input').value.toUpperCase().trim();
+  playerName = document.getElementById('name-input').value.trim();
+  
+  if (!gameCode || !playerName) {
+    showError('Please enter both code and name');
+    return;
+  }
+  
+  if (gameCode.length !== 4) {
+    showError('Game code must be 4 characters');
+    return;
+  }
+  
+  gameRef = database.ref('games/' + gameCode);
+  
+  // Check if game exists
+  gameRef.once('value', (snapshot) => {
+    if (!snapshot.exists()) {
+      showError('Game not found. Check the code.');
+      return;
+    }
+    
+    if (snapshot.val().started) {
+      showError('Game already started');
+      return;
+    }
+    
+    // Generate player ID
+    playerId = 'player_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    
+    // Add player to game
+    gameRef.child('players/' + playerId).set({
+      name: playerName,
+      score: 0,
+      joinedAt: Date.now()
+    }).then(() => {
+      // Switch to waiting screen
+      document.getElementById('join-screen').classList.add('hidden');
+      document.getElementById('waiting-screen').classList.add('active');
+      document.getElementById('waiting-name').textContent = playerName;
+      document.getElementById('waiting-code').textContent = gameCode;
+      
+      // Listen for game start
+      listenForGameStart();
+    }).catch((error) => {
+      showError('Failed to join: ' + error.message);
+    });
+  });
+}
+
+function showError(message) {
+  const errorEl = document.getElementById('error-message');
+  errorEl.textContent = message;
+  errorEl.classList.add('show');
+  setTimeout(() => errorEl.classList.remove('show'), 3000);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GAME LISTENERS
+// ═══════════════════════════════════════════════════════════════════════════
+
+function listenForGameStart() {
+  gameRef.child('started').on('value', (snapshot) => {
+    if (snapshot.val() === true) {
+      startPlaying();
+    }
+  });
+  
+  // Listen for score updates
+  gameRef.child('players/' + playerId + '/score').on('value', (snapshot) => {
+    currentScore = snapshot.val() || 0;
+    document.getElementById('player-score').textContent = currentScore;
+  });
+}
+
+function startPlaying() {
+  document.getElementById('waiting-screen').classList.remove('active');
+  document.getElementById('game-screen').classList.add('active');
+  document.getElementById('player-name-header').textContent = playerName;
+  
+  // Listen for current question
+  gameRef.child('currentQuestion').on('value', (snapshot) => {
+    const questionIndex = snapshot.val();
+    if (questionIndex !== null && questionIndex !== currentQuestionIndex) {
+      loadQuestion(questionIndex);
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// QUESTION DISPLAY
+// ═══════════════════════════════════════════════════════════════════════════
+
+function loadQuestion(index) {
+  if (index >= ROUND_1_QUESTIONS.length) return;
+  
+  currentQuestionIndex = index;
+  const q = ROUND_1_QUESTIONS[index];
+  
+  document.getElementById('question-text').textContent = q.question;
+  document.getElementById('status-message').classList.add('hidden');
+  
+  const optionsContainer = document.getElementById('answer-options');
+  const letters = ['A', 'B', 'C', 'D'];
+  
+  optionsContainer.innerHTML = q.answers.map((answer, i) => `
+    <button class="answer-btn" id="answer-${i}" onclick="selectAnswer(${i})">
+      <div class="answer-btn-letter">${letters[i]}</div>
+      <div class="answer-btn-text">${answer}</div>
+    </button>
+  `).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ANSWER SELECTION
+// ═══════════════════════════════════════════════════════════════════════════
+
+function selectAnswer(answerIndex) {
+  // Check if already answered
+  gameRef.child('answers/' + currentQuestionIndex + '/' + playerId).once('value', (snapshot) => {
+    if (snapshot.exists()) {
+      return; // Already answered
+    }
+    
+    // Record answer
+    gameRef.child('answers/' + currentQuestionIndex + '/' + playerId).set({
+      answerIndex: answerIndex,
+      timestamp: Date.now()
+    });
+    
+    // Disable all buttons and highlight selection
+    document.querySelectorAll('.answer-btn').forEach(btn => {
+      btn.classList.add('disabled');
+      btn.onclick = null;
+    });
+    document.getElementById('answer-' + answerIndex).classList.add('selected');
+    
+    // Show status with icon
+    document.getElementById('status-icon').textContent = '✓';
+    document.getElementById('status-text').textContent = 'Answer submitted!';
+    document.getElementById('status-message').classList.remove('hidden');
+    
+    // Add haptic feedback if available
+    if (navigator.vibrate) {
+      navigator.vibrate(50);
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CLEANUP
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Handle disconnect
+window.addEventListener('beforeunload', () => {
+  if (gameRef && playerId) {
+    gameRef.child('players/' + playerId).remove();
+  }
+});
+
+// Prevent accidental refresh during game
+window.addEventListener('beforeunload', (e) => {
+  if (document.getElementById('game-screen').classList.contains('active')) {
+    e.preventDefault();
+    e.returnValue = 'Game in progress. Are you sure you want to leave?';
+    return e.returnValue;
+  }
+});
+
+// Auto-uppercase game code as user types
+document.getElementById('code-input').addEventListener('input', (e) => {
+  e.target.value = e.target.value.toUpperCase();
+});
+</script>
+
+</body>
+</html>
