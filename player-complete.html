@@ -5,7 +5,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Quiz Player - Mobile</title>
-<!-- VERSION: 2.0 - Fixed syntax errors -->
+<!-- VERSION: 3.0 - Fixed gameRef null issue -->
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:ital,wght@0,400;0,600;0,700;1,400&family=Barlow:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
 
 <!-- 
@@ -802,7 +802,7 @@ function joinGame(event) {
   gameRef.once('value').then((snapshot) => {
     if (!snapshot.exists()) {
       alert('Game not found');
-      return;
+      throw new Error('Game not found');
     }
     
     playerId = 'player_' + Date.now();
@@ -818,7 +818,10 @@ function joinGame(event) {
     document.getElementById('waiting-code').textContent = gameCode;
     listenForGameStart();
   }).catch((error) => {
-    alert('Error: ' + error.message);
+    console.error('Join error:', error);
+    if (error.message !== 'Game not found') {
+      alert('Error: ' + error.message);
+    }
   });
 }
 
@@ -834,17 +837,34 @@ function showError(message) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 function listenForGameStart() {
+  console.log('listenForGameStart called');
+  console.log('gameRef:', gameRef);
+  console.log('playerId:', playerId);
+  
+  if (!gameRef) {
+    console.error('ERROR: gameRef is null!');
+    alert('Internal error: Game reference not set');
+    return;
+  }
+  
   // Check if this is the first player
   gameRef.child('players').once('value', (snapshot) => {
     const players = snapshot.val() || {};
     const playerIds = Object.keys(players);
     const isFirstPlayer = playerIds.length > 0 && playerIds[0] === playerId;
     
+    console.log('Player IDs:', playerIds);
+    console.log('My player ID:', playerId);
+    console.log('Is first player:', isFirstPlayer);
+    
     if (isFirstPlayer) {
       // Show start button for first player
       document.getElementById('waiting-message').textContent = 'You joined first! Select teams and start when ready.';
-      document.getElementById('waiting-lead-controls').style.display = 'flex';
+      const leadControls = document.getElementById('waiting-lead-controls');
+      leadControls.style.display = 'flex';
+      leadControls.style.justifyContent = 'center';
       document.getElementById('waiting-spinner').style.display = 'none';
+      console.log('Start button shown for first player');
     }
   });
   
@@ -886,9 +906,16 @@ function listenForGameStart() {
 }
 
 function startGameAsLead() {
+  console.log('Start Game button clicked!');
+  console.log('Game ref:', gameRef);
+  
   // Trigger host to show team selection
   gameRef.update({
     readyToSelectTeams: true
+  }).then(() => {
+    console.log('Updated readyToSelectTeams to true');
+  }).catch((error) => {
+    console.error('Error updating Firebase:', error);
   });
   
   document.getElementById('waiting-message').textContent = 'Waiting for host to select teams...';
