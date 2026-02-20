@@ -3,13 +3,14 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Quiz Player - Mobile</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quiz Host - Complete Multiplayer</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:ital,wght@0,400;0,600;0,700;1,400&family=Barlow:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
 
 <!-- 
   FIREBASE SETUP REQUIRED
-  Replace the firebaseConfig below with YOUR EXACT SAME CONFIG from host-complete.html
+  Replace the firebaseConfig below with your own Firebase configuration
+  Get it from: Firebase Console > Project Settings > Your apps > Config
 -->
 
 <style>
@@ -18,6 +19,7 @@
     --motd-red: #c81e5b;
     --motd-navy: #2c3e69;
     --motd-dark-navy: #1a2540;
+    --motd-blue: #3e5c8f;
     --motd-cyan: #4dd4e8;
     --motd-gold: #ffc629;
     --text: #ffffff;
@@ -29,198 +31,375 @@
   
   body {
     font-family: 'Barlow', sans-serif;
-    background: linear-gradient(135deg, var(--motd-dark-navy) 0%, var(--motd-navy) 100%);
+    background: linear-gradient(135deg, var(--motd-dark-navy) 0%, var(--motd-navy) 50%, var(--motd-blue) 100%);
     color: var(--text);
     min-height: 100vh;
-    touch-action: manipulation;
-    -webkit-user-select: none;
-    user-select: none;
+    overflow: hidden;
+  }
+  
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: 
+      radial-gradient(circle at 20% 50%, rgba(212,20,90,0.15) 0%, transparent 50%),
+      radial-gradient(circle at 80% 80%, rgba(77,212,232,0.1) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: 0;
   }
   
   .container {
-    min-height: 100vh;
+    position: relative;
+    z-index: 1;
+    height: 100vh;
     display: flex;
     flex-direction: column;
-    padding: 20px;
   }
   
-  /* JOIN SCREEN */
-  .join-screen {
+  /* HEADER */
+  .host-header {
+    background: linear-gradient(160deg, var(--motd-dark-navy) 0%, var(--motd-navy) 100%);
+    border-bottom: 3px solid var(--motd-cyan);
+    padding: 20px 40px;
     display: flex;
-    flex-direction: column;
+    justify-content: space-between;
     align-items: center;
-    justify-content: center;
-    flex: 1;
+    box-shadow: 0 4px 30px rgba(77,212,232,0.2);
   }
   
-  .join-title {
+  .game-title {
     font-family: 'Bebas Neue', sans-serif;
-    font-size: 48px;
+    font-size: 42px;
     letter-spacing: 3px;
     color: var(--text);
     text-shadow: 0 0 30px rgba(212,20,90,0.8);
-    margin-bottom: 10px;
-    text-align: center;
   }
   
-  .join-subtitle {
-    font-family: 'Barlow', sans-serif;
-    font-size: 16px;
-    color: var(--text-muted);
-    margin-bottom: 40px;
-    text-align: center;
-  }
-  
-  .join-form {
-    width: 100%;
-    max-width: 400px;
+  .header-right {
     display: flex;
-    flex-direction: column;
     gap: 20px;
+    align-items: center;
   }
   
-  .input-group {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+  .game-code-display {
+    background: rgba(0,0,0,0.4);
+    border: 2px solid var(--motd-cyan);
+    padding: 12px 24px;
+    border-radius: 8px;
   }
   
-  .input-label {
+  .code-label {
     font-family: 'Barlow Condensed', sans-serif;
-    font-size: 14px;
-    letter-spacing: 2px;
+    font-size: 12px;
+    letter-spacing: 3px;
     text-transform: uppercase;
     color: var(--text-muted);
+    margin-bottom: 3px;
   }
   
-  .input-field {
-    background: var(--motd-navy);
-    border: 2px solid var(--border);
-    color: var(--text);
-    font-family: 'Barlow Condensed', sans-serif;
-    font-size: 20px;
-    font-weight: 600;
-    padding: 16px;
-    border-radius: 8px;
-    text-transform: uppercase;
-    letter-spacing: 4px;
-    text-align: center;
-  }
-  
-  .input-field:focus {
-    outline: none;
-    border-color: var(--motd-cyan);
-  }
-  
-  .input-field.name-input {
-    text-transform: none;
-    letter-spacing: 1px;
-  }
-  
-  .join-btn {
-    background: linear-gradient(135deg, var(--motd-magenta) 0%, var(--motd-red) 100%);
-    color: white;
-    border: none;
+  .code-value {
     font-family: 'Bebas Neue', sans-serif;
-    font-size: 28px;
-    letter-spacing: 4px;
-    padding: 18px;
-    border-radius: 8px;
-    cursor: pointer;
-    box-shadow: 0 4px 20px rgba(212,20,90,0.5);
-    transition: all 0.2s;
-    -webkit-tap-highlight-color: transparent;
+    font-size: 48px;
+    letter-spacing: 6px;
+    color: var(--motd-cyan);
+    text-shadow: 0 0 20px rgba(77,212,232,0.6);
   }
   
-  .join-btn:active {
-    transform: translateY(2px);
-  }
-  
-  .error-message {
+  .round-indicator {
     background: var(--motd-magenta);
-    color: white;
-    padding: 12px;
+    padding: 8px 20px;
     border-radius: 6px;
-    font-size: 14px;
-    text-align: center;
-    display: none;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 24px;
+    letter-spacing: 2px;
   }
   
-  .error-message.show {
-    display: block;
-    animation: shake 0.3s ease;
+  /* MAIN CONTENT */
+  .main-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 30px 40px;
+    overflow-y: auto;
   }
   
-  @keyframes shake {
-    0%, 100% { transform: translateX(0); }
-    25% { transform: translateX(-10px); }
-    75% { transform: translateX(10px); }
-  }
-  
-  /* WAITING SCREEN */
-  .waiting-screen {
-    display: none;
+  /* TEAM SELECTION */
+  .team-selection-screen {
+    display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     flex: 1;
-    text-align: center;
   }
   
-  .waiting-screen.active {
-    display: flex;
+  .team-selection-screen.hidden {
+    display: none;
   }
   
-  .waiting-title {
+  .team-selection-title {
     font-family: 'Bebas Neue', sans-serif;
-    font-size: 36px;
-    letter-spacing: 3px;
-    color: var(--motd-cyan);
-    margin-bottom: 20px;
+    font-size: 56px;
+    letter-spacing: 4px;
+    color: var(--text);
+    text-shadow: 0 0 40px rgba(212,20,90,0.8);
+    margin-bottom: 15px;
   }
   
-  .waiting-message {
+  .team-selection-subtitle {
     font-family: 'Barlow', sans-serif;
     font-size: 18px;
     color: var(--text-muted);
     margin-bottom: 40px;
   }
   
-  .player-info {
+  .teams-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 15px;
+    max-width: 1200px;
+    width: 100%;
+    margin-bottom: 30px;
+    max-height: 400px;
+    overflow-y: auto;
+    padding: 10px;
+  }
+  
+  .team-option {
     background: var(--motd-navy);
-    border: 2px solid var(--motd-cyan);
+    border: 3px solid var(--border);
     padding: 20px;
     border-radius: 8px;
-    margin-bottom: 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
   }
   
-  .player-info-label {
+  .team-option:hover {
+    border-color: var(--motd-cyan);
+    transform: translateY(-3px);
+  }
+  
+  .team-option.selected {
+    border-color: var(--motd-gold);
+    background: rgba(255,198,41,0.15);
+  }
+  
+  .team-flag {
+    font-size: 48px;
+    margin-bottom: 10px;
+  }
+  
+  .team-name {
     font-family: 'Barlow Condensed', sans-serif;
-    font-size: 12px;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    color: var(--text-muted);
-    margin-bottom: 8px;
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text);
   }
   
-  .player-info-value {
+  .selected-teams-display {
+    display: flex;
+    gap: 40px;
+    margin-bottom: 30px;
+  }
+  
+  .selected-team-card {
+    background: var(--motd-navy);
+    border: 3px solid var(--motd-gold);
+    padding: 25px 40px;
+    border-radius: 8px;
+    min-width: 200px;
+    text-align: center;
+  }
+  
+  .selected-team-flag {
+    font-size: 64px;
+    margin-bottom: 10px;
+  }
+  
+  .selected-team-name {
     font-family: 'Bebas Neue', sans-serif;
     font-size: 32px;
     letter-spacing: 3px;
-    color: var(--motd-cyan);
+    color: var(--motd-gold);
   }
   
-  .spinner {
+  .vs-text {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 48px;
+    color: var(--text-muted);
+    align-self: center;
+  }
+  
+  .confirm-teams-btn {
+    background: linear-gradient(135deg, var(--motd-magenta) 0%, var(--motd-red) 100%);
+    color: white;
+    border: none;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 28px;
+    letter-spacing: 4px;
+    padding: 16px 40px;
+    cursor: pointer;
+    border-radius: 8px;
+    box-shadow: 0 4px 30px rgba(212,20,90,0.5);
+    transition: all 0.2s;
+  }
+  
+  .confirm-teams-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 40px rgba(212,20,90,0.7);
+  }
+  
+  .confirm-teams-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  /* LOBBY SCREEN */
+  .lobby-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+  }
+  
+  .lobby-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 64px;
+    letter-spacing: 5px;
+    color: var(--text);
+    text-shadow: 0 0 40px rgba(212,20,90,0.8);
+    margin-bottom: 15px;
+  }
+  
+  .lobby-subtitle {
+    font-family: 'Barlow', sans-serif;
+    font-size: 20px;
+    color: var(--text-muted);
+    margin-bottom: 40px;
+  }
+  
+  .qr-code-container {
+    background: white;
+    padding: 25px;
+    border-radius: 12px;
+    margin-bottom: 30px;
+    border: 3px solid var(--motd-navy);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  
+  #qr-code {
+    width: 220px;
+    height: 220px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  
+  #qr-code canvas,
+  #qr-code img {
+    max-width: 220px !important;
+    max-height: 220px !important;
+    display: block !important;
+  }
+  
+  #qr-code > * {
+    margin: 0 !important;
+  }
+  
+  .join-url {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 24px;
+    color: var(--motd-cyan);
+    margin-bottom: 40px;
+  }
+  
+  .players-waiting {
+    width: 100%;
+    max-width: 1200px;
+    margin-bottom: 30px;
+  }
+  
+  .players-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 15px;
+    margin-top: 15px;
+  }
+  
+  .player-card {
+    background: var(--motd-navy);
+    border: 2px solid var(--border);
+    padding: 15px;
+    border-radius: 8px;
+    text-align: center;
+    animation: slideIn 0.3s ease;
+    position: relative;
+  }
+  
+  .player-card.team1 {
+    border-left: 5px solid var(--motd-cyan);
+  }
+  
+  .player-card.team2 {
+    border-left: 5px solid var(--motd-magenta);
+  }
+  
+  .player-team-badge {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    font-size: 20px;
+  }
+  
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  
+  .player-avatar {
     width: 50px;
     height: 50px;
-    border: 4px solid var(--border);
-    border-top-color: var(--motd-cyan);
+    background: var(--motd-magenta);
     border-radius: 50%;
-    animation: spin 1s linear infinite;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 8px;
+    font-size: 28px;
   }
   
-  @keyframes spin {
-    to { transform: rotate(360deg); }
+  .player-name {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text);
+  }
+  
+  .start-game-btn {
+    background: linear-gradient(135deg, var(--motd-magenta) 0%, var(--motd-red) 100%);
+    color: white;
+    border: none;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 32px;
+    letter-spacing: 5px;
+    padding: 18px 50px;
+    cursor: pointer;
+    border-radius: 8px;
+    box-shadow: 0 4px 30px rgba(212,20,90,0.5);
+    transition: all 0.2s;
+  }
+  
+  .start-game-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 40px rgba(212,20,90,0.7);
+  }
+  
+  .start-game-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
   
   /* GAME SCREEN */
@@ -234,351 +413,338 @@
     display: flex;
   }
   
-  .player-header {
-    background: var(--motd-navy);
-    border: 2px solid var(--border);
-    border-radius: 8px;
-    padding: 15px;
-    margin-bottom: 20px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    position: relative;
-  }
-  
-  .player-team-badge {
-    position: absolute;
-    top: -10px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: var(--motd-gold);
-    padding: 5px 15px;
-    border-radius: 20px;
-    font-size: 20px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-  }
-  
-  .player-name-display {
-    font-family: 'Barlow Condensed', sans-serif;
-    font-size: 18px;
-    font-weight: 600;
-  }
-  
-  .player-score-display {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 32px;
-    color: var(--motd-cyan);
-  }
-  
-  .question-prompt {
+  .question-display {
     background: var(--motd-navy);
     border: 3px solid var(--motd-gold);
-    border-radius: 8px;
-    padding: 25px;
-    margin-bottom: 20px;
+    border-radius: 12px;
+    padding: 40px;
+    margin-bottom: 30px;
     text-align: center;
-  }
-  
-  .question-prompt-text {
-    font-family: 'Barlow', sans-serif;
-    font-size: 18px;
-    line-height: 1.5;
-    color: var(--text);
-  }
-  
-  .answer-options {
+    min-height: 160px;
     display: flex;
-    flex-direction: column;
-    gap: 12px;
-    flex: 1;
-  }
-  
-  .answer-btn {
-    background: var(--motd-dark-navy);
-    border: 3px solid var(--border);
-    border-radius: 8px;
-    padding: 20px;
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    cursor: pointer;
-    transition: all 0.2s;
-    -webkit-tap-highlight-color: transparent;
-  }
-  
-  .answer-btn:active:not(.disabled) {
-    transform: scale(0.98);
-  }
-  
-  .answer-btn-letter {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 32px;
-    color: var(--motd-cyan);
-    min-width: 40px;
-  }
-  
-  .answer-btn-text {
-    font-family: 'Barlow Condensed', sans-serif;
-    font-size: 18px;
-    font-weight: 600;
-    flex: 1;
-    color: var(--text);
-  }
-  
-  .answer-btn.selected {
-    border-color: var(--motd-cyan);
-    background: rgba(77,212,232,0.2);
-    animation: pulse 0.3s ease;
-  }
-  
-  @keyframes pulse {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.02); }
-  }
-  
-  .answer-btn.disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-  
-  .status-message {
-    background: var(--motd-navy);
-    border: 2px solid var(--motd-cyan);
-    border-radius: 8px;
-    padding: 20px;
-    text-align: center;
-    margin-top: 20px;
-  }
-  
-  .status-message-text {
-    font-family: 'Barlow', sans-serif;
-    font-size: 16px;
-    color: var(--motd-cyan);
-  }
-  
-  .status-icon {
-    font-size: 32px;
-    margin-bottom: 10px;
-  }
-  
-  /* SABOTAGE BUTTON */
-  .sabotage-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.9);
-    display: none;
     align-items: center;
     justify-content: center;
-    z-index: 9999;
-    animation: fadeIn 0.3s ease;
   }
   
-  .sabotage-overlay.active {
-    display: flex;
-  }
-  
-  @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-  }
-  
-  .sabotage-container {
-    text-align: center;
-    animation: zoomIn 0.3s ease;
-  }
-  
-  @keyframes zoomIn {
-    from { transform: scale(0.8); opacity: 0; }
-    to { transform: scale(1); opacity: 1; }
-  }
-  
-  .sabotage-title {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 48px;
-    color: var(--motd-magenta);
-    text-shadow: 0 0 30px rgba(212,20,90,0.8);
-    margin-bottom: 20px;
-    letter-spacing: 3px;
-  }
-  
-  .sabotage-subtitle {
+  .question-text {
     font-family: 'Barlow', sans-serif;
-    font-size: 20px;
-    color: var(--text-muted);
-    margin-bottom: 30px;
-  }
-  
-  .sabotage-timer {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 64px;
-    color: var(--motd-gold);
-    margin-bottom: 30px;
-    text-shadow: 0 0 20px rgba(255,198,41,0.6);
-  }
-  
-  .sabotage-btn {
-    background: linear-gradient(135deg, #ff0000 0%, #cc0000 100%);
-    color: white;
-    border: 3px solid var(--motd-gold);
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 42px;
-    letter-spacing: 5px;
-    padding: 30px 60px;
-    border-radius: 12px;
-    cursor: pointer;
-    box-shadow: 0 8px 40px rgba(255,0,0,0.6);
-    transition: all 0.2s;
-    animation: pulse 1s ease-in-out infinite;
-    -webkit-tap-highlight-color: transparent;
-  }
-  
-  .sabotage-btn:active {
-    transform: scale(0.95);
-  }
-  
-  @keyframes pulse {
-    0%, 100% { transform: scale(1); box-shadow: 0 8px 40px rgba(255,0,0,0.6); }
-    50% { transform: scale(1.05); box-shadow: 0 12px 60px rgba(255,0,0,0.9); }
-  }
-  
-  .sabotage-warning {
-    font-family: 'Barlow', sans-serif;
-    font-size: 14px;
-    color: var(--motd-magenta);
-    margin-top: 20px;
-    font-style: italic;
-  }
-  
-  /* LEAD PLAYER CONTROLS */
-  .lead-controls {
-    display: none;
-    gap: 10px;
-    margin-top: 20px;
-  }
-  
-  .lead-controls.visible {
-    display: flex;
-  }
-  
-  .lead-btn {
-    flex: 1;
-    background: var(--motd-gold);
-    color: #000;
-    border: none;
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 20px;
-    letter-spacing: 3px;
-    padding: 16px;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-  
-  .lead-btn:active {
-    transform: scale(0.98);
-  }
-  
-  .lead-btn.primary {
-    background: linear-gradient(135deg, var(--motd-magenta) 0%, var(--motd-red) 100%);
-    color: white;
-  }
-  
-  .lead-badge {
-    background: var(--motd-gold);
-    color: #000;
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 14px;
-    letter-spacing: 2px;
-    padding: 6px 12px;
-    border-radius: 6px;
-    display: inline-block;
-    margin-left: 8px;
-  }
-  
-  /* ROUND 3 - VOTING */
-  .voting-screen {
-    display: none;
-    flex-direction: column;
-    flex: 1;
-  }
-  
-  .voting-screen.active {
-    display: flex;
-  }
-  
-  .voting-header {
-    background: var(--motd-navy);
-    border: 2px solid var(--motd-gold);
-    border-radius: 8px;
-    padding: 20px;
-    margin-bottom: 20px;
-    text-align: center;
-  }
-  
-  .voting-header-text {
-    font-family: 'Barlow Condensed', sans-serif;
-    font-size: 18px;
-    font-weight: 600;
-    color: var(--motd-gold);
-    text-transform: uppercase;
-    letter-spacing: 2px;
-  }
-  
-  .vote-options {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    flex: 1;
-    overflow-y: auto;
-  }
-  
-  .vote-btn {
-    background: var(--motd-dark-navy);
-    border: 3px solid var(--border);
-    border-radius: 8px;
-    padding: 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    cursor: pointer;
-    transition: all 0.2s;
-    -webkit-tap-highlight-color: transparent;
-  }
-  
-  .vote-btn:active:not(.disabled):not(.voted):not(.own-answer) {
-    transform: scale(0.98);
-  }
-  
-  .vote-player-name {
-    font-family: 'Barlow Condensed', sans-serif;
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--motd-cyan);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-  }
-  
-  .vote-answer-text {
-    font-family: 'Barlow', sans-serif;
-    font-size: 18px;
+    font-size: 36px;
     line-height: 1.4;
     color: var(--text);
   }
   
-  .vote-btn.voted {
+  .answers-display {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    margin-bottom: 30px;
+  }
+  
+  .answer-option {
+    background: var(--motd-dark-navy);
+    border: 3px solid var(--border);
+    border-radius: 8px;
+    padding: 25px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    transition: all 0.3s;
+  }
+  
+  .answer-letter {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 42px;
+    color: var(--motd-cyan);
+    min-width: 50px;
+  }
+  
+  .answer-text {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 24px;
+    font-weight: 600;
+    flex: 1;
+  }
+  
+  .answer-count {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 32px;
+    color: var(--motd-gold);
+    min-width: 50px;
+    text-align: right;
+  }
+  
+  .answer-option.revealed-correct {
+    border-color: var(--motd-cyan);
+    background: rgba(77,212,232,0.2);
+    animation: correctPulse 0.5s ease;
+  }
+  
+  @keyframes correctPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.02); }
+  }
+  
+  .answer-option.revealed-wrong {
+    border-color: var(--motd-magenta);
+    opacity: 0.4;
+  }
+  
+  /* SCOREBOARD */
+  .scoreboard {
+    background: var(--motd-navy);
+    border: 3px solid var(--motd-gold);
+    border-radius: 12px;
+    padding: 25px;
+    max-height: 300px;
+    overflow-y: auto;
+  }
+  
+  .scoreboard-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 36px;
+    letter-spacing: 4px;
+    color: var(--motd-gold);
+    text-align: center;
+    margin-bottom: 20px;
+  }
+  
+  .score-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .score-item {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    background: var(--motd-dark-navy);
+    padding: 15px 20px;
+    border-radius: 8px;
+    border-left: 4px solid var(--motd-cyan);
+  }
+  
+  .score-rank {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 32px;
+    color: var(--motd-gold);
+    min-width: 45px;
+  }
+  
+  .score-player-name {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 24px;
+    font-weight: 600;
+    flex: 1;
+  }
+  
+  .score-points {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 36px;
+    color: var(--motd-cyan);
+  }
+  
+  .host-controls {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    margin-top: 25px;
+  }
+  
+  /* TESTING CONTROLS */
+  .testing-controls {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 1000;
+  }
+  
+  .test-btn {
+    background: rgba(255,198,41,0.9);
+    color: #000;
+    border: 2px solid var(--motd-gold);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 16px;
+    font-weight: 600;
+    padding: 10px 20px;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: all 0.2s;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  
+  .test-btn:hover {
+    background: var(--motd-gold);
+    transform: translateY(-2px);
+  }
+  
+  .test-btn.danger {
+    background: rgba(212,20,90,0.9);
+    border-color: var(--motd-magenta);
+    color: white;
+  }
+  
+  .test-btn.danger:hover {
+    background: var(--motd-magenta);
+  }
+  
+  .host-btn {
+    background: var(--motd-cyan);
+    color: #000;
+    border: none;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px;
+    letter-spacing: 3px;
+    padding: 12px 35px;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: all 0.2s;
+  }
+  
+  .host-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 20px rgba(77,212,232,0.5);
+  }
+  
+  .host-btn.secondary {
+    background: var(--motd-magenta);
+    color: white;
+  }
+  
+  /* TRANSITION SCREENS */
+  .transition-screen {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    text-align: center;
+  }
+  
+  .transition-screen.active {
+    display: flex;
+  }
+  
+  .transition-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 72px;
+    letter-spacing: 5px;
+    color: var(--text);
+    text-shadow: 0 0 40px rgba(212,20,90,0.8);
+    margin-bottom: 20px;
+  }
+  
+  .transition-subtitle {
+    font-family: 'Barlow', sans-serif;
+    font-size: 24px;
+    color: var(--text-muted);
+    margin-bottom: 40px;
+  }
+  
+  .transition-icon {
+    font-size: 80px;
+    margin-bottom: 30px;
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+  
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.08); }
+  }
+  
+  /* ROUND 3 - INTERVIEW */
+  .round3-screen {
+    display: none;
+    flex-direction: column;
+    flex: 1;
+  }
+  
+  .round3-screen.active {
+    display: flex;
+  }
+  
+  .interview-question-display {
+    background: var(--motd-navy);
+    border: 3px solid var(--motd-gold);
+    border-radius: 12px;
+    padding: 40px;
+    margin-bottom: 30px;
+    text-align: center;
+    min-height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .interview-question-text {
+    font-family: 'Barlow', sans-serif;
+    font-size: 32px;
+    line-height: 1.4;
+    color: var(--text);
+  }
+  
+  .submitted-answers-display {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    margin-bottom: 30px;
+    max-height: 400px;
+    overflow-y: auto;
+  }
+  
+  .submitted-answer-card {
+    background: var(--motd-dark-navy);
+    border: 3px solid var(--border);
+    border-radius: 8px;
+    padding: 25px 30px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    animation: slideIn 0.3s ease;
+  }
+  
+  .answer-player-name {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--motd-cyan);
+    min-width: 120px;
+  }
+  
+  .answer-content {
+    font-family: 'Barlow', sans-serif;
+    font-size: 24px;
+    flex: 1;
+    color: var(--text);
+  }
+  
+  .answer-votes {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 36px;
+    color: var(--motd-gold);
+    min-width: 80px;
+    text-align: right;
+  }
+  
+  .answer-votes::after {
+    content: ' votes';
+    font-size: 16px;
+    color: var(--text-muted);
+  }
+  
+  .submitted-answer-card.winner {
     border-color: var(--motd-gold);
-    background: rgba(255,198,41,0.15);
+    background: rgba(255,198,41,0.1);
+    animation: winnerPulse 1s ease infinite;
   }
   
-  .vote-btn.own-answer {
-    opacity: 0.5;
-    cursor: not-allowed;
-    border-style: dashed;
-  }
-  
-  .vote-btn.disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+  @keyframes winnerPulse {
+    0%, 100% { transform: scale(1); box-shadow: 0 0 0 rgba(255,198,41,0); }
+    50% { transform: scale(1.01); box-shadow: 0 0 30px rgba(255,198,41,0.3); }
   }
   
   .hidden {
@@ -589,116 +755,132 @@
 <body>
 
 <div class="container">
-  
-  <!-- JOIN SCREEN -->
-  <div class="join-screen" id="join-screen">
-    <div class="join-title">Join Game</div>
-    <div class="join-subtitle">Enter your details to play</div>
+  <!-- HEADER -->
+  <div class="host-header">
+    <div class="game-title">Soccer Trophy Quiz Cup</div>
+    <div class="header-right">
+      <div class="round-indicator" id="round-indicator">Lobby</div>
+      <div class="game-code-display">
+        <div class="code-label">Game Code</div>
+        <div class="code-value" id="game-code">----</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <div class="main-content">
     
-    <form class="join-form" onsubmit="joinGame(event)">
-      <div class="input-group">
-        <label class="input-label">Game Code</label>
-        <input type="text" class="input-field" id="code-input" maxlength="4" placeholder="XXXX" required autocomplete="off">
+    <!-- TEAM SELECTION SCREEN -->
+    <div class="team-selection-screen hidden" id="team-selection-screen">
+      <div class="team-selection-title">Select Teams</div>
+      <div class="team-selection-subtitle">Choose 2 countries to compete</div>
+      
+      <div class="teams-grid" id="teams-grid"></div>
+      
+      <div class="selected-teams-display" id="selected-teams-display" style="display: none;">
+        <div class="selected-team-card" id="team1-display"></div>
+        <div class="vs-text">VS</div>
+        <div class="selected-team-card" id="team2-display"></div>
       </div>
       
-      <div class="input-group">
-        <label class="input-label">Your Name</label>
-        <input type="text" class="input-field name-input" id="name-input" maxlength="20" placeholder="Enter name" required autocomplete="off">
-      </div>
-      
-      <div class="error-message" id="error-message"></div>
-      
-      <button type="submit" class="join-btn">Join Game</button>
-    </form>
-  </div>
-
-  <!-- WAITING SCREEN -->
-  <div class="waiting-screen" id="waiting-screen">
-    <div class="waiting-title">You're In!</div>
-    <div class="waiting-message" id="waiting-message">Waiting for host to start the game...</div>
-    
-    <div class="player-info">
-      <div class="player-info-label">Your Name</div>
-      <div class="player-info-value" id="waiting-name"></div>
-    </div>
-    
-    <div class="player-info">
-      <div class="player-info-label">Game Code</div>
-      <div class="player-info-value" id="waiting-code"></div>
-    </div>
-    
-    <div class="lead-controls" id="waiting-lead-controls">
-      <button class="lead-btn primary" onclick="startGameAsLead()">🎮 Start Game</button>
-    </div>
-    
-    <div class="spinner" id="waiting-spinner"></div>
-  </div>
-
-  <!-- GAME SCREEN -->
-  <div class="game-screen" id="game-screen">
-    <div class="player-header">
-      <div class="player-team-badge" id="player-team-badge" style="display: none;"></div>
-      <div>
-        <span class="player-name-display" id="player-name-header"></span>
-      </div>
-      <div class="player-score-display"><span id="player-score">0</span> pts</div>
-    </div>
-    
-    <div class="question-prompt">
-      <div class="question-prompt-text" id="question-text">Loading...</div>
-    </div>
-    
-    <div class="answer-options" id="answer-options"></div>
-    
-    <div class="status-message hidden" id="status-message">
-      <div class="status-icon" id="status-icon">✓</div>
-      <div class="status-message-text" id="status-text"></div>
-    </div>
-    
-    <div class="lead-controls" id="game-lead-controls">
-      <button class="lead-btn" id="reveal-lead-btn" onclick="revealAnswerAsLead()">Reveal Answer</button>
-      <button class="lead-btn primary" id="next-lead-btn" onclick="nextQuestionAsLead()">Next →</button>
-    </div>
-  </div>
-
-  <!-- ROUND 3 - VOTING SCREEN -->
-  <div class="voting-screen" id="voting-screen">
-    <div class="player-header">
-      <div class="player-team-badge" id="voting-team-badge" style="display: none;"></div>
-      <div class="player-name-display" id="voting-player-name"></div>
-      <div class="player-score-display"><span id="voting-score">0</span> pts</div>
-    </div>
-    
-    <div class="voting-header">
-      <div class="voting-header-text" id="voting-header-text">Vote for the best answer!</div>
-    </div>
-    
-    <div class="vote-options" id="vote-options"></div>
-    
-    <div class="status-message hidden" id="voting-status">
-      <div class="status-icon" id="voting-status-icon">✓</div>
-      <div class="status-message-text" id="voting-status-text"></div>
-    </div>
-  </div>
-
-  <!-- SABOTAGE BUTTON OVERLAY -->
-  <div class="sabotage-overlay" id="sabotage-overlay">
-    <div class="sabotage-container">
-      <div class="sabotage-title">⚠️ SECRET WEAPON ⚠️</div>
-      <div class="sabotage-subtitle">Steal 5 points from the other team!</div>
-      <div class="sabotage-timer" id="sabotage-timer">10</div>
-      <button class="sabotage-btn" onclick="useSabotage()">
-        💣 SABOTAGE 💣
+      <button class="confirm-teams-btn" id="confirm-teams-btn" disabled onclick="confirmTeams()">
+        Confirm Teams
       </button>
-      <div class="sabotage-warning">Only you can see this! Use it wisely...</div>
     </div>
-  </div>
 
+    <!-- LOBBY SCREEN -->
+    <div class="lobby-screen" id="lobby-screen">
+      <div class="lobby-title">Waiting for Players...</div>
+      <div class="lobby-subtitle">Scan QR code or visit URL below</div>
+      
+      <div class="qr-code-container">
+        <div id="qr-code"></div>
+      </div>
+      
+      <div class="join-url" id="join-url">Loading...</div>
+      
+      <div class="players-waiting">
+        <div class="lobby-subtitle" style="text-align: center; margin-bottom: 10px;">
+          <span id="player-count">0</span> Players Joined
+        </div>
+        <div class="lobby-subtitle" style="text-align: center; margin-bottom: 20px; color: var(--motd-gold);">
+          First player will control the game
+        </div>
+        <div class="players-grid" id="players-grid"></div>
+      </div>
+      
+      <button class="start-game-btn" id="select-teams-btn" disabled onclick="showTeamSelection()" style="display: none;">
+        Select Teams & Start
+      </button>
+    </div>
+
+    <!-- GAME SCREEN -->
+    <div class="game-screen" id="game-screen">
+      <div class="question-display">
+        <div class="question-text" id="question-text">Loading question...</div>
+      </div>
+      
+      <div class="answers-display" id="answers-display"></div>
+      
+      <div class="scoreboard">
+        <div class="scoreboard-title">Live Scores</div>
+        <div class="score-list" id="score-list"></div>
+      </div>
+      
+      <div class="host-controls hidden">
+        <!-- No buttons needed - first player controls the game -->
+      </div>
+    </div>
+
+    <!-- TRANSITION SCREENS -->
+    <div class="transition-screen" id="transition-screen">
+      <div class="transition-icon" id="transition-icon">🏆</div>
+      <div class="transition-title" id="transition-title">Round Complete</div>
+      <div class="transition-subtitle" id="transition-subtitle">Get ready...</div>
+      <button class="host-btn" id="transition-btn" onclick="continueGame()">Continue</button>
+    </div>
+
+    <!-- ROUND 3 - INTERVIEW -->
+    <div class="round3-screen" id="round3-screen">
+      <div class="interview-question-display">
+        <div class="interview-question-text" id="round3-question-text">Loading...</div>
+      </div>
+      
+      <div class="submitted-answers-display" id="submitted-answers"></div>
+      
+      <div class="scoreboard">
+        <div class="scoreboard-title">Live Scores</div>
+        <div class="score-list" id="round3-score-list"></div>
+      </div>
+      
+      <div class="host-controls">
+        <button class="host-btn" id="round3-next-btn" onclick="nextRound3Question()">Next Question →</button>
+      </div>
+    </div>
+
+    <!-- FINAL RESULTS -->
+    <div class="transition-screen" id="final-screen">
+      <div class="transition-icon">🎉</div>
+      <div class="transition-title">Full Time!</div>
+      <div class="transition-subtitle">Final Scores</div>
+      <div class="scoreboard" style="max-width: 800px; width: 100%;">
+        <div class="scoreboard-title">Winners</div>
+        <div class="score-list" id="final-score-list"></div>
+      </div>
+      <div class="host-controls" style="margin-top: 40px;">
+        <button class="host-btn secondary" onclick="location.reload()">New Game</button>
+      </div>
+    </div>
+
+  </div>
 </div>
 
 <!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+
+<!-- QR Code Generator - using stable version -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
 <script>
 // ═══════════════════════════════════════════════════════════════════════════
@@ -719,25 +901,33 @@ firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
 
 // ═══════════════════════════════════════════════════════════════════════════
-// GAME DATA - MUST MATCH HOST EXACTLY
+// GAME DATA - ALL ROUNDS
 // ═══════════════════════════════════════════════════════════════════════════
 
 const ROUND_1_QUESTIONS = [
   {
     question: "Mercenary swords, they are feeble reeds... already the Eagle of Austria has lost its feathers.",
-    answers: ["Italy", "Austria", "Germany", "Hong Kong"]
+    answers: ["Italy", "Austria", "Germany", "Hong Kong"],
+    correct: 0,
+    note: "Il Canto degli Italiani — written by Goffredo Mameli in 1847."
   },
   {
     question: "To the King of Spain I have always given honour.",
-    answers: ["Netherlands", "Spain", "Ireland", "Argentina"]
+    answers: ["Netherlands", "Spain", "Ireland", "Argentina"],
+    correct: 0,
+    note: "Het Wilhelmus — the oldest national anthem in the world."
   },
   {
     question: "This country's national anthem is famous for having no official lyrics at all. Which nation?",
-    answers: ["Spain", "DR Congo", "Bhutan", "Austria"]
+    answers: ["Spain", "DR Congo", "Bhutan", "Austria"],
+    correct: 0,
+    note: "La Marcha Real — one of only four national anthems with no official lyrics."
   },
   {
     question: "Which one of these was NOT an official World Cup song?",
-    answers: ["Balls Balls Balls", "World Cup Willie", "Far Away In America", "Meat Pie, Sausage Roll"]
+    answers: ["Balls Balls Balls", "World Cup Willie", "Far Away In America", "Meat Pie, Sausage Roll"],
+    correct: 0,
+    note: "Balls Balls Balls was never an official World Cup song."
   }
 ];
 
@@ -754,531 +944,864 @@ const ROUND_3_QUESTIONS = [
   }
 ];
 
+const ROUND_3_ANSWER_POOL = [
+  "A hairdryer. Fast and to the head.",
+  "A big soapy team bath.",
+  "A cheeky Argentinian.",
+  "David Seaman's Moustache, cello-taped in exactly the right spot.",
+  "The smell of your kit bag, when you forget it over the weekend.",
+  "Two feet. Waist height. Maximum velocity.",
+  "Didier Drogba's feet in a pasta salad.",
+  "One of Gary's Tweets",
+  "Little Holes in the back of your socks",
+  "A tactical bum flare",
+  "Three pigeons in a trench coat",
+  "The WiFi password to the away dressing room",
+  "A protein shake mixed with grass clippings and regret",
+  "A Dido album played on a vuvuzela",
+  "An essay to the nation, published in the Sun",
+  "Paul Gascoigne, uninvited but inevitably there",
+  "A single bead of sweat from Pep's forehead"
+];
+
+// World Cup Finals History (countries that reached the final)
+const WORLD_CUP_FINALISTS = [
+  { name: "Argentina", flag: "🇦🇷", color: "#75AADB" },
+  { name: "Brazil", flag: "🇧🇷", color: "#009B3A" },
+  { name: "Germany", flag: "🇩🇪", color: "#000000" },
+  { name: "Italy", flag: "🇮🇹", color: "#0066CC" },
+  { name: "France", flag: "🇫🇷", color: "#0055A4" },
+  { name: "England", flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", color: "#C8102E" },
+  { name: "Spain", flag: "🇪🇸", color: "#C60B1E" },
+  { name: "Netherlands", flag: "🇳🇱", color: "#FF4F00" },
+  { name: "Uruguay", flag: "🇺🇾", color: "#0038A8" },
+  { name: "Croatia", flag: "🇭🇷", color: "#FF0000" },
+  { name: "Czechia", flag: "🇨🇿", color: "#D7141A" },
+  { name: "Hungary", flag: "🇭🇺", color: "#436F4D" },
+  { name: "Sweden", flag: "🇸🇪", color: "#006AA7" }
+];
+
 // ═══════════════════════════════════════════════════════════════════════════
-// PLAYER STATE
+// GAME STATE
 // ═══════════════════════════════════════════════════════════════════════════
 
-let gameCode = '';
-let playerName = '';
-let playerId = '';
-let gameRef = null;
-let currentScore = 0;
-let currentQuestionIndex = -1;
+function generateGameCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 4; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+}
+
+const gameCode = generateGameCode();
+const gameRef = database.ref('games/' + gameCode);
+
+let players = {};
 let currentRound = 1;
-let round3CurrentQ = -1;
-let myRound3Answers = {};
-let sabotageTimer = null;
-let sabotageTimeLeft = 10;
-let isLeadPlayer = false;
+let currentQuestion = 0;
+let gameStarted = false;
+let answerRevealed = false;
 
-// Check if code is in URL
-const urlParams = new URLSearchParams(window.location.search);
-if (urlParams.has('code')) {
-  document.getElementById('code-input').value = urlParams.get('code');
-}
+// Team state
+let team1 = null; // {name, flag, color}
+let team2 = null;
+let teamsSelected = false;
 
-// Auto-focus code input
-document.getElementById('code-input').focus();
+// Sabotage button state
+let sabotageActivated = false;
+let team1SabotageUsed = false;
+let team2SabotageUsed = false;
+let leadPlayerId = null;
 
 // ═══════════════════════════════════════════════════════════════════════════
-// JOIN GAME
+// INITIALIZE GAME
 // ═══════════════════════════════════════════════════════════════════════════
 
-function joinGame(event) {
-  alert('Function called!');
-  event.preventDefault();
-  console.log('Join clicked');
+document.getElementById('game-code').textContent = gameCode;
+
+const playerUrl = window.location.origin + window.location.pathname.replace('host-complete.html', 'player-complete.html') + '?code=' + gameCode;
+document.getElementById('join-url').textContent = playerUrl;
+
+console.log('Player URL:', playerUrl);
+console.log('Attempting to generate QR code...');
+
+// Generate QR code - wait for library to load
+setTimeout(() => {
+  const qrDiv = document.getElementById('qr-code');
+  console.log('QR div found:', qrDiv);
+  console.log('QRCode library available:', typeof QRCode);
   
-  gameCode = document.getElementById('code-input').value.toUpperCase().trim();
-  playerName = document.getElementById('name-input').value.trim();
+  qrDiv.innerHTML = ''; // Clear first
   
-  if (!gameCode || !playerName) {
-    alert('Please enter code and name');
-    return;
-  }
-  
-  gameRef = database.ref('games/' + gameCode);
-  gameRef.once('value').then((snapshot) => {
-    if (!snapshot.exists()) {
-      alert('Game not found');
-      return;
-    }
-    
-    playerId = 'player_' + Date.now();
-    return gameRef.child('players/' + playerId).set({
-      name: playerName,
-      score: 0,
-      joinedAt: Date.now()
+  try {
+    // Simple QR code generation
+    const qr = new QRCode(qrDiv, {
+      text: playerUrl,
+      width: 220,
+      height: 220,
+      colorDark: "#000000",
+      colorLight: "#ffffff"
     });
-  }).then(() => {
-    document.getElementById('join-screen').classList.add('hidden');
-    document.getElementById('waiting-screen').classList.add('active');
-    document.getElementById('waiting-name').textContent = playerName;
-    document.getElementById('waiting-code').textContent = gameCode;
-    listenForGameStart();
-  }).catch((error) => {
-    alert('Error: ' + error.message);
-  });
-}
-
-function showError(message) {
-  const errorEl = document.getElementById('error-message');
-  errorEl.textContent = message;
-  errorEl.classList.add('show');
-  setTimeout(() => errorEl.classList.remove('show'), 3000);
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// GAME LISTENERS
-// ═══════════════════════════════════════════════════════════════════════════
-
-function listenForGameStart() {
-  // Listen for team assignment
-  gameRef.child('players/' + playerId + '/team').on('value', (snapshot) => {
-    const teamNumber = snapshot.val();
-    if (teamNumber) {
-      // Get team info
-      gameRef.child('team' + teamNumber).once('value', (teamSnapshot) => {
-        const teamInfo = teamSnapshot.val();
-        if (teamInfo) {
-          // Update waiting screen with team info
-          const teamDisplay = document.createElement('div');
-          teamDisplay.className = 'player-info';
-          teamDisplay.style.cssText = 'border-color: ' + (teamNumber === 1 ? '#4dd4e8' : '#d4145a');
-          teamDisplay.innerHTML = `
-            <div class="player-info-label">Your Team</div>
-            <div class="player-info-value">${teamInfo.flag} ${teamInfo.name}</div>
-          `;
-          
-          const waitingCode = document.getElementById('waiting-code').parentElement;
-          waitingCode.parentElement.insertBefore(teamDisplay, waitingCode.nextSibling);
+    console.log('QR Code generated successfully!');
+    
+    // Remove duplicate elements after a moment
+    setTimeout(() => {
+      const children = qrDiv.children;
+      if (children.length > 1) {
+        // Keep only the first element
+        while (children.length > 1) {
+          qrDiv.removeChild(children[1]);
         }
-      });
-    }
-  });
-  
-  gameRef.child('started').on('value', (snapshot) => {
-    if (snapshot.val() === true) {
-      startPlaying();
-    }
-  });
-  
-  // Listen for score updates
-  gameRef.child('players/' + playerId + '/score').on('value', (snapshot) => {
-    currentScore = snapshot.val() || 0;
-    document.getElementById('player-score').textContent = currentScore;
-  });
-}
-
-function startPlaying() {
-  document.getElementById('waiting-screen').classList.remove('active');
-  document.getElementById('game-screen').classList.add('active');
-  document.getElementById('player-name-header').textContent = playerName;
-  
-  // Show team badge if assigned
-  gameRef.child('players/' + playerId + '/team').once('value', (snapshot) => {
-    const teamNumber = snapshot.val();
-    if (teamNumber) {
-      gameRef.child('team' + teamNumber).once('value', (teamSnapshot) => {
-        const teamInfo = teamSnapshot.val();
-        if (teamInfo) {
-          const badge = document.getElementById('player-team-badge');
-          badge.textContent = teamInfo.flag + ' ' + teamInfo.name;
-          badge.style.display = 'block';
-        }
-      });
-    }
-  });
-  
-  // Listen for sabotage button activation
-  gameRef.child('sabotage/' + playerId).on('value', (snapshot) => {
-    const sabotageData = snapshot.val();
-    if (sabotageData && sabotageData.active) {
-      showSabotageButton();
-    }
-  });
-  
-  // Listen for round changes
-  gameRef.child('round').on('value', (snapshot) => {
-    currentRound = snapshot.val() || 1;
-    if (currentRound === 3) {
-      startRound3();
-    }
-  });
-  
-  // Listen for current question (Round 1)
-  gameRef.child('currentQuestion').on('value', (snapshot) => {
-    if (currentRound === 1) {
-      const questionIndex = snapshot.val();
-      if (questionIndex !== null && questionIndex !== currentQuestionIndex) {
-        loadQuestion(questionIndex);
+        console.log('Removed duplicate QR elements');
       }
+    }, 100);
+  } catch (error) {
+    console.error('QR generation error:', error);
+    qrDiv.innerHTML = '<div style="padding: 80px 20px; text-align: center; font-size: 14px; color: #666;">QR Error: ' + error.message + '<br>Use URL below</div>';
+  }
+}, 1000);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TEAM SELECTION
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Populate team selection grid
+const teamsGrid = document.getElementById('teams-grid');
+teamsGrid.innerHTML = WORLD_CUP_FINALISTS.map((country, index) => `
+  <div class="team-option" id="team-opt-${index}" onclick="selectTeam(${index})">
+    <div class="team-flag">${country.flag}</div>
+    <div class="team-name">${country.name}</div>
+  </div>
+`).join('');
+
+function selectTeam(index) {
+  const country = WORLD_CUP_FINALISTS[index];
+  
+  if (!team1) {
+    team1 = country;
+    document.getElementById('team-opt-' + index).classList.add('selected');
+    updateSelectedTeamsDisplay();
+  } else if (!team2 && country.name !== team1.name) {
+    team2 = country;
+    document.getElementById('team-opt-' + index).classList.add('selected');
+    updateSelectedTeamsDisplay();
+    document.getElementById('confirm-teams-btn').disabled = false;
+  } else if (team1 && country.name === team1.name) {
+    // Deselect team 1
+    team1 = null;
+    document.getElementById('team-opt-' + index).classList.remove('selected');
+    if (team2) {
+      team1 = team2;
+      team2 = null;
     }
+    updateSelectedTeamsDisplay();
+    document.getElementById('confirm-teams-btn').disabled = true;
+  } else if (team2 && country.name === team2.name) {
+    // Deselect team 2
+    team2 = null;
+    document.getElementById('team-opt-' + index).classList.remove('selected');
+    updateSelectedTeamsDisplay();
+    document.getElementById('confirm-teams-btn').disabled = true;
+  }
+}
+
+function updateSelectedTeamsDisplay() {
+  const display = document.getElementById('selected-teams-display');
+  
+  if (team1 || team2) {
+    display.style.display = 'flex';
+    
+    if (team1) {
+      document.getElementById('team1-display').innerHTML = `
+        <div class="selected-team-flag">${team1.flag}</div>
+        <div class="selected-team-name">${team1.name}</div>
+      `;
+    }
+    
+    if (team2) {
+      document.getElementById('team2-display').innerHTML = `
+        <div class="selected-team-flag">${team2.flag}</div>
+        <div class="selected-team-name">${team2.name}</div>
+      `;
+    }
+  } else {
+    display.style.display = 'none';
+  }
+}
+
+function showTeamSelection() {
+  // Hide lobby, show team selection
+  document.getElementById('lobby-screen').classList.add('hidden');
+  document.getElementById('team-selection-screen').classList.remove('hidden');
+}
+
+function confirmTeams() {
+  if (!team1 || !team2) return;
+  
+  teamsSelected = true;
+  
+  // Save teams to Firebase
+  gameRef.update({
+    team1: team1,
+    team2: team2,
+    teamsSelected: true
   });
+  
+  // Hide team selection, start game directly
+  document.getElementById('team-selection-screen').classList.add('hidden');
+  startGame();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// QUESTION DISPLAY
+// GAME INITIALIZATION
 // ═══════════════════════════════════════════════════════════════════════════
 
-function loadQuestion(index) {
-  if (index >= ROUND_1_QUESTIONS.length) return;
-  
-  currentQuestionIndex = index;
-  const q = ROUND_1_QUESTIONS[index];
-  
-  document.getElementById('question-text').textContent = q.question;
-  document.getElementById('status-message').classList.add('hidden');
-  
-  const optionsContainer = document.getElementById('answer-options');
-  const letters = ['A', 'B', 'C', 'D'];
-  
-  optionsContainer.innerHTML = q.answers.map((answer, i) => `
-    <button class="answer-btn" id="answer-${i}" onclick="selectAnswer(${i})">
-      <div class="answer-btn-letter">${letters[i]}</div>
-      <div class="answer-btn-text">${answer}</div>
-    </button>
-  `).join('');
-}
+gameRef.set({
+  code: gameCode,
+  started: false,
+  round: 1,
+  currentQuestion: 0,
+  teamsSelected: false,
+  createdAt: Date.now()
+});
 
 // ═══════════════════════════════════════════════════════════════════════════
-// ANSWER SELECTION
+// FIREBASE LISTENERS
 // ═══════════════════════════════════════════════════════════════════════════
 
-function selectAnswer(answerIndex) {
-  // Check if already answered
-  gameRef.child('answers/' + currentQuestionIndex + '/' + playerId).once('value', (snapshot) => {
-    if (snapshot.exists()) {
-      return; // Already answered
-    }
-    
-    // Record answer
-    gameRef.child('answers/' + currentQuestionIndex + '/' + playerId).set({
-      answerIndex: answerIndex,
-      timestamp: Date.now()
+gameRef.child('players').on('value', (snapshot) => {
+  players = snapshot.val() || {};
+  
+  // Enable select teams button if at least 2 players
+  const playerCount = Object.keys(players).length;
+  const selectTeamsBtn = document.getElementById('select-teams-btn');
+  if (selectTeamsBtn) {
+    selectTeamsBtn.disabled = playerCount < 2;
+  }
+  
+  // Assign players to teams if teams are selected
+  if (teamsSelected && team1 && team2) {
+    const playerIds = Object.keys(players);
+    playerIds.forEach((playerId, index) => {
+      if (!players[playerId].team) {
+        // Alternate assignment, keeping teams balanced
+        const team1Count = playerIds.filter(id => players[id].team === 1).length;
+        const team2Count = playerIds.filter(id => players[id].team === 2).length;
+        const assignedTeam = team1Count <= team2Count ? 1 : 2;
+        gameRef.child('players/' + playerId).update({ team: assignedTeam });
+      }
     });
-    
-    // Disable all buttons and highlight selection
-    document.querySelectorAll('.answer-btn').forEach(btn => {
-      btn.classList.add('disabled');
-      btn.onclick = null;
-    });
-    document.getElementById('answer-' + answerIndex).classList.add('selected');
-    
-    // Show status with icon
-    document.getElementById('status-icon').textContent = '✓';
-    document.getElementById('status-text').textContent = 'Answer submitted!';
-    document.getElementById('status-message').classList.remove('hidden');
-    
-    // Add haptic feedback if available
-    if (navigator.vibrate) {
-      navigator.vibrate(50);
-    }
-  });
-}
+  }
+  
+  updatePlayersList();
+  updateScoreboard();
+});
 
-// ═══════════════════════════════════════════════════════════════════════════
-// CLEANUP
-// ═══════════════════════════════════════════════════════════════════════════
-
-// Handle disconnect
-window.addEventListener('beforeunload', () => {
-  if (gameRef && playerId) {
-    gameRef.child('players/' + playerId).remove();
+// Listen for player 1 ready signal
+gameRef.child('readyToSelectTeams').on('value', (snapshot) => {
+  if (snapshot.val() === true && !teamsSelected) {
+    // Auto-show team selection when player 1 clicks start
+    showTeamSelection();
+    // Clear the trigger
+    gameRef.child('readyToSelectTeams').remove();
   }
 });
 
-// Prevent accidental refresh during game
-window.addEventListener('beforeunload', (e) => {
-  if (document.getElementById('game-screen').classList.contains('active')) {
-    e.preventDefault();
-    e.returnValue = 'Game in progress. Are you sure you want to leave?';
-    return e.returnValue;
+// Listen for game start from lead player
+gameRef.child('started').on('value', (snapshot) => {
+  if (snapshot.val() === true && !gameStarted) {
+    startGame();
   }
 });
 
-// ═══════════════════════════════════════════════════════════════════════════
-// ROUND 3 - INTERVIEW & VOTING
-// ═══════════════════════════════════════════════════════════════════════════
-
-function startRound3() {
-  document.getElementById('game-screen').classList.remove('active');
-  document.getElementById('voting-screen').classList.add('active');
-  document.getElementById('voting-player-name').textContent = playerName;
-  document.getElementById('voting-score').textContent = currentScore;
-  
-  // Show team badge
-  gameRef.child('players/' + playerId + '/team').once('value', (snapshot) => {
-    const teamNumber = snapshot.val();
-    if (teamNumber) {
-      gameRef.child('team' + teamNumber).once('value', (teamSnapshot) => {
-        const teamInfo = teamSnapshot.val();
-        if (teamInfo) {
-          const badge = document.getElementById('voting-team-badge');
-          badge.textContent = teamInfo.flag + ' ' + teamInfo.name;
-          badge.style.display = 'block';
-        }
-      });
-    }
-  });
-  
-  // Listen for Round 3 questions
-  gameRef.child('currentRound3Question').on('value', (snapshot) => {
-    const questionIndex = snapshot.val();
-    if (questionIndex !== null && questionIndex !== round3CurrentQ) {
-      round3CurrentQ = questionIndex;
-      loadRound3Question(questionIndex);
-    }
-  });
-}
-
-function loadRound3Question(index) {
-  if (index >= ROUND_3_QUESTIONS.length) return;
-  
-  const q = ROUND_3_QUESTIONS[index];
-  document.getElementById('voting-header-text').textContent = q.question;
-  document.getElementById('voting-status').classList.add('hidden');
-  
-  // Get this player's answer options from Firebase
-  gameRef.child('round3/' + index + '/playerOptions/' + playerId).once('value', (snapshot) => {
-    const options = snapshot.val();
-    if (options && options.length > 0) {
-      showRound3AnswerOptions(options, index);
-    } else {
-      // Host hasn't set options yet, wait
-      document.getElementById('vote-options').innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-muted);">Waiting for question...</div>';
-      
-      // Listen for when options are set
-      gameRef.child('round3/' + index + '/playerOptions/' + playerId).on('value', (snap) => {
-        const opts = snap.val();
-        if (opts && opts.length > 0) {
-          showRound3AnswerOptions(opts, index);
-        }
-      });
-    }
-  });
-}
-
-function showRound3AnswerOptions(options, questionIndex) {
-  const optionsContainer = document.getElementById('vote-options');
-  const letters = ['A', 'B', 'C', 'D'];
-  
-  optionsContainer.innerHTML = options.map((answer, i) => `
-    <button class="vote-btn" id="round3-answer-${i}" onclick="submitRound3Answer('${answer.replace(/'/g, "\\'")}', ${questionIndex})">
-      <div class="vote-player-name">Option ${letters[i]}</div>
-      <div class="vote-answer-text">${answer}</div>
-    </button>
-  `).join('');
-}
-
-function submitRound3Answer(answer, questionIndex) {
-  // Check if already submitted
-  if (myRound3Answers[questionIndex]) {
-    return;
+// Listen for reveal answer command
+gameRef.child('revealAnswer').on('value', (snapshot) => {
+  if (snapshot.val() === true && !answerRevealed) {
+    revealAnswer();
+    gameRef.update({ revealAnswer: false });
   }
-  
-  myRound3Answers[questionIndex] = answer;
-  
-  // Submit to Firebase
-  gameRef.child('round3/' + questionIndex + '/submissions/' + playerId).set({
-    answer: answer,
-    votes: 0,
-    timestamp: Date.now()
-  });
-  
-  // Show status and switch to voting view
-  document.getElementById('voting-status-icon').textContent = '✓';
-  document.getElementById('voting-status-text').textContent = 'Answer submitted! Now vote for the best answer...';
-  document.getElementById('voting-status').classList.remove('hidden');
-  
-  // Disable answer buttons
-  document.querySelectorAll('.vote-btn').forEach(btn => {
-    btn.classList.add('disabled');
-    btn.onclick = null;
-  });
-  
-  // Listen for all submissions to enable voting
-  setTimeout(() => {
-    listenForVoting(questionIndex);
-  }, 2000);
-}
+});
 
-function listenForVoting(questionIndex) {
-  gameRef.child('round3/' + questionIndex + '/submissions').on('value', (snapshot) => {
-    const submissions = snapshot.val() || {};
-    const submissionArray = Object.entries(submissions).map(([pid, data]) => ({
-      playerId: pid,
-      playerName: players[pid]?.name || 'Unknown',
-      answer: data.answer,
-      votes: data.votes || 0
-    }));
+// Listen for next question command
+gameRef.child('nextQuestion').on('value', (snapshot) => {
+  const nextQ = snapshot.val();
+  if (nextQ !== null && nextQ > currentQuestion) {
+    nextQuestion();
+  }
+});
+
+gameRef.child('answers').on('value', (snapshot) => {
+  if (gameStarted && !answerRevealed) {
+    const answers = snapshot.val() || {};
+    updateAnswerCounts(answers);
     
-    // Check if all players submitted
+    // Auto-reveal when all players have answered
+    const answersForCurrentQ = answers[currentQuestion] || {};
+    const answeredCount = Object.keys(answersForCurrentQ).length;
     const totalPlayers = Object.keys(players).length;
-    if (submissionArray.length >= totalPlayers) {
-      showVotingOptions(submissionArray, questionIndex);
+    
+    if (totalPlayers > 0 && answeredCount === totalPlayers) {
+      // All players answered - auto reveal after 1 second
+      setTimeout(() => {
+        if (!answerRevealed) {
+          revealAnswer();
+        }
+      }, 1000);
     }
-  });
-}
+  }
+});
 
-function showVotingOptions(submissions, questionIndex) {
-  document.getElementById('voting-header-text').textContent = 'Vote for the best answer!';
-  const optionsContainer = document.getElementById('vote-options');
+function updatePlayersList() {
+  const grid = document.getElementById('players-grid');
+  const count = document.getElementById('player-count');
   
-  optionsContainer.innerHTML = submissions.map((sub, i) => {
-    const isOwn = sub.playerId === playerId;
+  const playerArray = Object.values(players);
+  count.textContent = playerArray.length;
+  
+  grid.innerHTML = playerArray.map(player => {
+    const teamClass = player.team === 1 ? 'team1' : player.team === 2 ? 'team2' : '';
+    const teamFlag = player.team === 1 ? team1?.flag : player.team === 2 ? team2?.flag : '';
+    
     return `
-      <button class="vote-btn ${isOwn ? 'own-answer' : ''}" id="vote-option-${i}" 
-              onclick="${isOwn ? '' : `voteForAnswer('${sub.playerId}', ${questionIndex})`}" 
-              ${isOwn ? 'disabled' : ''}>
-        <div class="vote-player-name">${sub.playerName}${isOwn ? ' (You)' : ''}</div>
-        <div class="vote-answer-text">${sub.answer}</div>
-      </button>
+      <div class="player-card ${teamClass}">
+        ${teamFlag ? `<div class="player-team-badge">${teamFlag}</div>` : ''}
+        <div class="player-avatar">${player.name.charAt(0).toUpperCase()}</div>
+        <div class="player-name">${player.name}</div>
+      </div>
     `;
   }).join('');
 }
 
-function voteForAnswer(targetPlayerId, questionIndex) {
-  // Check if already voted
-  gameRef.child('round3/' + questionIndex + '/votes/' + playerId).once('value', (snapshot) => {
-    if (snapshot.exists()) {
-      return; // Already voted
+function updateScoreboard() {
+  const scoreList = document.getElementById('score-list');
+  
+  if (!teamsSelected || !team1 || !team2) {
+    // Fallback to individual scoring if teams not set
+    const playerArray = Object.entries(players).map(([id, player]) => ({
+      id,
+      name: player.name,
+      score: player.score || 0
+    }));
+    
+    playerArray.sort((a, b) => b.score - a.score);
+    
+    scoreList.innerHTML = playerArray.map((player, index) => `
+      <div class="score-item">
+        <div class="score-rank">#${index + 1}</div>
+        <div class="score-player-name">${player.name}</div>
+        <div class="score-points">${player.score}</div>
+      </div>
+    `).join('');
+    return;
+  }
+  
+  // Calculate team scores
+  let team1Score = 0;
+  let team2Score = 0;
+  
+  Object.values(players).forEach(player => {
+    if (player.team === 1) team1Score += (player.score || 0);
+    if (player.team === 2) team2Score += (player.score || 0);
+  });
+  
+  // Display team scores prominently
+  scoreList.innerHTML = `
+    <div class="score-item" style="border-left: 4px solid var(--motd-cyan); background: rgba(77,212,232,0.1); margin-bottom: 20px;">
+      <div class="score-rank">${team1.flag}</div>
+      <div class="score-player-name" style="font-size: 28px;">${team1.name}</div>
+      <div class="score-points" style="font-size: 42px;">${team1Score}</div>
+    </div>
+    <div class="score-item" style="border-left: 4px solid var(--motd-magenta); background: rgba(212,20,90,0.1); margin-bottom: 20px;">
+      <div class="score-rank">${team2.flag}</div>
+      <div class="score-player-name" style="font-size: 28px;">${team2.name}</div>
+      <div class="score-points" style="font-size: 42px;">${team2Score}</div>
+    </div>
+  `;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GAME FLOW
+// ═══════════════════════════════════════════════════════════════════════════
+
+function startGame() {
+  gameStarted = true;
+  document.getElementById('lobby-screen').classList.add('hidden');
+  document.getElementById('game-screen').classList.add('active');
+  document.getElementById('round-indicator').textContent = 'Round 1';
+  
+  gameRef.update({ started: true, round: 1, currentQuestion: 0 });
+  loadQuestion(0);
+  
+  // Schedule sabotage buttons at random times
+  scheduleSabotageButtons();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SABOTAGE BUTTON SYSTEM
+// ═══════════════════════════════════════════════════════════════════════════
+
+function scheduleSabotageButtons() {
+  if (!teamsSelected || !team1 || !team2) return;
+  
+  // Random time between 15-45 seconds for team 1
+  const team1Delay = Math.random() * 30000 + 15000;
+  
+  // Random time between 15-45 seconds for team 2 (different from team 1)
+  const team2Delay = Math.random() * 30000 + 15000;
+  
+  setTimeout(() => {
+    if (!team1SabotageUsed) {
+      activateSabotageForTeam(1);
     }
+  }, team1Delay);
+  
+  setTimeout(() => {
+    if (!team2SabotageUsed) {
+      activateSabotageForTeam(2);
+    }
+  }, team2Delay);
+}
+
+function activateSabotageForTeam(teamNumber) {
+  // Pick a random player from this team
+  const teamPlayers = Object.entries(players).filter(([id, player]) => player.team === teamNumber);
+  
+  if (teamPlayers.length === 0) return;
+  
+  const randomIndex = Math.floor(Math.random() * teamPlayers.length);
+  const [selectedPlayerId, selectedPlayer] = teamPlayers[randomIndex];
+  
+  // Notify this player via Firebase
+  gameRef.child('sabotage/' + selectedPlayerId).set({
+    active: true,
+    timestamp: Date.now(),
+    teamNumber: teamNumber
+  });
+  
+  console.log(`Sabotage button activated for ${selectedPlayer.name} (Team ${teamNumber})`);
+  
+  // Auto-deactivate after 10 seconds
+  setTimeout(() => {
+    gameRef.child('sabotage/' + selectedPlayerId).remove();
+  }, 10000);
+}
+
+// Listen for sabotage usage
+gameRef.child('sabotageUsed').on('value', (snapshot) => {
+  const sabotageData = snapshot.val();
+  if (sabotageData) {
+    const { userId, targetTeam } = sabotageData;
     
-    // Record vote
-    gameRef.child('round3/' + questionIndex + '/votes/' + playerId).set(targetPlayerId);
-    
-    // Increment vote count for target player
-    gameRef.child('round3/' + questionIndex + '/submissions/' + targetPlayerId).once('value', (snap) => {
-      const currentVotes = snap.val()?.votes || 0;
-      gameRef.child('round3/' + questionIndex + '/submissions/' + targetPlayerId + '/votes').set(currentVotes + 1);
-    });
-    
-    // Give voter a point for participating
-    gameRef.child('players/' + playerId + '/score').once('value', (snap) => {
-      const newScore = (snap.val() || 0) + 1;
-      gameRef.child('players/' + playerId + '/score').set(newScore);
-    });
-    
-    // Show voted status
-    document.querySelectorAll('.vote-btn').forEach((btn, i) => {
-      if (btn.id === 'vote-option-' + Array.from(document.querySelectorAll('.vote-btn')).findIndex(b => b.onclick && b.onclick.toString().includes(targetPlayerId))) {
-        btn.classList.add('voted');
+    // Deduct 5 points from target team
+    Object.entries(players).forEach(([playerId, player]) => {
+      if (player.team === targetTeam) {
+        const currentScore = player.score || 0;
+        const newScore = Math.max(0, currentScore - 5); // Don't go below 0
+        gameRef.child('players/' + playerId).update({ score: newScore });
       }
-      btn.classList.add('disabled');
-      btn.onclick = null;
     });
     
-    document.getElementById('voting-status-icon').textContent = '🎉';
-    document.getElementById('voting-status-text').textContent = 'Vote recorded!';
-    document.getElementById('voting-status').classList.remove('hidden');
+    // Mark as used
+    gameRef.child('players/' + userId).once('value', (snap) => {
+      const userTeam = snap.val()?.team;
+      if (userTeam === 1) team1SabotageUsed = true;
+      if (userTeam === 2) team2SabotageUsed = true;
+    });
     
-    // Add haptic feedback
-    if (navigator.vibrate) {
-      navigator.vibrate(50);
+    // Clear the trigger
+    gameRef.child('sabotageUsed').remove();
+    
+    updateScoreboard();
+  }
+});
+
+function loadQuestion(index) {
+  const q = ROUND_1_QUESTIONS[index];
+  answerRevealed = false;
+  
+  document.getElementById('question-text').textContent = q.question;
+  
+  const answersDisplay = document.getElementById('answers-display');
+  const letters = ['A', 'B', 'C', 'D'];
+  
+  answersDisplay.innerHTML = q.answers.map((answer, i) => `
+    <div class="answer-option" id="answer-${i}">
+      <div class="answer-letter">${letters[i]}</div>
+      <div class="answer-text">${answer}</div>
+      <div class="answer-count" id="count-${i}">0</div>
+    </div>
+  `).join('');
+  
+  gameRef.update({ currentQuestion: index });
+  gameRef.child('answers/' + index).remove();
+}
+
+function updateAnswerCounts(answers) {
+  const counts = [0, 0, 0, 0];
+  Object.values(answers).forEach(answer => {
+    if (answer.answerIndex !== undefined) {
+      counts[answer.answerIndex]++;
     }
+  });
+  
+  counts.forEach((count, i) => {
+    const el = document.getElementById('count-' + i);
+    if (el) el.textContent = count;
   });
 }
 
-// Store players reference for voting
-let players = {};
-gameRef.child('players').on('value', (snapshot) => {
-  players = snapshot.val() || {};
-});
-
-// ═══════════════════════════════════════════════════════════════════════════
-// CLEANUP & UTILITIES
-// ═══════════════════════════════════════════════════════════════════════════
-
-// ═══════════════════════════════════════════════════════════════════════════
-// SABOTAGE BUTTON
-// ═══════════════════════════════════════════════════════════════════════════
-
-function showSabotageButton() {
-  const overlay = document.getElementById('sabotage-overlay');
-  overlay.classList.add('active');
+function revealAnswer() {
+  answerRevealed = true;
+  const q = ROUND_1_QUESTIONS[currentQuestion];
   
-  sabotageTimeLeft = 10;
-  document.getElementById('sabotage-timer').textContent = sabotageTimeLeft;
-  
-  // Countdown timer
-  sabotageTimer = setInterval(() => {
-    sabotageTimeLeft--;
-    document.getElementById('sabotage-timer').textContent = sabotageTimeLeft;
-    
-    if (sabotageTimeLeft <= 0) {
-      hideSabotageButton();
+  for (let i = 0; i < q.answers.length; i++) {
+    const el = document.getElementById('answer-' + i);
+    if (i === q.correct) {
+      el.classList.add('revealed-correct');
+    } else {
+      el.classList.add('revealed-wrong');
     }
-  }, 1000);
+  }
   
-  // Vibrate if available
-  if (navigator.vibrate) {
-    navigator.vibrate([200, 100, 200]);
+  // Award points
+  gameRef.child('answers/' + currentQuestion).once('value', (snapshot) => {
+    const answers = snapshot.val() || {};
+    Object.entries(answers).forEach(([playerId, answer]) => {
+      if (answer.answerIndex === q.correct) {
+        const currentScore = players[playerId]?.score || 0;
+        gameRef.child('players/' + playerId).update({ score: currentScore + 1 });
+      }
+    });
+  });
+}
+
+function nextQuestion() {
+  currentQuestion++;
+  if (currentQuestion < ROUND_1_QUESTIONS.length) {
+    loadQuestion(currentQuestion);
+    answerRevealed = false;
+  } else {
+    // Round 1 complete, move to Round 3 (Interview)
+    startRound3();
   }
 }
 
-function hideSabotageButton() {
-  clearInterval(sabotageTimer);
-  document.getElementById('sabotage-overlay').classList.remove('active');
+// ═══════════════════════════════════════════════════════════════════════════
+// ROUND 3 - INTERVIEW
+// ═══════════════════════════════════════════════════════════════════════════
+
+let round3CurrentQ = 0;
+
+function startRound3() {
+  document.getElementById('game-screen').classList.remove('active');
+  document.getElementById('round3-screen').classList.add('active');
+  document.getElementById('round-indicator').textContent = 'Round 3 - Interview';
+  
+  round3CurrentQ = 0;
+  gameRef.update({ round: 3, currentRound3Question: 0 });
+  loadRound3Question(0);
 }
 
-function useSabotage() {
-  // Get player's team and target the other team
-  gameRef.child('players/' + playerId + '/team').once('value', (snapshot) => {
-    const myTeam = snapshot.val();
-    const targetTeam = myTeam === 1 ? 2 : 1;
+function loadRound3Question(index) {
+  const q = ROUND_3_QUESTIONS[index];
+  document.getElementById('round3-question-text').textContent = q.question;
+  document.getElementById('submitted-answers').innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-muted);">Waiting for players to submit answers...</div>';
+  
+  // Clear previous Round 3 data
+  gameRef.child('round3/' + index).remove();
+  gameRef.update({ currentRound3Question: index });
+  
+  // Give each player 4 random answer options from the pool
+  const playerIds = Object.keys(players);
+  playerIds.forEach(playerId => {
+    // Shuffle and pick 4 random answers
+    const shuffled = [...ROUND_3_ANSWER_POOL].sort(() => Math.random() - 0.5);
+    const playerOptions = shuffled.slice(0, 4);
+    gameRef.child('round3/' + index + '/playerOptions/' + playerId).set(playerOptions);
+  });
+  
+  // Listen for submitted answers
+  gameRef.child('round3/' + index + '/submissions').on('value', (snapshot) => {
+    displaySubmittedAnswers(snapshot.val() || {}, index);
+  });
+  
+  // Listen for votes and award points
+  gameRef.child('round3/' + index + '/votes').on('value', (voteSnapshot) => {
+    const votes = voteSnapshot.val() || {};
+    awardRound3Points(votes, index);
+  });
+}
+
+function displaySubmittedAnswers(submissions, questionIndex) {
+  const submissionsDiv = document.getElementById('submitted-answers');
+  const submissionArray = Object.entries(submissions).map(([playerId, data]) => ({
+    playerId,
+    playerName: players[playerId]?.name || 'Unknown',
+    answer: data.answer,
+    votes: data.votes || 0
+  }));
+  
+  if (submissionArray.length === 0) {
+    submissionsDiv.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-muted);">Waiting for players to submit answers...</div>';
+    return;
+  }
+  
+  // Sort by votes
+  submissionArray.sort((a, b) => b.votes - a.votes);
+  
+  submissionsDiv.innerHTML = submissionArray.map((sub, index) => {
+    const isWinner = index === 0 && sub.votes > 0;
+    return `
+      <div class="submitted-answer-card ${isWinner ? 'winner' : ''}">
+        <div class="answer-player-name">${sub.playerName}</div>
+        <div class="answer-content">${sub.answer}</div>
+        <div class="answer-votes">${sub.votes}</div>
+      </div>
+    `;
+  }).join('');
+  
+  // Update scoreboard with Round 3 scores
+  updateRound3Scoreboard();
+}
+
+function updateRound3Scoreboard() {
+  const scoreList = document.getElementById('round3-score-list');
+  
+  if (!teamsSelected || !team1 || !team2) {
+    // Individual scoring fallback
+    const playerArray = Object.entries(players).map(([id, player]) => ({
+      id,
+      name: player.name,
+      score: player.score || 0
+    }));
     
-    // Trigger sabotage
-    gameRef.child('sabotageUsed').set({
-      userId: playerId,
-      targetTeam: targetTeam,
-      timestamp: Date.now()
-    });
+    playerArray.sort((a, b) => b.score - a.score);
     
-    // Hide button
-    hideSabotageButton();
-    
-    // Show success message
-    alert('💣 SABOTAGE ACTIVATED! -5 points from the other team!');
-    
-    // Vibrate success
-    if (navigator.vibrate) {
-      navigator.vibrate([100, 50, 100, 50, 100]);
+    scoreList.innerHTML = playerArray.map((player, index) => `
+      <div class="score-item">
+        <div class="score-rank">#${index + 1}</div>
+        <div class="score-player-name">${player.name}</div>
+        <div class="score-points">${player.score}</div>
+      </div>
+    `).join('');
+    return;
+  }
+  
+  // Calculate team scores
+  let team1Score = 0;
+  let team2Score = 0;
+  
+  Object.values(players).forEach(player => {
+    if (player.team === 1) team1Score += (player.score || 0);
+    if (player.team === 2) team2Score += (player.score || 0);
+  });
+  
+  // Display team scores
+  scoreList.innerHTML = `
+    <div class="score-item" style="border-left: 4px solid var(--motd-cyan); background: rgba(77,212,232,0.1);">
+      <div class="score-rank">${team1.flag}</div>
+      <div class="score-player-name" style="font-size: 24px;">${team1.name}</div>
+      <div class="score-points" style="font-size: 36px;">${team1Score}</div>
+    </div>
+    <div class="score-item" style="border-left: 4px solid var(--motd-magenta); background: rgba(212,20,90,0.1);">
+      <div class="score-rank">${team2.flag}</div>
+      <div class="score-player-name" style="font-size: 24px;">${team2.name}</div>
+      <div class="score-points" style="font-size: 36px;">${team2Score}</div>
+    </div>
+  `;
+}
+
+function awardRound3Points(votes, questionIndex) {
+  // Count votes for each player
+  const voteCounts = {};
+  Object.values(votes).forEach(targetPlayerId => {
+    voteCounts[targetPlayerId] = (voteCounts[targetPlayerId] || 0) + 1;
+  });
+  
+  // Find winner (most votes)
+  let winnerId = null;
+  let maxVotes = 0;
+  Object.entries(voteCounts).forEach(([playerId, count]) => {
+    if (count > maxVotes) {
+      maxVotes = count;
+      winnerId = playerId;
     }
   });
+  
+  // Award bonus points to winner (3 points for winning)
+  if (winnerId && maxVotes > 0) {
+    gameRef.child('players/' + winnerId + '/score').once('value', (snap) => {
+      const currentScore = snap.val() || 0;
+      gameRef.child('players/' + winnerId + '/score').set(currentScore + 3);
+    });
+  }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// CLEANUP & UTILITIES
-// ═══════════════════════════════════════════════════════════════════════════
-
-// Auto-uppercase game code as user types
-document.getElementById('code-input').addEventListener('input', (e) => {
-  e.target.value = e.target.value.toUpperCase();
-});
-
-// ═══════════════════════════════════════════════════════════════════════════
-// LEAD PLAYER CONTROLS
-// ═══════════════════════════════════════════════════════════════════════════
-
-function startGameAsLead() {
-  if (!isLeadPlayer) return;
-  gameRef.update({ started: true, currentQuestion: 0 });
+function nextRound3Question() {
+  round3CurrentQ++;
+  if (round3CurrentQ < ROUND_3_QUESTIONS.length) {
+    loadRound3Question(round3CurrentQ);
+  } else {
+    // Round 3 complete, show final results
+    document.getElementById('round3-screen').classList.remove('active');
+    showFinalScreen();
+  }
 }
 
-function revealAnswerAsLead() {
-  if (!isLeadPlayer) return;
-  gameRef.update({ revealAnswer: true });
-}
-
-function nextQuestionAsLead() {
-  if (!isLeadPlayer) return;
-  gameRef.child('currentQuestion').once('value', (snapshot) => {
-    const current = snapshot.val() || 0;
-    gameRef.update({ nextQuestion: current + 1 });
+function showFinalScreen() {
+  document.getElementById('game-screen').classList.remove('active');
+  document.getElementById('final-screen').classList.add('active');
+  document.getElementById('round-indicator').textContent = 'Full Time';
+  
+  const finalScoreList = document.getElementById('final-score-list');
+  
+  if (!teamsSelected || !team1 || !team2) {
+    // Individual scores fallback
+    const playerArray = Object.entries(players).map(([id, player]) => ({
+      id,
+      name: player.name,
+      score: player.score || 0
+    }));
+    
+    playerArray.sort((a, b) => b.score - a.score);
+    
+    finalScoreList.innerHTML = playerArray.map((player, index) => {
+      let medal = '';
+      if (index === 0) medal = '🥇';
+      else if (index === 1) medal = '🥈';
+      else if (index === 2) medal = '🥉';
+      
+      return `
+        <div class="score-item">
+          <div class="score-rank">${medal || '#' + (index + 1)}</div>
+          <div class="score-player-name">${player.name}</div>
+          <div class="score-points">${player.score}</div>
+        </div>
+      `;
+    }).join('');
+    return;
+  }
+  
+  // Calculate final team scores
+  let team1Score = 0;
+  let team2Score = 0;
+  const team1Players = [];
+  const team2Players = [];
+  
+  Object.entries(players).forEach(([id, player]) => {
+    if (player.team === 1) {
+      team1Score += (player.score || 0);
+      team1Players.push({ name: player.name, score: player.score || 0 });
+    }
+    if (player.team === 2) {
+      team2Score += (player.score || 0);
+      team2Players.push({ name: player.name, score: player.score || 0 });
+    }
   });
+  
+  const winner = team1Score > team2Score ? team1 : team2Score > team1Score ? team2 : null;
+  const winnerScore = team1Score > team2Score ? team1Score : team2Score;
+  const loser = winner === team1 ? team2 : team1;
+  const loserScore = winner === team1 ? team2Score : team1Score;
+  
+  finalScoreList.innerHTML = `
+    <div style="text-align: center; margin-bottom: 40px;">
+      <div style="font-family: 'Bebas Neue', sans-serif; font-size: 64px; color: var(--motd-gold); margin-bottom: 20px;">
+        ${winner ? winner.flag + ' ' + winner.name + ' Wins!' : 'Draw!'}
+      </div>
+      <div style="font-family: 'Barlow', sans-serif; font-size: 28px; color: var(--text-muted);">
+        ${winner ? winnerScore + ' - ' + loserScore : team1Score + ' - ' + team2Score}
+      </div>
+    </div>
+    
+    <div class="score-item" style="border-left: 4px solid ${winner === team1 ? 'var(--motd-gold)' : 'var(--motd-cyan)'}; background: ${winner === team1 ? 'rgba(255,198,41,0.2)' : 'rgba(77,212,232,0.1)'}; margin-bottom: 15px;">
+      <div class="score-rank">${team1.flag}</div>
+      <div class="score-player-name" style="font-size: 28px;">${team1.name}</div>
+      <div class="score-points" style="font-size: 42px;">${team1Score}</div>
+    </div>
+    
+    <div class="score-item" style="border-left: 4px solid ${winner === team2 ? 'var(--motd-gold)' : 'var(--motd-magenta)'}; background: ${winner === team2 ? 'rgba(255,198,41,0.2)' : 'rgba(212,20,90,0.1)'};">
+      <div class="score-rank">${team2.flag}</div>
+      <div class="score-player-name" style="font-size: 28px;">${team2.name}</div>
+      <div class="score-points" style="font-size: 42px;">${team2Score}</div>
+    </div>
+  `;
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// NOTES
+// ═══════════════════════════════════════════════════════════════════════════
+/*
+  This is a SIMPLIFIED multiplayer version with Round 1 only.
+  
+  For the FULL experience with all audio/video features:
+  - Karaoke bonus round
+  - Commentary video recording
+  - Interview questions
+  
+  Use the single-player version (gaffers-chair.html) instead.
+  
+  Multiplayer works best for the core quiz questions where players
+  answer on their phones and see results live on TV.
+*/
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TESTING FUNCTIONS (REMOVE WHEN FINISHED)
+// ═══════════════════════════════════════════════════════════════════════════
+
+function testSkipQuestion() {
+  if (currentRound === 1) {
+    // Skip to next Round 1 question
+    currentQuestion++;
+    if (currentQuestion < ROUND_1_QUESTIONS.length) {
+      loadQuestion(currentQuestion);
+      answerRevealed = false;
+    } else {
+      startRound3();
+    }
+  } else if (currentRound === 3) {
+    // Skip to next Round 3 question
+    round3CurrentQ++;
+    if (round3CurrentQ < ROUND_3_QUESTIONS.length) {
+      loadRound3Question(round3CurrentQ);
+    } else {
+      showFinalScreen();
+    }
+  }
+}
+
+function testSkipToRound3() {
+  currentRound = 3;
+  round3CurrentQ = -1;
+  startRound3();
+}
+
+function testTriggerSabotage(teamNumber) {
+  if (!teamsSelected) {
+    alert('Teams must be selected first!');
+    return;
+  }
+  activateSabotageForTeam(teamNumber);
+  alert(`Sabotage button activated for Team ${teamNumber}`);
+}
+
+function testResetGame() {
+  if (confirm('Reset entire game? This will clear all data.')) {
+    location.reload();
+  }
+}
+
 </script>
+
+<!-- TESTING CONTROLS (REMOVE WHEN FINISHED) -->
+<div class="testing-controls">
+  <button class="test-btn" onclick="testSkipQuestion()">⏭️ Next Question</button>
+  <button class="test-btn" onclick="testSkipToRound3()">🎤 Skip to Round 3</button>
+  <button class="test-btn" onclick="testTriggerSabotage(1)">💣 Sabotage Team 1</button>
+  <button class="test-btn" onclick="testTriggerSabotage(2)">💣 Sabotage Team 2</button>
+  <button class="test-btn danger" onclick="testResetGame()">🔄 Reset Game</button>
+</div>
 
 </body>
 </html>
