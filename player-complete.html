@@ -453,8 +453,10 @@
   /* LEAD PLAYER CONTROLS */
   .lead-controls {
     display: none;
+    flex-direction: column;
     gap: 10px;
     margin-top: 20px;
+    align-items: center;
   }
   
   .lead-controls.visible {
@@ -496,6 +498,80 @@
     margin-left: 8px;
   }
   
+  /* TEAM SELECTION MOBILE */
+  .team-selection-mobile {
+    display: none;
+    flex-direction: column;
+    padding: 20px;
+    flex: 1;
+    overflow-y: auto;
+  }
+  
+  .team-selection-mobile.active {
+    display: flex;
+  }
+  
+  .team-selection-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 42px;
+    letter-spacing: 3px;
+    color: var(--text);
+    text-align: center;
+    margin-bottom: 10px;
+  }
+  
+  .team-selection-subtitle {
+    font-family: 'Barlow', sans-serif;
+    font-size: 18px;
+    color: var(--motd-gold);
+    text-align: center;
+    margin-bottom: 30px;
+  }
+  
+  .teams-grid-mobile {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  
+  .team-option-mobile {
+    background: var(--motd-navy);
+    border: 3px solid var(--border);
+    padding: 20px;
+    border-radius: 8px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  .team-option-mobile:active {
+    transform: scale(0.95);
+  }
+  
+  .team-option-mobile.selected {
+    border-color: var(--motd-gold);
+    background: rgba(255,198,41,0.2);
+  }
+  
+  .team-option-mobile.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  
+  .team-flag-mobile {
+    font-size: 48px;
+    margin-bottom: 8px;
+  }
+  
+  .team-name-mobile {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
   /* ROUND 3 - VOTING */
   .voting-screen {
     display: none;
@@ -630,9 +706,10 @@
     
     <div class="lead-controls" id="waiting-lead-controls">
       <button class="lead-btn primary" onclick="startGameAsLead()">🎮 Start Game</button>
-      <div style="text-align: center; font-family: 'Barlow', sans-serif; font-size: 14px; color: var(--text-muted); margin-top: 10px; font-style: italic;">
-        Only click when all players are ready
-      </div>
+    </div>
+    
+    <div style="display: none; text-align: center; font-family: 'Barlow', sans-serif; font-size: 14px; color: var(--text-muted); margin-top: 10px; font-style: italic;" id="start-game-note">
+      Only click when all players are ready
     </div>
     
     <div class="spinner" id="waiting-spinner"></div>
@@ -663,6 +740,17 @@
       <button class="lead-btn" id="reveal-lead-btn" onclick="revealAnswerAsLead()">Reveal Answer</button>
       <button class="lead-btn primary" id="next-lead-btn" onclick="nextQuestionAsLead()">Next →</button>
     </div>
+  </div>
+
+  <!-- TEAM SELECTION SCREEN -->
+  <div class="team-selection-mobile" id="team-selection-mobile">
+    <div class="team-selection-title">Choose Your Team</div>
+    <div class="team-selection-subtitle" id="team-selection-subtitle">You're picking first!</div>
+    
+    <div class="teams-grid-mobile" id="teams-grid-mobile"></div>
+    
+    <div class="spinner" id="team-selection-spinner" style="display: none;"></div>
+    <div class="waiting-message" id="team-selection-waiting" style="display: none;">Waiting for other player to choose...</div>
   </div>
 
   <!-- ROUND 3 - VOTING SCREEN -->
@@ -725,6 +813,23 @@ const database = firebase.database();
 // ═══════════════════════════════════════════════════════════════════════════
 // GAME DATA - MUST MATCH HOST EXACTLY
 // ═══════════════════════════════════════════════════════════════════════════
+
+// World Cup Finalists
+const WORLD_CUP_FINALISTS = [
+  { name: "Argentina", flag: "🇦🇷", color: "#75AADB" },
+  { name: "Brazil", flag: "🇧🇷", color: "#009B3A" },
+  { name: "Germany", flag: "🇩🇪", color: "#000000" },
+  { name: "Italy", flag: "🇮🇹", color: "#0066CC" },
+  { name: "France", flag: "🇫🇷", color: "#0055A4" },
+  { name: "England", flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", color: "#C8102E" },
+  { name: "Spain", flag: "🇪🇸", color: "#C60B1E" },
+  { name: "Netherlands", flag: "🇳🇱", color: "#FF4F00" },
+  { name: "Uruguay", flag: "🇺🇾", color: "#0038A8" },
+  { name: "Croatia", flag: "🇭🇷", color: "#FF0000" },
+  { name: "Czechia", flag: "🇨🇿", color: "#D7141A" },
+  { name: "Hungary", flag: "🇭🇺", color: "#436F4D" },
+  { name: "Sweden", flag: "🇸🇪", color: "#006AA7" }
+];
 
 const ROUND_1_QUESTIONS = [
   {
@@ -867,6 +972,7 @@ function listenForGameStart() {
       const leadControls = document.getElementById('waiting-lead-controls');
       leadControls.style.display = 'flex';
       leadControls.style.justifyContent = 'center';
+      document.getElementById('start-game-note').style.display = 'block';
       document.getElementById('waiting-spinner').style.display = 'none';
       console.log('Start button shown for first player');
     }
@@ -908,6 +1014,13 @@ function listenForGameStart() {
     document.getElementById('player-score').textContent = currentScore;
   });
   
+  // Listen for team selection phase
+  gameRef.child('teamSelectionStarted').on('value', (snapshot) => {
+    if (snapshot.val() === true) {
+      showTeamSelectionScreen();
+    }
+  });
+  
   // Store players reference for voting in Round 3
   gameRef.child('players').on('value', (snapshot) => {
     players = snapshot.val() || {};
@@ -918,18 +1031,16 @@ function startGameAsLead() {
   console.log('Start Game button clicked!');
   console.log('Game ref:', gameRef);
   
-  // Trigger host to show team selection
+  // Signal all players to choose teams AND trigger host music screen
   gameRef.update({
+    teamSelectionStarted: true,
     readyToSelectTeams: true
   }).then(() => {
-    console.log('Updated readyToSelectTeams to true');
+    console.log('Team selection started');
+    showTeamSelectionScreen();
   }).catch((error) => {
     console.error('Error updating Firebase:', error);
   });
-  
-  document.getElementById('waiting-message').textContent = 'Waiting for host to select teams...';
-  document.getElementById('waiting-lead-controls').style.display = 'none';
-  document.getElementById('waiting-spinner').style.display = 'block';
 }
 
 function startPlaying() {
@@ -1239,6 +1350,100 @@ function voteForAnswer(targetPlayerId, questionIndex) {
     if (navigator.vibrate) {
       navigator.vibrate(50);
     }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TEAM SELECTION ON MOBILE
+// ═══════════════════════════════════════════════════════════════════════════
+
+function showTeamSelectionScreen() {
+  document.getElementById('waiting-screen').classList.remove('active');
+  document.getElementById('team-selection-mobile').classList.add('active');
+  
+  // Get player order
+  gameRef.child('players').once('value', (snapshot) => {
+    const players = snapshot.val() || {};
+    const playerIds = Object.keys(players);
+    const playerIndex = playerIds.indexOf(playerId);
+    
+    if (playerIndex === 0) {
+      document.getElementById('team-selection-subtitle').textContent = "You're picking first!";
+      populateTeamOptions();
+    } else if (playerIndex === 1) {
+      document.getElementById('team-selection-subtitle').textContent = "You're picking second!";
+      // Wait for player 1 to choose
+      listenForFirstPlayerChoice();
+    } else {
+      document.getElementById('team-selection-subtitle').textContent = "Waiting for teams to be selected...";
+      document.getElementById('team-selection-spinner').style.display = 'block';
+    }
+  });
+  
+  // Listen for when both teams are selected
+  gameRef.child('teamsSelected').on('value', (snapshot) => {
+    if (snapshot.val() === true) {
+      // Teams selected, start game
+      startPlaying();
+    }
+  });
+}
+
+function populateTeamOptions() {
+  const grid = document.getElementById('teams-grid-mobile');
+  grid.innerHTML = WORLD_CUP_FINALISTS.map((country, index) => `
+    <div class="team-option-mobile" id="team-opt-mobile-${index}" onclick="selectTeamMobile(${index})">
+      <div class="team-flag-mobile">${country.flag}</div>
+      <div class="team-name-mobile">${country.name}</div>
+    </div>
+  `).join('');
+}
+
+function selectTeamMobile(index) {
+  const country = WORLD_CUP_FINALISTS[index];
+  
+  // Player 1 selects their team
+  gameRef.child('playerTeamSelections').update({
+    player1: country.name
+  }).then(() => {
+    console.log('Player 1 selected:', country.name);
+    document.getElementById('team-selection-subtitle').textContent = 'Waiting for player 2...';
+    document.getElementById('teams-grid-mobile').style.display = 'none';
+    document.getElementById('team-selection-spinner').style.display = 'block';
+  });
+}
+
+function listenForFirstPlayerChoice() {
+  gameRef.child('playerTeamSelections/player1').on('value', (snapshot) => {
+    if (snapshot.exists()) {
+      const player1Choice = snapshot.val();
+      const team1 = WORLD_CUP_FINALISTS.find(c => c.name === player1Choice);
+      if (team1) {
+        showRemainingTeams(team1);
+      }
+    }
+  });
+}
+
+function showRemainingTeams(team1) {
+  const grid = document.getElementById('teams-grid-mobile');
+  grid.innerHTML = WORLD_CUP_FINALISTS.filter(c => c.name !== team1.name).map((country, index) => `
+    <div class="team-option-mobile" onclick="selectTeam2Mobile(${WORLD_CUP_FINALISTS.indexOf(country)})">
+      <div class="team-flag-mobile">${country.flag}</div>
+      <div class="team-name-mobile">${country.name}</div>
+    </div>
+  `).join('');
+}
+
+function selectTeam2Mobile(index) {
+  const country = WORLD_CUP_FINALISTS[index];
+  
+  // Player 2 selects their team
+  gameRef.child('playerTeamSelections').update({
+    player2: country.name
+  }).then(() => {
+    console.log('Player 2 selected:', country.name);
+    // Teams will be confirmed automatically by host listener
   });
 }
 
