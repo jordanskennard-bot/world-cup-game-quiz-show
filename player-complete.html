@@ -1044,7 +1044,11 @@ function startGameAsLead() {
 }
 
 function startPlaying() {
+  // Hide all other screens
   document.getElementById('waiting-screen').classList.remove('active');
+  document.getElementById('team-selection-mobile').classList.remove('active');
+  
+  // Show game screen
   document.getElementById('game-screen').classList.add('active');
   document.getElementById('player-name-header').textContent = playerName;
   
@@ -1361,6 +1365,13 @@ function showTeamSelectionScreen() {
   document.getElementById('waiting-screen').classList.remove('active');
   document.getElementById('team-selection-mobile').classList.add('active');
   
+  // Play choose teams music
+  const chooseTeamsAudio = new Audio('choose-teams.mp3');
+  chooseTeamsAudio.loop = false;
+  chooseTeamsAudio.volume = 0.6;
+  chooseTeamsAudio.play().catch(err => console.log('Choose teams audio failed:', err));
+  window.chooseTeamsAudio = chooseTeamsAudio;
+  
   // Get player order
   gameRef.child('players').once('value', (snapshot) => {
     const players = snapshot.val() || {};
@@ -1383,6 +1394,14 @@ function showTeamSelectionScreen() {
   // Listen for when both teams are selected
   gameRef.child('teamsSelected').on('value', (snapshot) => {
     if (snapshot.val() === true) {
+      // Stop music
+      if (window.chooseTeamsAudio) {
+        window.chooseTeamsAudio.pause();
+        window.chooseTeamsAudio = null;
+      }
+      
+      // Hide team selection screen
+      document.getElementById('team-selection-mobile').classList.remove('active');
       // Teams selected, start game
       startPlaying();
     }
