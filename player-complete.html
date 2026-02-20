@@ -770,6 +770,7 @@ let round3CurrentQ = -1;
 let myRound3Answers = {};
 let sabotageTimer = null;
 let sabotageTimeLeft = 10;
+let players = {}; // For Round 3 voting
 let isLeadPlayer = false;
 
 // Check if code is in URL
@@ -902,6 +903,11 @@ function listenForGameStart() {
   gameRef.child('players/' + playerId + '/score').on('value', (snapshot) => {
     currentScore = snapshot.val() || 0;
     document.getElementById('player-score').textContent = currentScore;
+  });
+  
+  // Store players reference for voting in Round 3
+  gameRef.child('players').on('value', (snapshot) => {
+    players = snapshot.val() || {};
   });
 }
 
@@ -1232,12 +1238,6 @@ function voteForAnswer(targetPlayerId, questionIndex) {
     }
   });
 }
-
-// Store players reference for voting
-let players = {};
-gameRef.child('players').on('value', (snapshot) => {
-  players = snapshot.val() || {};
-});
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CLEANUP & UTILITIES
