@@ -809,7 +809,7 @@
         <div class="players-grid" id="players-grid"></div>
       </div>
       
-      <button class="start-game-btn" id="select-teams-btn" disabled onclick="showTeamSelection()">
+      <button class="start-game-btn" id="select-teams-btn" disabled onclick="showTeamSelection()" style="display: none;">
         Select Teams & Start
       </button>
     </div>
@@ -1196,6 +1196,16 @@ gameRef.child('players').on('value', (snapshot) => {
   
   updatePlayersList();
   updateScoreboard();
+});
+
+// Listen for player 1 ready signal
+gameRef.child('readyToSelectTeams').on('value', (snapshot) => {
+  if (snapshot.val() === true && !teamsSelected) {
+    // Auto-show team selection when player 1 clicks start
+    showTeamSelection();
+    // Clear the trigger
+    gameRef.child('readyToSelectTeams').remove();
+  }
 });
 
 // Listen for game start from lead player
