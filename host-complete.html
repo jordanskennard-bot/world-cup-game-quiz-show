@@ -1379,6 +1379,59 @@ function updateScoreboard() {
 
 function startGame() {
   gameStarted = true;
+  
+  // Show Round 1 intro screen
+  showRoundIntro();
+}
+
+function showRoundIntro() {
+  // Hide waiting screen if still visible
+  const waitingDiv = document.getElementById('team-select-waiting');
+  if (waitingDiv) waitingDiv.remove();
+  
+  // Create intro screen
+  const introDiv = document.createElement('div');
+  introDiv.id = 'round1-intro';
+  introDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, var(--motd-dark-navy) 0%, var(--motd-navy) 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; animation: fadeIn 0.5s ease;';
+  introDiv.innerHTML = `
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 120px; color: var(--motd-gold); text-shadow: 0 0 60px rgba(255,198,41,0.8); margin-bottom: 30px; letter-spacing: 8px; animation: zoomIn 0.8s ease;">
+      ROUND 1
+    </div>
+    <div style="font-family: 'Barlow Condensed', sans-serif; font-size: 48px; color: var(--text); margin-bottom: 20px; letter-spacing: 4px; font-weight: 600; text-transform: uppercase;">
+      National Anthems
+    </div>
+    <div style="font-family: 'Barlow', sans-serif; font-size: 24px; color: var(--text-muted); max-width: 600px; text-align: center; line-height: 1.6;">
+      Test your knowledge of World Cup anthems and songs
+    </div>
+  `;
+  
+  document.body.appendChild(introDiv);
+  
+  // Add animations
+  const style = document.createElement('style');
+  style.textContent = `
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    @keyframes zoomIn {
+      from { transform: scale(0.5); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+  `;
+  document.head.appendChild(style);
+  
+  // Remove intro after 4 seconds and start game
+  setTimeout(() => {
+    introDiv.style.animation = 'fadeOut 0.5s ease';
+    setTimeout(() => {
+      introDiv.remove();
+      startGamePlay();
+    }, 500);
+  }, 4000);
+}
+
+function startGamePlay() {
   document.getElementById('lobby-screen').classList.add('hidden');
   document.getElementById('game-screen').classList.add('active');
   document.getElementById('round-indicator').textContent = 'Round 1';
