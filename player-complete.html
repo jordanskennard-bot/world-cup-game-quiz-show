@@ -1399,9 +1399,18 @@ function showTeamSelectionScreen() {
         window.chooseTeamsAudio = null;
       }
       
-      // Hide team selection screen
+      // Hide team selection screen and show waiting
       document.getElementById('team-selection-mobile').classList.remove('active');
-      // Teams selected, start game
+      document.getElementById('waiting-screen').classList.add('active');
+      document.getElementById('waiting-message').textContent = 'Get ready! Round 1 starting soon...';
+      document.getElementById('waiting-spinner').style.display = 'block';
+    }
+  });
+  
+  // Listen for game actually starting (after intro on host)
+  gameRef.child('started').on('value', (snapshot) => {
+    if (snapshot.val() === true) {
+      document.getElementById('waiting-screen').classList.remove('active');
       startPlaying();
     }
   });
