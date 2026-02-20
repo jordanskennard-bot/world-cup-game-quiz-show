@@ -1154,7 +1154,25 @@ function showTeamSelection() {
   const audio = new Audio('intro_music.mp3');
   audio.loop = true;
   audio.volume = 0.5;
-  audio.play().catch(err => console.log('Audio play failed:', err));
+  
+  console.log('Attempting to play intro_music.mp3...');
+  
+  audio.addEventListener('canplay', () => {
+    console.log('Intro music loaded successfully');
+  });
+  
+  audio.addEventListener('error', (e) => {
+    console.error('Intro music failed to load:', e);
+    console.error('Error code:', audio.error?.code);
+    console.error('Error message:', audio.error?.message);
+  });
+  
+  audio.play()
+    .then(() => console.log('Intro music playing'))
+    .catch(err => {
+      console.error('Audio play failed:', err);
+      alert('Audio failed to play. Make sure intro_music.mp3 is uploaded to GitHub in the same folder as host-complete.html');
+    });
   
   // Store audio reference to stop later
   window.teamSelectionAudio = audio;
@@ -1544,7 +1562,15 @@ function loadQuestion(index) {
   
   // Play question audio
   const questionAudio = new Audio(`question${index + 1}.mp3`);
-  questionAudio.play().catch(err => console.log('Question audio failed:', err));
+  console.log(`Attempting to play question${index + 1}.mp3...`);
+  
+  questionAudio.addEventListener('error', (e) => {
+    console.error(`Question ${index + 1} audio failed to load:`, questionAudio.error);
+  });
+  
+  questionAudio.play()
+    .then(() => console.log(`Question ${index + 1} audio playing`))
+    .catch(err => console.error('Question audio play failed:', err));
   
   // Store reference to stop if needed
   window.currentQuestionAudio = questionAudio;
@@ -1596,7 +1622,15 @@ function revealAnswer() {
   
   // Play answer audio
   const answerAudio = new Audio(`answer${currentQuestion + 1}.mp3`);
-  answerAudio.play().catch(err => console.log('Answer audio failed:', err));
+  console.log(`Attempting to play answer${currentQuestion + 1}.mp3...`);
+  
+  answerAudio.addEventListener('error', (e) => {
+    console.error(`Answer ${currentQuestion + 1} audio failed to load:`, answerAudio.error);
+  });
+  
+  answerAudio.play()
+    .then(() => console.log(`Answer ${currentQuestion + 1} audio playing`))
+    .catch(err => console.error('Answer audio play failed:', err));
   
   // Auto-advance to next question when audio ends
   answerAudio.addEventListener('ended', () => {
