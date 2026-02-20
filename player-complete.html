@@ -630,6 +630,9 @@
     
     <div class="lead-controls" id="waiting-lead-controls">
       <button class="lead-btn primary" onclick="startGameAsLead()">🎮 Start Game</button>
+      <div style="text-align: center; font-family: 'Barlow', sans-serif; font-size: 14px; color: var(--text-muted); margin-top: 10px; font-style: italic;">
+        Only click when all players are ready
+      </div>
     </div>
     
     <div class="spinner" id="waiting-spinner"></div>
@@ -1313,11 +1316,6 @@ document.getElementById('code-input').addEventListener('input', (e) => {
 // ═══════════════════════════════════════════════════════════════════════════
 // LEAD PLAYER CONTROLS
 // ═══════════════════════════════════════════════════════════════════════════
-
-function startGameAsLead() {
-  if (!isLeadPlayer) return;
-  gameRef.update({ started: true, currentQuestion: 0 });
-}
 
 function revealAnswerAsLead() {
   if (!isLeadPlayer) return;
