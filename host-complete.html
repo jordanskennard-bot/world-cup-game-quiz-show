@@ -1131,15 +1131,45 @@ function updateSelectedTeamsDisplay() {
 }
 
 function showTeamSelection() {
-  // Hide lobby, show team selection
+  // Hide lobby, show "waiting for team selection" message
   document.getElementById('lobby-screen').classList.add('hidden');
-  document.getElementById('team-selection-screen').classList.remove('hidden');
+  
+  // Show simple waiting screen
+  const waitingDiv = document.createElement('div');
+  waitingDiv.id = 'team-select-waiting';
+  waitingDiv.style.cssText = 'display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; text-align: center;';
+  waitingDiv.innerHTML = `
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 72px; color: var(--text); text-shadow: 0 0 40px rgba(212,20,90,0.8); margin-bottom: 20px; letter-spacing: 5px;">
+      Selecting Teams...
+    </div>
+    <div style="font-family: 'Barlow', sans-serif; font-size: 24px; color: var(--text-muted);">
+      Players are choosing their countries
+    </div>
+    <div class="spinner" style="margin-top: 40px;"></div>
+  `;
+  
+  document.querySelector('.container').appendChild(waitingDiv);
+  
+  // Play intro music
+  const audio = new Audio('intro-music.mp3');
+  audio.loop = true;
+  audio.volume = 0.5;
+  audio.play().catch(err => console.log('Audio play failed:', err));
+  
+  // Store audio reference to stop later
+  window.teamSelectionAudio = audio;
 }
 
 function confirmTeams() {
   if (!team1 || !team2) return;
   
   teamsSelected = true;
+  
+  // Stop music
+  if (window.teamSelectionAudio) {
+    window.teamSelectionAudio.pause();
+    window.teamSelectionAudio = null;
+  }
   
   // Save teams to Firebase
   gameRef.update({
@@ -1148,8 +1178,11 @@ function confirmTeams() {
     teamsSelected: true
   });
   
-  // Hide team selection, start game directly
-  document.getElementById('team-selection-screen').classList.add('hidden');
+  // Hide waiting screen
+  const waitingDiv = document.getElementById('team-select-waiting');
+  if (waitingDiv) waitingDiv.remove();
+  
+  // Start game
   startGame();
 }
 
@@ -1200,11 +1233,31 @@ gameRef.child('players').on('value', (snapshot) => {
 
 // Listen for player 1 ready signal
 gameRef.child('readyToSelectTeams').on('value', (snapshot) => {
+  console.log('readyToSelectTeams changed:', snapshot.val());
+  console.log('teamsSelected:', teamsSelected);
+  
   if (snapshot.val() === true && !teamsSelected) {
+    console.log('Auto-showing team selection!');
     // Auto-show team selection when player 1 clicks start
     showTeamSelection();
     // Clear the trigger
     gameRef.child('readyToSelectTeams').remove();
+  }
+});
+
+// Listen for player team selections
+gameRef.child('playerTeamSelections').on('value', (snapshot) => {
+  const selections = snapshot.val();
+  if (selections && selections.player1 && selections.player2) {
+    // Both players selected - get the country data
+    const team1Country = WORLD_CUP_FINALISTS.find(c => c.name === selections.player1);
+    const team2Country = WORLD_CUP_FINALISTS.find(c => c.name === selections.player2);
+    
+    if (team1Country && team2Country) {
+      team1 = team1Country;
+      team2 = team2Country;
+      confirmTeams();
+    }
   }
 });
 
@@ -1435,6 +1488,13 @@ function loadQuestion(index) {
   
   gameRef.update({ currentQuestion: index });
   gameRef.child('answers/' + index).remove();
+  
+  // Play question audio
+  const questionAudio = new Audio(`question${index + 1}.mp3`);
+  questionAudio.play().catch(err => console.log('Question audio failed:', err));
+  
+  // Store reference to stop if needed
+  window.currentQuestionAudio = questionAudio;
 }
 
 function updateAnswerCounts(answers) {
@@ -1455,6 +1515,12 @@ function revealAnswer() {
   answerRevealed = true;
   const q = ROUND_1_QUESTIONS[currentQuestion];
   
+  // Stop question audio if still playing
+  if (window.currentQuestionAudio) {
+    window.currentQuestionAudio.pause();
+    window.currentQuestionAudio = null;
+  }
+  
   for (let i = 0; i < q.answers.length; i++) {
     const el = document.getElementById('answer-' + i);
     if (i === q.correct) {
@@ -1474,6 +1540,25 @@ function revealAnswer() {
       }
     });
   });
+  
+  // Play answer audio
+  const answerAudio = new Audio(`answer${currentQuestion + 1}.mp3`);
+  answerAudio.play().catch(err => console.log('Answer audio failed:', err));
+  
+  // Auto-advance to next question when audio ends
+  answerAudio.addEventListener('ended', () => {
+    setTimeout(() => {
+      nextQuestion();
+    }, 1500); // 1.5 second pause after audio before next question
+  });
+  
+  // Fallback in case audio doesn't play or load
+  setTimeout(() => {
+    if (!answerAudio.ended && answerAudio.paused) {
+      console.log('Audio not playing, auto-advancing anyway');
+      nextQuestion();
+    }
+  }, 8000); // 8 second max wait
 }
 
 function nextQuestion() {
