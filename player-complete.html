@@ -821,6 +821,7 @@ const WORLD_CUP_FINALISTS = [
   { name: "Germany", flag: "🇩🇪", color: "#000000" },
   { name: "Italy", flag: "🇮🇹", color: "#0066CC" },
   { name: "France", flag: "🇫🇷", color: "#0055A4" },
+  { name: "Vatican City", flag: "🇻🇦", color: "#FFE000" },
   { name: "England", flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", color: "#C8102E" },
   { name: "Spain", flag: "🇪🇸", color: "#C60B1E" },
   { name: "Netherlands", flag: "🇳🇱", color: "#FF4F00" },
@@ -887,8 +888,137 @@ if (urlParams.has('code')) {
   document.getElementById('code-input').value = urlParams.get('code');
 }
 
+// Check if this is spectator mode
+const isSpectator = urlParams.has('spectator') || urlParams.has('audience');
+let spectatorId = null;
+
+if (isSpectator && urlParams.has('code')) {
+  // Auto-join as spectator
+  gameCode = urlParams.get('code').toUpperCase();
+  spectatorId = 'spectator_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+  
+  // Hide join screen, show spectator waiting
+  document.getElementById('join-screen').classList.add('hidden');
+  document.getElementById('waiting-screen').classList.add('active');
+  document.getElementById('waiting-name').textContent = 'Spectator';
+  document.getElementById('waiting-code').textContent = gameCode;
+  document.getElementById('waiting-message').textContent = 'Watching as audience member...';
+  
+  gameRef = database.ref('games/' + gameCode);
+  joinAsSpectator();
+}
+
 // Auto-focus code input
 document.getElementById('code-input').focus();
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SPECTATOR MODE
+// ═══════════════════════════════════════════════════════════════════════════
+
+function joinAsSpectator() {
+  // Track spectator in Firebase (separate from players)
+  gameRef.child('spectators/' + spectatorId).set({
+    joinedAt: Date.now()
+  });
+  
+  // Listen for game start
+  gameRef.child('started').on('value', (snapshot) => {
+    if (snapshot.val() === true) {
+      startSpectating();
+    }
+  });
+}
+
+function startSpectating() {
+  document.getElementById('waiting-screen').classList.remove('active');
+  document.getElementById('game-screen').classList.add('active');
+  document.getElementById('player-name-header').textContent = 'Audience';
+  
+  // Show spectator badge
+  const badge = document.getElementById('player-team-badge');
+  badge.textContent = '👁️ Spectator';
+  badge.style.display = 'block';
+  badge.style.background = 'rgba(77,212,232,0.2)';
+  badge.style.borderColor = 'var(--motd-cyan)';
+  
+  // Listen for questions
+  gameRef.child('currentQuestion').on('value', (snapshot) => {
+    if (currentRound === 1) {
+      const questionIndex = snapshot.val();
+      if (questionIndex !== null && questionIndex !== currentQuestionIndex) {
+        loadQuestionForSpectator(questionIndex);
+      }
+    }
+  });
+  
+  // Listen for answer reveals
+  gameRef.child('answers').on('value', () => {
+    // Spectators don't see reveal, they just vote
+  });
+  
+  // Track spectator votes separately
+  currentScore = 0;
+  document.getElementById('player-score').textContent = currentScore;
+}
+
+function loadQuestionForSpectator(index) {
+  currentQuestionIndex = index;
+  const q = ROUND_1_QUESTIONS[index];
+  
+  document.getElementById('question-text').textContent = q.question;
+  document.getElementById('status-message').classList.add('hidden');
+  
+  const optionsContainer = document.getElementById('answer-options');
+  const letters = ['A', 'B', 'C', 'D'];
+  
+  optionsContainer.innerHTML = q.answers.map((answer, i) => `
+    <button class="answer-btn" id="answer-${i}" onclick="spectatorVote(${i})">
+      <div class="answer-btn-letter">${letters[i]}</div>
+      <div class="answer-btn-text">${answer}</div>
+    </button>
+  `).join('');
+}
+
+function spectatorVote(answerIndex) {
+  // Check if already voted
+  gameRef.child('spectatorVotes/' + currentQuestionIndex + '/' + spectatorId).once('value', (snapshot) => {
+    if (snapshot.exists()) {
+      return; // Already voted
+    }
+    
+    const q = ROUND_1_QUESTIONS[currentQuestionIndex];
+    
+    // Record vote
+    gameRef.child('spectatorVotes/' + currentQuestionIndex + '/' + spectatorId).set({
+      answerIndex: answerIndex,
+      timestamp: Date.now(),
+      correct: answerIndex === q.correct
+    });
+    
+    // Award point if correct
+    if (answerIndex === q.correct) {
+      currentScore++;
+      document.getElementById('player-score').textContent = currentScore;
+    }
+    
+    // Disable all buttons and highlight selection
+    document.querySelectorAll('.answer-btn').forEach(btn => {
+      btn.classList.add('disabled');
+      btn.onclick = null;
+    });
+    document.getElementById('answer-' + answerIndex).classList.add('selected');
+    
+    // Show status
+    document.getElementById('status-icon').textContent = '✓';
+    document.getElementById('status-text').textContent = 'Vote recorded!';
+    document.getElementById('status-message').classList.remove('hidden');
+    
+    // Vibrate
+    if (navigator.vibrate) {
+      navigator.vibrate(50);
+    }
+  });
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // JOIN GAME
