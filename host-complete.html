@@ -827,6 +827,18 @@
         <div class="score-list" id="score-list"></div>
       </div>
       
+      <div class="scoreboard" id="spectator-stats" style="margin-top: 20px; display: none;">
+        <div class="scoreboard-title" style="font-size: 18px; color: var(--motd-cyan);">
+          👁️ Audience Stats
+        </div>
+        <div id="spectator-count" style="font-family: 'Barlow', sans-serif; font-size: 14px; color: var(--text-muted); margin-top: 10px;">
+          0 watching
+        </div>
+        <div id="spectator-votes" style="font-family: 'Barlow', sans-serif; font-size: 14px; color: var(--text-muted); margin-top: 5px;">
+          0 votes this question
+        </div>
+      </div>
+      
       <div class="host-controls hidden">
         <!-- No buttons needed - first player controls the game -->
       </div>
@@ -971,6 +983,7 @@ const WORLD_CUP_FINALISTS = [
   { name: "Germany", flag: "🇩🇪", color: "#000000" },
   { name: "Italy", flag: "🇮🇹", color: "#0066CC" },
   { name: "France", flag: "🇫🇷", color: "#0055A4" },
+  { name: "Vatican City", flag: "🇻🇦", color: "#FFE000" },
   { name: "England", flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", color: "#C8102E" },
   { name: "Spain", flag: "🇪🇸", color: "#C60B1E" },
   { name: "Netherlands", flag: "🇳🇱", color: "#FF4F00" },
@@ -1249,6 +1262,37 @@ gameRef.child('players').on('value', (snapshot) => {
   updateScoreboard();
 });
 
+// Listen for spectators
+gameRef.child('spectators').on('value', (snapshot) => {
+  const spectators = snapshot.val() || {};
+  const spectatorCount = Object.keys(spectators).length;
+  
+  const spectatorCountEl = document.getElementById('spectator-count');
+  if (spectatorCountEl) {
+    spectatorCountEl.textContent = `${spectatorCount} watching`;
+  }
+  
+  // Show spectator stats panel if there are spectators
+  const spectatorStats = document.getElementById('spectator-stats');
+  if (spectatorStats) {
+    spectatorStats.style.display = spectatorCount > 0 ? 'block' : 'none';
+  }
+});
+
+// Listen for spectator votes
+gameRef.child('spectatorVotes').on('value', (snapshot) => {
+  if (!snapshot.exists() || currentQuestion === undefined) return;
+  
+  const allVotes = snapshot.val() || {};
+  const currentQuestionVotes = allVotes[currentQuestion] || {};
+  const voteCount = Object.keys(currentQuestionVotes).length;
+  
+  const spectatorVotesEl = document.getElementById('spectator-votes');
+  if (spectatorVotesEl) {
+    spectatorVotesEl.textContent = `${voteCount} votes this question`;
+  }
+});
+
 // Listen for player 1 ready signal
 gameRef.child('readyToSelectTeams').on('value', (snapshot) => {
   console.log('readyToSelectTeams changed:', snapshot.val());
@@ -1419,7 +1463,10 @@ function showRoundIntro() {
       National Anthems
     </div>
     <div style="font-family: 'Barlow', sans-serif; font-size: 24px; color: var(--text-muted); max-width: 600px; text-align: center; line-height: 1.6;">
-      Test your knowledge of World Cup anthems and songs
+      ${team1.flag} ${team1.name} vs ${team2.flag} ${team2.name}
+    </div>
+    <div id="intro-status" style="font-family: 'Barlow', sans-serif; font-size: 16px; color: var(--motd-cyan); margin-top: 20px;">
+      Generating intro...
     </div>
   `;
   
@@ -1439,14 +1486,94 @@ function showRoundIntro() {
   `;
   document.head.appendChild(style);
   
-  // Remove intro after 4 seconds and start game
-  setTimeout(() => {
-    introDiv.style.animation = 'fadeOut 0.5s ease';
+  // Generate and play dynamic intro voice
+  generateIntroVoice(team1.name, team2.name, introDiv);
+}
+
+async function generateIntroVoice(team1Name, team2Name, introDiv) {
+  const text = `Aye... it's looking like an interesting game. We've got ${team1Name} up against ${team2Name}.`;
+  
+  console.log('🎙️ Generating intro voice:', text);
+  
+  // Your ElevenLabs API credentials
+  const ELEVENLABS_API_KEY = 'sk_eb4900ceb7e4366087590c2b906743504ba8c844524ddcc4';
+  const VOICE_ID = 'csXxiUN2BUFflsCaDxPM';
+  
+  try {
+    document.getElementById('intro-status').textContent = 'Generating voice...';
+    
+    const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`, {
+      method: 'POST',
+      headers: {
+        'Accept': 'audio/mpeg',
+        'Content-Type': 'application/json',
+        'xi-api-key': ELEVENLABS_API_KEY
+      },
+      body: JSON.stringify({
+        text: text,
+        model_id: 'eleven_monolingual_v1',
+        voice_settings: {
+          stability: 0.5,
+          similarity_boost: 0.75,
+          style: 0.0,
+          use_speaker_boost: true
+        }
+      })
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`ElevenLabs API error: ${response.status} - ${errorText}`);
+    }
+    
+    console.log('✅ Voice generated successfully');
+    document.getElementById('intro-status').textContent = 'Voice ready, playing...';
+    
+    const audioBlob = await response.blob();
+    const audioUrl = URL.createObjectURL(audioBlob);
+    const audio = new Audio(audioUrl);
+    
+    // Play the generated voice
+    await audio.play();
+    console.log('🔊 Playing intro voice');
+    
+    // Wait for audio to finish
+    audio.addEventListener('ended', () => {
+      console.log('✅ Intro voice finished');
+      setTimeout(() => {
+        introDiv.style.animation = 'fadeOut 0.5s ease';
+        setTimeout(() => {
+          introDiv.remove();
+          startGamePlay();
+        }, 500);
+      }, 1000);
+    });
+    
+    // Fallback if audio doesn't play
     setTimeout(() => {
-      introDiv.remove();
-      startGamePlay();
-    }, 500);
-  }, 4000);
+      if (audio.paused) {
+        console.log('⚠️ Audio not playing, starting game anyway');
+        introDiv.style.animation = 'fadeOut 0.5s ease';
+        setTimeout(() => {
+          introDiv.remove();
+          startGamePlay();
+        }, 500);
+      }
+    }, 15000); // 15 second max wait
+    
+  } catch (error) {
+    console.error('❌ ElevenLabs error:', error);
+    document.getElementById('intro-status').textContent = 'Voice generation failed, starting game...';
+    
+    // Fallback: start game after 3 seconds if voice fails
+    setTimeout(() => {
+      introDiv.style.animation = 'fadeOut 0.5s ease';
+      setTimeout(() => {
+        introDiv.remove();
+        startGamePlay();
+      }, 500);
+    }, 3000);
+  }
 }
 
 function startGamePlay() {
