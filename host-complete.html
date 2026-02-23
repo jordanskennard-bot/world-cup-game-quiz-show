@@ -1148,6 +1148,22 @@ function showTeamSelection() {
   // Hide lobby, show "waiting for team selection" message
   document.getElementById('lobby-screen').classList.add('hidden');
   
+  // Stop intro_music if playing
+  if (window.introMusicAudio) {
+    window.introMusicAudio.pause();
+    window.introMusicAudio = null;
+  }
+  
+  // Play choose_teams music on host
+  console.log('🎵 Playing choose_teams.mp3 on host');
+  const chooseTeamsAudio = new Audio('choose_teams.mp3');
+  chooseTeamsAudio.loop = false;
+  chooseTeamsAudio.volume = 0.6;
+  chooseTeamsAudio.play()
+    .then(() => console.log('🔊 Playing choose_teams music'))
+    .catch(err => console.error('choose_teams play failed:', err));
+  window.chooseTeamsAudio = chooseTeamsAudio;
+  
   // Show simple waiting screen
   const waitingDiv = document.createElement('div');
   waitingDiv.id = 'team-select-waiting';
@@ -1174,6 +1190,12 @@ function confirmTeams() {
   if (window.introMusicAudio) {
     window.introMusicAudio.pause();
     window.introMusicAudio = null;
+  }
+  
+  // Stop choose_teams music if playing
+  if (window.chooseTeamsAudio) {
+    window.chooseTeamsAudio.pause();
+    window.chooseTeamsAudio = null;
   }
   
   // Save teams to Firebase
