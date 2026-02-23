@@ -5,7 +5,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Quiz Player - Mobile</title>
-<!-- VERSION: 5.1 - Removed all audio from player (host only now) -->
+<!-- VERSION: 6.0 - Home/Away text + simultaneous selection -->
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:ital,wght@0,400;0,600;0,700;1,400&family=Barlow:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
 
 <!-- 
@@ -1525,13 +1525,15 @@ function showTeamSelectionScreen() {
     const playerIndex = playerIds.indexOf(playerId);
     
     if (playerIndex === 0) {
-      document.getElementById('team-selection-subtitle').textContent = "You're picking first!";
-      populateTeamOptions();
+      // Player 1 selects Team 1
+      document.getElementById('team-selection-subtitle').textContent = "You'll be playing at home!";
+      populateTeamOptions('team1');
     } else if (playerIndex === 1) {
-      document.getElementById('team-selection-subtitle').textContent = "You're picking second!";
-      // Wait for player 1 to choose
-      listenForFirstPlayerChoice();
+      // Player 2 selects Team 2 (can select at same time as Player 1)
+      document.getElementById('team-selection-subtitle').textContent = "You'll be playing away!";
+      populateTeamOptions('team2');
     } else {
+      // Players 3+ just wait
       document.getElementById('team-selection-subtitle').textContent = "Waiting for teams to be selected...";
       document.getElementById('team-selection-spinner').style.display = 'block';
     }
@@ -1557,61 +1559,57 @@ function showTeamSelectionScreen() {
   });
 }
 
-function populateTeamOptions() {
+function populateTeamOptions(teamSlot) {
+  // teamSlot is either 'team1' or 'team2'
   const grid = document.getElementById('teams-grid-mobile');
-  grid.innerHTML = WORLD_CUP_FINALISTS.map((country, index) => `
-    <div class="team-option-mobile" id="team-opt-mobile-${index}" onclick="selectTeamMobile(${index})">
-      <div class="team-flag-mobile">${country.flag}</div>
-      <div class="team-name-mobile">${country.name}</div>
-    </div>
-  `).join('');
-}
-
-function selectTeamMobile(index) {
-  const country = WORLD_CUP_FINALISTS[index];
   
-  // Player 1 selects their team
-  gameRef.child('playerTeamSelections').update({
-    player1: country.name
-  }).then(() => {
-    console.log('Player 1 selected:', country.name);
-    document.getElementById('team-selection-subtitle').textContent = 'Waiting for player 2...';
-    document.getElementById('teams-grid-mobile').style.display = 'none';
-    document.getElementById('team-selection-spinner').style.display = 'block';
-  });
-}
-
-function listenForFirstPlayerChoice() {
-  gameRef.child('playerTeamSelections/player1').on('value', (snapshot) => {
-    if (snapshot.exists()) {
-      const player1Choice = snapshot.val();
-      const team1 = WORLD_CUP_FINALISTS.find(c => c.name === player1Choice);
-      if (team1) {
-        showRemainingTeams(team1);
+  // Listen for the other player's selection to filter it out
+  const otherSlot = teamSlot === 'team1' ? 'team2' : 'team1';
+  
+  gameRef.child(`playerTeamSelections/${otherSlot}`).on('value', (snapshot) => {
+    const otherTeamName = snapshot.val();
+    
+    // Show all teams except the one the other player selected
+    grid.innerHTML = WORLD_CUP_FINALISTS
+      .filter(c => !otherTeamName || c.name !== otherTeamName)
+      .map((country, index) => `
+        <div class="team-option-mobile" id="team-opt-mobile-${index}" onclick="selectTeamMobile(${WORLD_CUP_FINALISTS.indexOf(country)}, '${teamSlot}')">
+          <div class="team-flag-mobile">${country.flag}</div>
+          <div class="team-name-mobile">${country.name}</div>
+        </div>
+      `).join('');
+    
+    // If other player already selected, show message
+    if (otherTeamName) {
+      if (teamSlot === 'team1') {
+        document.getElementById('team-selection-subtitle').textContent = "You'll be playing at home! (Away team chosen)";
+      } else {
+        document.getElementById('team-selection-subtitle').textContent = "You'll be playing away! (Home team chosen)";
       }
     }
   });
 }
 
-function showRemainingTeams(team1) {
-  const grid = document.getElementById('teams-grid-mobile');
-  grid.innerHTML = WORLD_CUP_FINALISTS.filter(c => c.name !== team1.name).map((country, index) => `
-    <div class="team-option-mobile" onclick="selectTeam2Mobile(${WORLD_CUP_FINALISTS.indexOf(country)})">
-      <div class="team-flag-mobile">${country.flag}</div>
-      <div class="team-name-mobile">${country.name}</div>
-    </div>
-  `).join('');
-}
-
-function selectTeam2Mobile(index) {
+function selectTeamMobile(index, teamSlot) {
   const country = WORLD_CUP_FINALISTS[index];
   
-  // Player 2 selects their team
-  gameRef.child('playerTeamSelections').update({
-    player2: country.name
-  }).then(() => {
-    console.log('Player 2 selected:', country.name);
-    // Teams will be confirmed automatically by host listener
+  // Check if this team was already selected by other player
+  const otherSlot = teamSlot === 'team1' ? 'team2' : 'team1';
+  gameRef.child(`playerTeamSelections/${otherSlot}`).once('value', (snapshot) => {
+    if (snapshot.val() === country.name) {
+      alert('This team was just selected by the other player! Pick another.');
+      return;
+    }
+    
+    // Save selection
+    gameRef.child('playerTeamSelections').update({
+      [teamSlot]: country.name
+    }).then(() => {
+      console.log(`${teamSlot} selected:`, country.name);
+      document.getElementById('team-selection-subtitle').textContent = 'Waiting for other player...';
+      document.getElementById('teams-grid-mobile').style.display = 'none';
+      document.getElementById('team-selection-spinner').style.display = 'block';
+    });
   });
 }
 
