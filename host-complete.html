@@ -1163,33 +1163,6 @@ function showTeamSelection() {
   `;
   
   document.querySelector('.container').appendChild(waitingDiv);
-  
-  // Play intro music
-  const audio = new Audio('intro_music.mp3');
-  audio.loop = true;
-  audio.volume = 0.5;
-  
-  console.log('Attempting to play intro_music.mp3...');
-  
-  audio.addEventListener('canplay', () => {
-    console.log('Intro music loaded successfully');
-  });
-  
-  audio.addEventListener('error', (e) => {
-    console.error('Intro music failed to load:', e);
-    console.error('Error code:', audio.error?.code);
-    console.error('Error message:', audio.error?.message);
-  });
-  
-  audio.play()
-    .then(() => console.log('Intro music playing'))
-    .catch(err => {
-      console.error('Audio play failed:', err);
-      alert('Audio failed to play. Make sure intro_music.mp3 is uploaded to GitHub in the same folder as host-complete.html');
-    });
-  
-  // Store audio reference to stop later
-  window.teamSelectionAudio = audio;
 }
 
 function confirmTeams() {
@@ -1197,10 +1170,10 @@ function confirmTeams() {
   
   teamsSelected = true;
   
-  // Stop music
-  if (window.teamSelectionAudio) {
-    window.teamSelectionAudio.pause();
-    window.teamSelectionAudio = null;
+  // Stop intro_music if playing
+  if (window.introMusicAudio) {
+    window.introMusicAudio.pause();
+    window.introMusicAudio = null;
   }
   
   // Save teams to Firebase
@@ -1214,8 +1187,8 @@ function confirmTeams() {
   const waitingDiv = document.getElementById('team-select-waiting');
   if (waitingDiv) waitingDiv.remove();
   
-  // Start game
-  startGame();
+  // Play intro_2 audio first, then dynamic voice
+  playIntro2Audio();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1238,8 +1211,21 @@ gameRef.set({
 gameRef.child('players').on('value', (snapshot) => {
   players = snapshot.val() || {};
   
-  // Enable select teams button if at least 2 players
+  // Play intro_music when first player connects
   const playerCount = Object.keys(players).length;
+  if (playerCount === 1 && !window.introMusicPlayed) {
+    console.log('🎵 First player connected, playing intro_music.mp3');
+    const introMusic = new Audio('intro_music.mp3');
+    introMusic.loop = true;
+    introMusic.volume = 0.5;
+    introMusic.play()
+      .then(() => console.log('🔊 Playing intro_music'))
+      .catch(err => console.error('intro_music play failed:', err));
+    window.introMusicPlayed = true;
+    window.introMusicAudio = introMusic;
+  }
+  
+  // Enable select teams button if at least 2 players
   const selectTeamsBtn = document.getElementById('select-teams-btn');
   if (selectTeamsBtn) {
     selectTeamsBtn.disabled = playerCount < 2;
@@ -1324,10 +1310,11 @@ gameRef.child('playerTeamSelections').on('value', (snapshot) => {
   }
 });
 
-// Listen for game start from lead player
+// Listen for game start from lead player (legacy - now handled by confirmTeams)
 gameRef.child('started').on('value', (snapshot) => {
   if (snapshot.val() === true && !gameStarted) {
-    startGame();
+    gameStarted = true;
+    // Game start now handled by confirmTeams → generateIntroVoiceDirectly
   }
 });
 
@@ -1453,54 +1440,8 @@ function updateScoreboard() {
 // GAME FLOW
 // ═══════════════════════════════════════════════════════════════════════════
 
-function startGame() {
-  gameStarted = true;
-  
-  // Show Round 1 intro screen
-  showRoundIntro();
-}
-
-function showRoundIntro() {
-  // Hide waiting screen if still visible
-  const waitingDiv = document.getElementById('team-select-waiting');
-  if (waitingDiv) waitingDiv.remove();
-  
-  // Play intro_2.mp3 first
-  playIntro2Audio();
-}
-
-function playIntro2Audio() {
-  console.log('🎵 Playing intro_2.mp3');
-  
-  const intro2Audio = new Audio('intro_2.mp3');
-  intro2Audio.volume = 0.6;
-  
-  intro2Audio.addEventListener('canplay', () => {
-    console.log('✅ intro_2.mp3 loaded');
-  });
-  
-  intro2Audio.addEventListener('error', (e) => {
-    console.error('❌ intro_2.mp3 failed to load:', intro2Audio.error);
-    // Skip to dynamic voice if intro_2 fails
-    generateIntroVoiceDirectly();
-  });
-  
-  intro2Audio.play()
-    .then(() => console.log('🔊 Playing intro_2'))
-    .catch(err => {
-      console.error('intro_2 play failed:', err);
-      generateIntroVoiceDirectly();
-    });
-  
-  // When intro_2 finishes, play dynamic voice (no screen in between)
-  intro2Audio.addEventListener('ended', () => {
-    console.log('✅ intro_2 finished, generating dynamic voice');
-    generateIntroVoiceDirectly();
-  });
-}
-
 async function generateIntroVoiceDirectly() {
-  const text = `Aye... it's looking like an interesting game. We've got ${team1.name} up against ${team2.name}.`;
+  const text = `That's right John... it's looking like an interesting game. We've got ${team1.name} up against ${team2.name}! Certainly one to watch! (given you're already here).`;
   
   console.log('🎙️ Generating intro voice:', text);
   
@@ -1582,7 +1523,7 @@ function showRound1Explainer() {
     
     <div style="max-width: 800px; text-align: center; margin-bottom: 50px;">
       <p style="font-family: 'Barlow', sans-serif; font-size: 28px; color: var(--text); line-height: 1.6; margin-bottom: 20px;">
-        Read the lyrics and guess which national anthem or World Cup song they're from.
+        We give you the lyrics, you give us the country
       </p>
       <p style="font-family: 'Barlow', sans-serif; font-size: 24px; color: var(--text-muted); line-height: 1.6;">
         Answer correctly to score points for your team!
@@ -1599,17 +1540,25 @@ function showRound1Explainer() {
   document.body.appendChild(explainerDiv);
   
   // Play round_1_intro audio
-  console.log('🎵 Playing round_1_intro.mp3');
+  console.log('🎵 Attempting to play round_1_intro.mp3');
   const round1Audio = new Audio('round_1_intro.mp3');
   round1Audio.volume = 0.6;
   
+  round1Audio.addEventListener('canplay', () => {
+    console.log('✅ round_1_intro.mp3 loaded and ready');
+  });
+  
   round1Audio.addEventListener('error', (e) => {
     console.error('❌ round_1_intro.mp3 failed to load:', round1Audio.error);
+    console.error('Make sure round_1_intro.mp3 is uploaded to GitHub in the same folder as host-complete.html');
   });
   
   round1Audio.play()
     .then(() => console.log('🔊 Playing round_1_intro'))
-    .catch(err => console.error('round_1_intro play failed:', err));
+    .catch(err => {
+      console.error('❌ round_1_intro play failed:', err);
+      console.log('ℹ️ Game will continue without audio');
+    });
   
   // Notify players to show explainer on their screens
   gameRef.update({
