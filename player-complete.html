@@ -1150,6 +1150,13 @@ function listenForGameStart() {
     }
   });
   
+  // Listen for Round 1 explainer
+  gameRef.child('showRound1Explainer').on('value', (snapshot) => {
+    if (snapshot.val() === true) {
+      showPlayerRound1Explainer();
+    }
+  });
+  
   // Store players reference for voting in Round 3
   gameRef.child('players').on('value', (snapshot) => {
     players = snapshot.val() || {};
@@ -1689,6 +1696,95 @@ function nextQuestionAsLead() {
   gameRef.child('currentQuestion').once('value', (snapshot) => {
     const current = snapshot.val() || 0;
     gameRef.update({ nextQuestion: current + 1 });
+  });
+}
+
+function showPlayerRound1Explainer() {
+  console.log('📱 Showing Round 1 explainer on player screen');
+  
+  // Hide team selection if still showing
+  document.getElementById('team-selection-mobile').classList.remove('active');
+  document.getElementById('waiting-screen').classList.remove('active');
+  
+  // Show explainer screen
+  const explainerDiv = document.createElement('div');
+  explainerDiv.id = 'player-round1-explainer';
+  explainerDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, #0a1628 0%, #1a2b4a 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 30px; text-align: center;';
+  explainerDiv.innerHTML = `
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 64px; color: #ffc629; text-shadow: 0 0 30px rgba(255,198,41,0.6); margin-bottom: 30px; letter-spacing: 4px;">
+      ROUND 1
+    </div>
+    
+    <div style="font-family: 'Oswald', sans-serif; font-size: 32px; color: #fff; margin-bottom: 25px; text-transform: uppercase; letter-spacing: 2px;">
+      🎵 National Anthems 🎵
+    </div>
+    
+    <div style="font-family: 'Barlow', sans-serif; font-size: 20px; color: rgba(255,255,255,0.9); line-height: 1.6; margin-bottom: 20px; max-width: 500px;">
+      Read the lyrics and guess which national anthem or World Cup song they're from.
+    </div>
+    
+    <div style="font-family: 'Barlow', sans-serif; font-size: 18px; color: rgba(255,255,255,0.7); line-height: 1.6; margin-bottom: 40px;">
+      Answer correctly to score points for your team!
+    </div>
+    
+    <div id="round1-start-controls" style="display: none; flex-direction: column; gap: 15px; align-items: center;">
+      <div style="font-family: 'Barlow', sans-serif; font-size: 16px; color: #4dd4e8; margin-bottom: 10px; font-style: italic;">
+        You joined first! Start when ready.
+      </div>
+      <button onclick="startRound1()" style="font-family: 'Oswald', sans-serif; font-size: 24px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; padding: 18px 50px; background: #ffc629; color: #000; border: none; cursor: pointer; box-shadow: 0 6px 0 #d4a317, 0 10px 20px rgba(0,0,0,0.4);">
+        🎮 START ROUND 1
+      </button>
+    </div>
+    
+    <div id="round1-wait-message" style="font-family: 'Barlow', sans-serif; font-size: 18px; color: #4dd4e8; margin-top: 20px;">
+      Waiting for first player to start...
+    </div>
+    
+    <div id="round1-wait-spinner" class="spinner" style="margin-top: 20px;"></div>
+  `;
+  
+  document.body.appendChild(explainerDiv);
+  
+  // Check if this player is first player
+  gameRef.child('players').once('value', (snapshot) => {
+    const players = snapshot.val() || {};
+    const playerIds = Object.keys(players);
+    const isFirst = playerIds.indexOf(playerId) === 0;
+    
+    if (isFirst) {
+      console.log('🎮 Player 1 can start Round 1');
+      document.getElementById('round1-start-controls').style.display = 'flex';
+      document.getElementById('round1-wait-message').style.display = 'none';
+      document.getElementById('round1-wait-spinner').style.display = 'none';
+    }
+  });
+  
+  // Listen for round starting
+  gameRef.child('round1Started').on('value', (snapshot) => {
+    if (snapshot.val() === true) {
+      const explainer = document.getElementById('player-round1-explainer');
+      if (explainer) explainer.remove();
+      // Game will start via the 'started' listener
+    }
+  });
+}
+
+function startRound1() {
+  console.log('🎮 Player 1 starting Round 1');
+  
+  // Hide start button
+  document.getElementById('round1-start-controls').style.display = 'none';
+  document.getElementById('round1-wait-message').style.display = 'block';
+  document.getElementById('round1-wait-message').textContent = 'Starting game...';
+  document.getElementById('round1-wait-spinner').style.display = 'block';
+  
+  // Trigger host to start Round 1
+  gameRef.update({
+    round1Started: true
+  }).then(() => {
+    console.log('✅ Round 1 start signal sent');
+  }).catch((error) => {
+    console.error('❌ Error starting Round 1:', error);
   });
 }
 </script>
