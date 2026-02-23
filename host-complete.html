@@ -1154,15 +1154,15 @@ function showTeamSelection() {
     window.introMusicAudio = null;
   }
   
-  // Play choose_teams music on host
-  console.log('🎵 Playing choose_teams.mp3 on host');
-  const chooseTeamsAudio = new Audio('choose_teams.mp3');
-  chooseTeamsAudio.loop = false;
-  chooseTeamsAudio.volume = 0.6;
-  chooseTeamsAudio.play()
-    .then(() => console.log('🔊 Playing choose_teams music'))
-    .catch(err => console.error('choose_teams play failed:', err));
-  window.chooseTeamsAudio = chooseTeamsAudio;
+  // Play intro_2.mp3 on host when team selection starts
+  console.log('🎵 Playing intro_2.mp3 on host');
+  const intro2Audio = new Audio('intro_2.mp3');
+  intro2Audio.loop = false;
+  intro2Audio.volume = 0.6;
+  intro2Audio.play()
+    .then(() => console.log('🔊 Playing intro_2 music'))
+    .catch(err => console.error('intro_2 play failed:', err));
+  window.intro2Audio = intro2Audio;
   
   // Show simple waiting screen
   const waitingDiv = document.createElement('div');
@@ -1192,10 +1192,19 @@ function confirmTeams() {
     window.introMusicAudio = null;
   }
   
-  // Stop choose_teams music if playing
-  if (window.chooseTeamsAudio) {
-    window.chooseTeamsAudio.pause();
-    window.chooseTeamsAudio = null;
+  // DON'T stop intro_2 - let it finish playing
+  // Check if intro_2 is still playing
+  if (window.intro2Audio && !window.intro2Audio.paused) {
+    console.log('⏳ Waiting for intro_2 to finish...');
+    // Wait for intro_2 to finish, then play ElevenLabs voice
+    window.intro2Audio.addEventListener('ended', () => {
+      console.log('✅ intro_2 finished, now generating ElevenLabs voice');
+      proceedToVoiceGeneration();
+    }, { once: true });
+  } else {
+    // intro_2 already finished or not playing, proceed immediately
+    console.log('intro_2 already finished, proceeding to voice generation');
+    proceedToVoiceGeneration();
   }
   
   // Save teams to Firebase
@@ -1208,53 +1217,16 @@ function confirmTeams() {
   // Hide waiting screen
   const waitingDiv = document.getElementById('team-select-waiting');
   if (waitingDiv) waitingDiv.remove();
-  
-  // Play intro_2 audio first, then dynamic voice
-  showRoundIntro();
+}
+
+function proceedToVoiceGeneration() {
+  // Generate and play ElevenLabs voice
+  generateIntroVoiceDirectly();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ROUND INTRO FLOW
 // ═══════════════════════════════════════════════════════════════════════════
-
-function showRoundIntro() {
-  // Hide waiting screen if still visible
-  const waitingDiv = document.getElementById('team-select-waiting');
-  if (waitingDiv) waitingDiv.remove();
-  
-  // Play intro_2.mp3 first
-  playIntro2Audio();
-}
-
-function playIntro2Audio() {
-  console.log('🎵 Playing intro_2.mp3');
-  
-  const intro2Audio = new Audio('intro_2.mp3');
-  intro2Audio.volume = 0.6;
-  
-  intro2Audio.addEventListener('canplay', () => {
-    console.log('✅ intro_2.mp3 loaded');
-  });
-  
-  intro2Audio.addEventListener('error', (e) => {
-    console.error('❌ intro_2.mp3 failed to load:', intro2Audio.error);
-    // Skip to dynamic voice if intro_2 fails
-    generateIntroVoiceDirectly();
-  });
-  
-  intro2Audio.play()
-    .then(() => console.log('🔊 Playing intro_2'))
-    .catch(err => {
-      console.error('intro_2 play failed:', err);
-      generateIntroVoiceDirectly();
-    });
-  
-  // When intro_2 finishes, play dynamic voice (no screen in between)
-  intro2Audio.addEventListener('ended', () => {
-    console.log('✅ intro_2 finished, generating dynamic voice');
-    generateIntroVoiceDirectly();
-  });
-}
 
 async function generateIntroVoiceDirectly() {
   const text = `Aye... it's looking like an interesting game. We've got ${team1.name} up against ${team2.name}.`;
