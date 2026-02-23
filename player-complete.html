@@ -1593,23 +1593,19 @@ function populateTeamOptions(teamSlot) {
 function selectTeamMobile(index, teamSlot) {
   const country = WORLD_CUP_FINALISTS[index];
   
-  // Check if this team was already selected by other player
-  const otherSlot = teamSlot === 'team1' ? 'team2' : 'team1';
-  gameRef.child(`playerTeamSelections/${otherSlot}`).once('value', (snapshot) => {
-    if (snapshot.val() === country.name) {
-      alert('This team was just selected by the other player! Pick another.');
-      return;
-    }
-    
-    // Save selection
-    gameRef.child('playerTeamSelections').update({
-      [teamSlot]: country.name
-    }).then(() => {
-      console.log(`${teamSlot} selected:`, country.name);
-      document.getElementById('team-selection-subtitle').textContent = 'Waiting for other player...';
-      document.getElementById('teams-grid-mobile').style.display = 'none';
-      document.getElementById('team-selection-spinner').style.display = 'block';
-    });
+  console.log(`Selecting ${teamSlot}:`, country.name);
+  
+  // Save selection immediately
+  gameRef.child('playerTeamSelections').update({
+    [teamSlot]: country.name
+  }).then(() => {
+    console.log(`✅ ${teamSlot} saved:`, country.name);
+    document.getElementById('team-selection-subtitle').textContent = 'Waiting for other player...';
+    document.getElementById('teams-grid-mobile').style.display = 'none';
+    document.getElementById('team-selection-spinner').style.display = 'block';
+  }).catch((error) => {
+    console.error(`❌ Error saving ${teamSlot}:`, error);
+    alert('Error selecting team. Please try again.');
   });
 }
 
