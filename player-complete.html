@@ -1163,9 +1163,25 @@ function listenForGameStart() {
   });
 }
 
+let gameStartTriggered = false; // Prevent multiple clicks
+
 function startGameAsLead() {
+  if (gameStartTriggered) {
+    console.log('⚠️ Start already triggered, ignoring');
+    return;
+  }
+  
+  gameStartTriggered = true;
   console.log('Start Game button clicked!');
   console.log('Game ref:', gameRef);
+  
+  // Disable the button
+  const startBtn = document.querySelector('[onclick="startGameAsLead()"]');
+  if (startBtn) {
+    startBtn.disabled = true;
+    startBtn.style.opacity = '0.5';
+    startBtn.textContent = 'Starting...';
+  }
   
   // Signal all players to choose teams AND trigger host music screen
   gameRef.update({
@@ -1176,6 +1192,7 @@ function startGameAsLead() {
     showTeamSelectionScreen();
   }).catch((error) => {
     console.error('Error updating Firebase:', error);
+    gameStartTriggered = false; // Reset on error
   });
 }
 
@@ -1502,7 +1519,7 @@ function showTeamSelectionScreen() {
   document.getElementById('team-selection-mobile').classList.add('active');
   
   // Play choose teams music
-  const chooseTeamsAudio = new Audio('choose-teams.mp3');
+  const chooseTeamsAudio = new Audio('choose_teams.mp3');
   chooseTeamsAudio.loop = false;
   chooseTeamsAudio.volume = 0.6;
   chooseTeamsAudio.play().catch(err => console.log('Choose teams audio failed:', err));
