@@ -5,7 +5,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Quiz Host - Complete Multiplayer</title>
-<!-- VERSION: 5.0 - Clear your cache! -->
+<!-- VERSION: 6.0 - FIXED intro flow + simultaneous team selection -->
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:ital,wght@0,400;0,600;0,700;1,400&family=Barlow:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
 
 <!-- 
@@ -1482,10 +1482,10 @@ gameRef.child('readyToSelectTeams').on('value', (snapshot) => {
 // Listen for player team selections
 gameRef.child('playerTeamSelections').on('value', (snapshot) => {
   const selections = snapshot.val();
-  if (selections && selections.player1 && selections.player2) {
-    // Both players selected - get the country data
-    const team1Country = WORLD_CUP_FINALISTS.find(c => c.name === selections.player1);
-    const team2Country = WORLD_CUP_FINALISTS.find(c => c.name === selections.player2);
+  if (selections && selections.team1 && selections.team2) {
+    // Both teams selected - get the country data
+    const team1Country = WORLD_CUP_FINALISTS.find(c => c.name === selections.team1);
+    const team2Country = WORLD_CUP_FINALISTS.find(c => c.name === selections.team2);
     
     if (team1Country && team2Country) {
       team1 = team1Country;
