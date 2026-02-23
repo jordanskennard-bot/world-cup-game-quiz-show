@@ -5,7 +5,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Quiz Host - Complete Multiplayer</title>
-<!-- VERSION: 6.0 - FIXED intro flow + simultaneous team selection -->
+<!-- VERSION: 7.0 - DEBUG LOGGING + intro_2 timing fix - CLEAR CACHE! -->
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:ital,wght@0,400;0,600;0,700;1,400&family=Barlow:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
 
 <!-- 
@@ -1454,16 +1454,32 @@ gameRef.child('readyToSelectTeams').on('value', (snapshot) => {
 // Listen for player team selections
 gameRef.child('playerTeamSelections').on('value', (snapshot) => {
   const selections = snapshot.val();
+  console.log('📊 Team selections update:', selections);
+  
+  if (selections) {
+    console.log('  team1:', selections.team1 || 'not selected');
+    console.log('  team2:', selections.team2 || 'not selected');
+  }
+  
   if (selections && selections.team1 && selections.team2) {
+    console.log('✅ Both teams selected!');
     // Both teams selected - get the country data
     const team1Country = WORLD_CUP_FINALISTS.find(c => c.name === selections.team1);
     const team2Country = WORLD_CUP_FINALISTS.find(c => c.name === selections.team2);
     
+    console.log('  Found team1 country:', team1Country);
+    console.log('  Found team2 country:', team2Country);
+    
     if (team1Country && team2Country) {
       team1 = team1Country;
       team2 = team2Country;
+      console.log('🎉 Confirming teams:', team1.name, 'vs', team2.name);
       confirmTeams();
+    } else {
+      console.error('❌ Could not find country data for selections');
     }
+  } else {
+    console.log('⏳ Waiting for both teams to be selected...');
   }
 });
 
