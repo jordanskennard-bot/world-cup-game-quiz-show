@@ -572,6 +572,86 @@
     color: var(--text);
   }
 
+  /* ROUND 2 - PUNNED IT */
+  .pun-input-screen {
+    display: none;
+  }
+  
+  .pun-input-screen.active {
+    display: flex;
+  }
+  
+  .pun-category-banner {
+    background: var(--motd-navy);
+    border: 3px solid var(--motd-gold);
+    border-radius: 12px;
+    padding: 30px;
+    margin-bottom: 30px;
+    text-align: center;
+  }
+  
+  .pun-category-label {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 18px;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+    letter-spacing: 2px;
+  }
+  
+  .pun-category-name {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 42px;
+    color: var(--motd-gold);
+    letter-spacing: 3px;
+  }
+  
+  .pun-input-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  
+  .pun-input-field {
+    width: 100%;
+    padding: 20px;
+    font-family: 'Barlow', sans-serif;
+    font-size: 20px;
+    background: rgba(255,255,255,0.1);
+    border: 3px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    resize: vertical;
+    min-height: 120px;
+  }
+  
+  .pun-submit-btn {
+    width: 100%;
+    padding: 20px;
+    font-family: 'Oswald', sans-serif;
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    background: var(--motd-gold);
+    color: #000;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    box-shadow: 0 6px 0 #d4a317, 0 10px 20px rgba(0,0,0,0.4);
+    transition: transform 0.1s;
+  }
+  
+  .pun-submit-btn:active {
+    transform: translateY(4px);
+    box-shadow: 0 2px 0 #d4a317, 0 4px 10px rgba(0,0,0,0.4);
+  }
+  
+  .pun-submit-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
   /* ROUND 3 - VOTING */
   .voting-screen {
     display: none;
@@ -753,6 +833,38 @@
     <div class="waiting-message" id="team-selection-waiting" style="display: none;">Waiting for other player to choose...</div>
   </div>
 
+  <!-- ROUND 2 - PUN INPUT SCREEN -->
+  <div class="pun-input-screen" id="pun-input-screen">
+    <div class="player-header">
+      <div class="player-team-badge" id="pun-team-badge" style="display: none;"></div>
+      <div class="player-name-display" id="pun-player-name"></div>
+      <div class="player-score-display"><span id="pun-score">0</span> pts</div>
+    </div>
+    
+    <div class="pun-category-banner">
+      <div class="pun-category-label">Make a pun about:</div>
+      <div class="pun-category-name" id="player-pun-category">Loading...</div>
+    </div>
+    
+    <div class="pun-input-area">
+      <textarea 
+        id="pun-input" 
+        class="pun-input-field" 
+        placeholder="Turn a footballer's name into a pun... e.g. 'Pelican' (Pele + Bird)"
+        maxlength="100"
+      ></textarea>
+      
+      <button class="pun-submit-btn" id="pun-submit-btn" onclick="submitPun()">
+        ✍️ SUBMIT PUN
+      </button>
+    </div>
+    
+    <div class="status-message hidden" id="pun-status">
+      <div class="status-icon" id="pun-status-icon">✓</div>
+      <div class="status-message-text" id="pun-status-text"></div>
+    </div>
+  </div>
+
   <!-- ROUND 3 - VOTING SCREEN -->
   <div class="voting-screen" id="voting-screen">
     <div class="player-header">
@@ -773,16 +885,16 @@
     </div>
   </div>
 
-  <!-- SABOTAGE BUTTON OVERLAY -->
-  <div class="sabotage-overlay" id="sabotage-overlay">
+  <!-- OFFSIDE TRAP OVERLAY -->
+  <div class="sabotage-overlay" id="offside-overlay">
     <div class="sabotage-container">
-      <div class="sabotage-title">⚠️ SECRET WEAPON ⚠️</div>
-      <div class="sabotage-subtitle">Steal 5 points from the other team!</div>
-      <div class="sabotage-timer" id="sabotage-timer">10</div>
-      <button class="sabotage-btn" onclick="useSabotage()">
-        💣 SABOTAGE 💣
+      <div class="sabotage-title">⚠️ OFFSIDE TRAP ⚠️</div>
+      <div class="sabotage-subtitle">Steal 2 points from each opponent!</div>
+      <div class="sabotage-timer" id="offside-timer">15</div>
+      <button class="sabotage-btn" onclick="useOffsideTrap()">
+        🚩 SPRING THE TRAP 🚩
       </button>
-      <div class="sabotage-warning">Only you can see this! Use it wisely...</div>
+      <div class="sabotage-warning">Only you can see this! Act fast...</div>
     </div>
   </div>
 
@@ -1224,7 +1336,7 @@ function startPlaying() {
   gameRef.child('sabotage/' + playerId).on('value', (snapshot) => {
     const sabotageData = snapshot.val();
     if (sabotageData && sabotageData.active) {
-      showSabotageButton();
+      showOffsideTrapButton();
     }
   });
   
@@ -1328,6 +1440,352 @@ window.addEventListener('beforeunload', (e) => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════
+// SCORES REVIEW (Between Round 1 and Round 2)
+// ═══════════════════════════════════════════════════════════════════════════
+
+gameRef.child('showScoresReview').on('value', (snapshot) => {
+  if (snapshot.val() === true) {
+    showPlayerScoresReview();
+  }
+});
+
+function showPlayerScoresReview() {
+  console.log('📊 Showing scores review on player screen');
+  
+  // Hide other screens
+  document.getElementById('question-screen').classList.remove('active');
+  document.getElementById('voting-screen').classList.remove('active');
+  document.getElementById('waiting-screen').classList.remove('active');
+  
+  // Get scores from Firebase
+  gameRef.once('value', (snapshot) => {
+    const data = snapshot.val();
+    const team1Score = data.team1ScoreAfterRound1 || 0;
+    const team2Score = data.team2ScoreAfterRound1 || 0;
+    
+    // Show scores screen
+    const scoresDiv = document.createElement('div');
+    scoresDiv.id = 'player-scores-review';
+    scoresDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, #0a1628 0%, #1a2b4a 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 30px; text-align: center;';
+    scoresDiv.innerHTML = `
+      <div style="font-family: 'Bebas Neue', sans-serif; font-size: 42px; color: #ffc629; text-shadow: 0 0 30px rgba(255,198,41,0.6); margin-bottom: 40px; letter-spacing: 4px;">
+        After Round 1
+      </div>
+      
+      <div style="display: flex; gap: 40px; margin-bottom: 40px;">
+        <div style="text-align: center;">
+          <div style="font-family: 'Barlow Condensed', sans-serif; font-size: 20px; color: rgba(255,255,255,0.7); margin-bottom: 15px;">${data.team1.flag} ${data.team1.name}</div>
+          <div style="font-family: 'Bebas Neue', sans-serif; font-size: 72px; color: #4dd4e8; text-shadow: 0 0 30px rgba(77,212,232,0.6);">${team1Score}</div>
+        </div>
+        
+        <div style="font-family: 'Bebas Neue', sans-serif; font-size: 48px; color: rgba(255,255,255,0.5); align-self: center;">-</div>
+        
+        <div style="text-align: center;">
+          <div style="font-family: 'Barlow Condensed', sans-serif; font-size: 20px; color: rgba(255,255,255,0.7); margin-bottom: 15px;">${data.team2.flag} ${data.team2.name}</div>
+          <div style="font-family: 'Bebas Neue', sans-serif; font-size: 72px; color: #d4145a; text-shadow: 0 0 30px rgba(212,20,90,0.6);">${team2Score}</div>
+        </div>
+      </div>
+      
+      <div style="font-family: 'Barlow', sans-serif; font-size: 18px; color: #4dd4e8; margin-top: 20px;">
+        Round 2 coming up...
+      </div>
+      
+      <div class="spinner" style="margin-top: 20px;"></div>
+    `;
+    
+    document.body.appendChild(scoresDiv);
+  });
+  
+  // Listen for scores review to end
+  gameRef.child('showScoresReview').on('value', (snapshot) => {
+    if (snapshot.val() === false) {
+      const scoresDiv = document.getElementById('player-scores-review');
+      if (scoresDiv) scoresDiv.remove();
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ROUND 2 - PUNNED IT
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Listen for Round 2 explainer
+gameRef.child('showRound2Explainer').on('value', (snapshot) => {
+  if (snapshot.val() === true) {
+    showPlayerRound2Explainer();
+  }
+});
+
+function showPlayerRound2Explainer() {
+  console.log('📱 Showing Round 2 explainer on player screen');
+  
+  // Hide other screens
+  document.getElementById('question-screen').classList.remove('active');
+  document.getElementById('voting-screen').classList.remove('active');
+  document.getElementById('waiting-screen').classList.remove('active');
+  
+  // Show explainer
+  const explainerDiv = document.createElement('div');
+  explainerDiv.id = 'player-round2-explainer';
+  explainerDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, #0a1628 0%, #1a2b4a 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 30px; text-align: center;';
+  explainerDiv.innerHTML = `
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 64px; color: #ffc629; text-shadow: 0 0 30px rgba(255,198,41,0.6); margin-bottom: 30px; letter-spacing: 4px;">
+      ROUND 2
+    </div>
+    
+    <div style="font-family: 'Oswald', sans-serif; font-size: 32px; color: #fff; margin-bottom: 25px; text-transform: uppercase; letter-spacing: 2px;">
+      ⚽ Punned It ⚽
+    </div>
+    
+    <div style="font-family: 'Barlow', sans-serif; font-size: 20px; color: rgba(255,255,255,0.9); line-height: 1.6; margin-bottom: 20px; max-width: 500px;">
+      Turn footballer names into puns on a given theme!
+    </div>
+    
+    <div style="font-family: 'Barlow', sans-serif; font-size: 18px; color: rgba(255,255,255,0.7); line-height: 1.6; margin-bottom: 40px;">
+      You'll have 60 seconds. Be creative!
+    </div>
+    
+    <div style="font-family: 'Barlow', sans-serif; font-size: 18px; color: #4dd4e8; margin-top: 20px;">
+      Starting soon...
+    </div>
+    
+    <div class="spinner" style="margin-top: 20px;"></div>
+  `;
+  
+  document.body.appendChild(explainerDiv);
+  
+  // Listen for round to start
+  gameRef.child('round2Active').once('value', (snapshot) => {
+    if (snapshot.val() === true) {
+      const explainer = document.getElementById('player-round2-explainer');
+      if (explainer) explainer.remove();
+      startPlayerRound2();
+    }
+  });
+}
+
+// Listen for Round 2 to start
+gameRef.child('round2Active').on('value', (snapshot) => {
+  if (snapshot.val() === true) {
+    const explainer = document.getElementById('player-round2-explainer');
+    if (explainer) explainer.remove();
+    startPlayerRound2();
+  }
+});
+
+function startPlayerRound2() {
+  console.log('🎯 Round 2 starting on player screen');
+  
+  // Hide other screens
+  document.getElementById('question-screen').classList.remove('active');
+  document.getElementById('voting-screen').classList.remove('active');
+  document.getElementById('waiting-screen').classList.remove('active');
+  
+  // Show Round 2 screen
+  document.getElementById('pun-input-screen').classList.add('active');
+  
+  // Update player info
+  document.getElementById('pun-player-name').textContent = playerName;
+  document.getElementById('pun-score').textContent = players[playerId]?.score || 0;
+  
+  // Show team badge if in team mode
+  if (players[playerId]?.team) {
+    const teamBadge = document.getElementById('pun-team-badge');
+    teamBadge.style.display = 'block';
+    teamBadge.textContent = players[playerId].team === 1 ? '🏠' : '✈️';
+  }
+  
+  // Get category from Firebase
+  gameRef.child('round2Category').once('value', (snapshot) => {
+    const category = snapshot.val();
+    document.getElementById('player-pun-category').textContent = category;
+  });
+  
+  // Reset input
+  document.getElementById('pun-input').value = '';
+  document.getElementById('pun-submit-btn').disabled = false;
+  document.getElementById('pun-status').classList.add('hidden');
+  
+  // Create submitted puns display area if it doesn't exist
+  let submittedPunsDiv = document.getElementById('player-submitted-puns');
+  if (!submittedPunsDiv) {
+    submittedPunsDiv = document.createElement('div');
+    submittedPunsDiv.id = 'player-submitted-puns';
+    submittedPunsDiv.style.cssText = 'margin-top: 20px; display: flex; flex-direction: column; gap: 10px;';
+    document.querySelector('.pun-input-area').appendChild(submittedPunsDiv);
+  }
+  submittedPunsDiv.innerHTML = '';
+  
+  // Listen for my own pun submissions
+  gameRef.child(`round2/puns/${playerId}`).on('child_added', (snapshot) => {
+    displayMySubmittedPun(snapshot.val());
+  });
+}
+
+function displayMySubmittedPun(punText) {
+  const submittedPunsDiv = document.getElementById('player-submitted-puns');
+  
+  const punCard = document.createElement('div');
+  punCard.style.cssText = 'background: rgba(77,212,232,0.2); border: 2px solid #4dd4e8; border-radius: 8px; padding: 15px; font-family: "Barlow", sans-serif; font-size: 18px; color: #fff;';
+  punCard.innerHTML = `
+    <div style="font-size: 14px; color: #4dd4e8; margin-bottom: 5px;">✓ Your pun:</div>
+    <div style="font-style: italic;">"${punText}"</div>
+  `;
+  
+  submittedPunsDiv.appendChild(punCard);
+}
+
+function submitPun() {
+  const punInput = document.getElementById('pun-input');
+  const pun = punInput.value.trim();
+  
+  if (!pun) {
+    alert('Please enter a pun!');
+    return;
+  }
+  
+  // Get current puns count for this player
+  gameRef.child(`round2/puns/${playerId}`).once('value', (snapshot) => {
+    const currentPuns = snapshot.val() || {};
+    const nextIndex = Object.keys(currentPuns).length;
+    
+    // Submit to Firebase with index
+    gameRef.child(`round2/puns/${playerId}/${nextIndex}`).set(pun).then(() => {
+      console.log('✅ Pun submitted');
+      
+      // Clear input for next pun
+      punInput.value = '';
+      
+      // Show success message briefly
+      document.getElementById('pun-status-icon').textContent = '✓';
+      document.getElementById('pun-status-text').textContent = 'Pun added! Submit more or wait for time to run out...';
+      document.getElementById('pun-status').classList.remove('hidden');
+      
+      setTimeout(() => {
+        document.getElementById('pun-status').classList.add('hidden');
+      }, 2000);
+      
+    }).catch((error) => {
+      console.error('❌ Error submitting pun:', error);
+      alert('Error submitting pun. Please try again.');
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PUN REVIEW (Watch on player screen)
+// ═══════════════════════════════════════════════════════════════════════════
+
+gameRef.child('reviewingPun').on('value', (snapshot) => {
+  if (snapshot.val() === true) {
+    showPunReviewOnPlayer();
+  } else {
+    const reviewScreen = document.getElementById('player-pun-review');
+    if (reviewScreen) reviewScreen.remove();
+  }
+});
+
+function showPunReviewOnPlayer() {
+  // Hide input screen
+  document.getElementById('pun-input-screen').classList.remove('active');
+  
+  // Get first player ID
+  const playerIds = Object.keys(players);
+  const firstPlayerId = playerIds[0];
+  const isFirstPlayer = (playerId === firstPlayerId);
+  
+  // Show review screen
+  gameRef.child('currentPunReview').on('value', (snapshot) => {
+    const punData = snapshot.val();
+    if (!punData) return;
+    
+    // Remove existing
+    let reviewDiv = document.getElementById('player-pun-review');
+    if (reviewDiv) reviewDiv.remove();
+    
+    reviewDiv = document.createElement('div');
+    reviewDiv.id = 'player-pun-review';
+    reviewDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, #0a1628 0%, #1a2b4a 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 30px; text-align: center;';
+    
+    if (isFirstPlayer) {
+      // First player (referee) sees Accept/Reject buttons
+      reviewDiv.innerHTML = `
+        <div style="font-family: 'Barlow Condensed', sans-serif; font-size: 20px; color: #ffc629; margin-bottom: 30px; letter-spacing: 2px; text-transform: uppercase;">
+          ⚽ You are the Referee ⚽
+        </div>
+        
+        <div style="font-family: 'Barlow', sans-serif; font-size: 36px; color: #fff; font-style: italic; margin-bottom: 40px; max-width: 500px; line-height: 1.4;">
+          "${punData.pun}"
+        </div>
+        
+        <div style="font-family: 'Barlow', sans-serif; font-size: 16px; color: #4dd4e8; margin-bottom: 30px;">
+          Accept or Reject?
+        </div>
+        
+        <div style="display: flex; gap: 20px;">
+          <button class="pun-submit-btn" style="background: #d4145a; flex: 1;" onclick="rejectPunAsPlayer()">
+            ❌ REJECT
+          </button>
+          <button class="pun-submit-btn" style="background: #4dd4e8; flex: 1;" onclick="acceptPunAsPlayer()">
+            ✓ ACCEPT
+          </button>
+        </div>
+      `;
+    } else {
+      // Other players wait for referee
+      reviewDiv.innerHTML = `
+        <div style="font-family: 'Barlow', sans-serif; font-size: 36px; color: #fff; font-style: italic; margin-bottom: 40px; max-width: 500px; line-height: 1.4;">
+          "${punData.pun}"
+        </div>
+        
+        <div style="font-family: 'Barlow', sans-serif; font-size: 18px; color: #4dd4e8;">
+          The referee is reviewing...
+        </div>
+      `;
+    }
+    
+    document.body.appendChild(reviewDiv);
+  });
+}
+
+function acceptPunAsPlayer() {
+  gameRef.child('currentPunIndex').once('value', (snapshot) => {
+    const index = snapshot.val();
+    gameRef.child('punDecision').set({
+      index: index,
+      accepted: true,
+      timestamp: Date.now()
+    });
+  });
+}
+
+function rejectPunAsPlayer() {
+  gameRef.child('currentPunIndex').once('value', (snapshot) => {
+    const index = snapshot.val();
+    gameRef.child('punDecision').set({
+      index: index,
+      accepted: false,
+      timestamp: Date.now()
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// OFFSIDE TRAP LISTENER
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Listen for my offside trap opportunity
+gameRef.child(`offsideTrapOpportunity/${playerId}`).on('value', (snapshot) => {
+  if (snapshot.val()) {
+    console.log('🚩 Got Offside Trap opportunity!');
+    showOffsideTrapButton();
+    
+    // Clear the opportunity so it doesn't trigger again
+    gameRef.child(`offsideTrapOpportunity/${playerId}`).remove();
+  }
+});
+
 // ROUND 3 - INTERVIEW & VOTING
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -1617,20 +2075,20 @@ function selectTeamMobile(index, teamSlot) {
 // SABOTAGE BUTTON
 // ═══════════════════════════════════════════════════════════════════════════
 
-function showSabotageButton() {
-  const overlay = document.getElementById('sabotage-overlay');
+function showOffsideTrapButton() {
+  const overlay = document.getElementById('offside-overlay');
   overlay.classList.add('active');
   
-  sabotageTimeLeft = 10;
-  document.getElementById('sabotage-timer').textContent = sabotageTimeLeft;
+  let offsideTrapTimeLeft = 15;
+  document.getElementById('offside-timer').textContent = offsideTrapTimeLeft;
   
   // Countdown timer
-  sabotageTimer = setInterval(() => {
-    sabotageTimeLeft--;
-    document.getElementById('sabotage-timer').textContent = sabotageTimeLeft;
+  const offsideTrapTimer = setInterval(() => {
+    offsideTrapTimeLeft--;
+    document.getElementById('offside-timer').textContent = offsideTrapTimeLeft;
     
-    if (sabotageTimeLeft <= 0) {
-      hideSabotageButton();
+    if (offsideTrapTimeLeft <= 0) {
+      hideOffsideTrapButton(offsideTrapTimer);
     }
   }, 1000);
   
@@ -1638,31 +2096,36 @@ function showSabotageButton() {
   if (navigator.vibrate) {
     navigator.vibrate([200, 100, 200]);
   }
+  
+  // Store timer reference for cleanup
+  window.offsideTrapTimer = offsideTrapTimer;
 }
 
-function hideSabotageButton() {
-  clearInterval(sabotageTimer);
-  document.getElementById('sabotage-overlay').classList.remove('active');
+function hideOffsideTrapButton(timer) {
+  if (timer) clearInterval(timer);
+  if (window.offsideTrapTimer) clearInterval(window.offsideTrapTimer);
+  document.getElementById('offside-overlay').classList.remove('active');
 }
 
-function useSabotage() {
+function useOffsideTrap() {
   // Get player's team and target the other team
   gameRef.child('players/' + playerId + '/team').once('value', (snapshot) => {
     const myTeam = snapshot.val();
     const targetTeam = myTeam === 1 ? 2 : 1;
     
-    // Trigger sabotage
-    gameRef.child('sabotageUsed').set({
+    // Trigger offside trap - steal 2 points from EACH player on other team
+    gameRef.child('offsideTrapUsed').set({
       userId: playerId,
+      userTeam: myTeam,
       targetTeam: targetTeam,
       timestamp: Date.now()
     });
     
     // Hide button
-    hideSabotageButton();
+    hideOffsideTrapButton(window.offsideTrapTimer);
     
     // Show success message
-    alert('💣 SABOTAGE ACTIVATED! -5 points from the other team!');
+    alert('🚩 OFFSIDE TRAP SPRUNG! -2 points from each opponent!');
     
     // Vibrate success
     if (navigator.vibrate) {
@@ -1670,6 +2133,40 @@ function useSabotage() {
     }
   });
 }
+
+// Listen for offside trap being caught
+gameRef.child('offsideTrapUsed').on('value', (snapshot) => {
+  const trapData = snapshot.val();
+  if (!trapData) return;
+  
+  // Check if I'm on the team that got trapped
+  const myTeam = players[playerId]?.team;
+  if (myTeam && myTeam === trapData.targetTeam) {
+    // I got caught! Lose 2 points
+    if (players[playerId]) {
+      players[playerId].score = Math.max(0, (players[playerId].score || 0) - 2);
+      gameRef.child(`players/${playerId}/score`).set(players[playerId].score);
+    }
+    
+    // Play offside audio on my phone
+    console.log('🚩 Caught offside! Playing audio');
+    const offsideAudio = new Audio('offside_caught.mp3?v=2');
+    offsideAudio.volume = 0.8;
+    offsideAudio.play()
+      .then(() => console.log('🔊 Playing offside caught audio'))
+      .catch(err => console.error('offside_caught play failed:', err));
+    
+    // Vibrate
+    if (navigator.vibrate) {
+      navigator.vibrate([300, 100, 300, 100, 300]);
+    }
+    
+    // Show alert
+    setTimeout(() => {
+      alert('🚩 OFFSIDE! You lost 2 points!');
+    }, 500);
+  }
+});
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CLEANUP & UTILITIES
@@ -1714,7 +2211,7 @@ function showPlayerRound1Explainer() {
     </div>
     
     <div style="font-family: 'Oswald', sans-serif; font-size: 32px; color: #fff; margin-bottom: 25px; text-transform: uppercase; letter-spacing: 2px;">
-      🎵 National Anthems 🎵
+      ⚽ Sing When You're Beginning ⚽
     </div>
     
     <div style="font-family: 'Barlow', sans-serif; font-size: 20px; color: rgba(255,255,255,0.9); line-height: 1.6; margin-bottom: 20px; max-width: 500px;">
