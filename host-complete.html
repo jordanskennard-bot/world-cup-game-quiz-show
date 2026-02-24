@@ -2138,6 +2138,16 @@ function showScoresReview() {
 
 async function generateScoresCommentary(leadText, team1Score, team2Score) {
   const commentaryDiv = document.getElementById('scores-commentary');
+  
+  if (!commentaryDiv) {
+    console.error('❌ Commentary div not found, skipping');
+    // Skip to reaction anyway
+    setTimeout(() => {
+      playScoresReaction(team1Score, team2Score);
+    }, 1000);
+    return;
+  }
+  
   commentaryDiv.textContent = 'Analyzing the scores...';
   
   try {
@@ -2209,20 +2219,26 @@ function playScoresReaction(team1Score, team2Score) {
     .then(() => console.log('🔊 Playing scores reaction'))
     .catch(err => console.error('scores_reaction play failed:', err));
   
+  let reactionEnded = false;
+  
   // When reaction finishes, move to Round 2
   reactionAudio.addEventListener('ended', () => {
-    console.log('✅ Reaction finished, moving to Round 2');
-    const scoresDiv = document.getElementById('scores-review');
-    if (scoresDiv) scoresDiv.remove();
-    
-    gameRef.update({ showScoresReview: false });
-    startRound2();
+    if (!reactionEnded) {
+      console.log('✅ Reaction finished, moving to Round 2');
+      reactionEnded = true;
+      const scoresDiv = document.getElementById('scores-review');
+      if (scoresDiv) scoresDiv.remove();
+      
+      gameRef.update({ showScoresReview: false });
+      startRound2();
+    }
   });
   
   // Fallback
   setTimeout(() => {
-    if (reactionAudio.paused || reactionAudio.currentTime === 0) {
+    if ((reactionAudio.paused || reactionAudio.currentTime === 0) && !reactionEnded) {
       console.log('⚠️ Reaction timeout, moving to Round 2 anyway');
+      reactionEnded = true;
       const scoresDiv = document.getElementById('scores-review');
       if (scoresDiv) scoresDiv.remove();
       gameRef.update({ showScoresReview: false });
@@ -2237,9 +2253,16 @@ function playScoresReaction(team1Score, team2Score) {
 
 let round2Timer = null;
 let round2TimeLeft = 60;
+let round2Started = false; // Prevent duplicate starts
 
 function startRound2() {
+  if (round2Started) {
+    console.log('⚠️ Round 2 already started, skipping duplicate call');
+    return;
+  }
+  
   console.log('🎯 Starting Round 2 - Showing explainer');
+  round2Started = true;
   
   // Hide Round 1
   document.getElementById('game-screen').classList.remove('active');
@@ -2301,17 +2324,23 @@ function showRound2Explainer() {
     showRound2Explainer: true
   });
   
+  let gameplayStarted = false;
+  
   // Wait for audio to finish, then start round
   round2IntroAudio.addEventListener('ended', () => {
-    console.log('✅ Round 2 intro finished, starting round');
-    explainerDiv.remove();
-    startRound2Gameplay();
+    if (!gameplayStarted) {
+      console.log('✅ Round 2 intro finished, starting round');
+      gameplayStarted = true;
+      explainerDiv.remove();
+      startRound2Gameplay();
+    }
   });
   
   // Fallback: start after 10 seconds if audio doesn't play
   setTimeout(() => {
-    if (!round2IntroAudio.paused || round2IntroAudio.currentTime === 0) {
+    if (!gameplayStarted && (round2IntroAudio.paused || round2IntroAudio.currentTime === 0)) {
       console.log('⚠️ Audio timeout, starting round anyway');
+      gameplayStarted = true;
       explainerDiv.remove();
       startRound2Gameplay();
     }
@@ -2355,20 +2384,31 @@ function startRound2Gameplay() {
   });
   
   // Start countdown
+  if (round2Timer) {
+    console.log('⚠️ Timer already running, clearing old timer');
+    clearInterval(round2Timer);
+  }
+  
   round2Timer = setInterval(() => {
     round2TimeLeft--;
-    document.getElementById('countdown-timer').textContent = round2TimeLeft;
+    const timerEl = document.getElementById('countdown-timer');
+    if (timerEl) timerEl.textContent = round2TimeLeft;
     gameRef.update({ round2TimeLeft: round2TimeLeft });
     
     if (round2TimeLeft <= 0) {
       clearInterval(round2Timer);
-      document.getElementById('round2-next-btn').style.display = 'block';
+      round2Timer = null; // Prevent restart
+      const nextBtn = document.getElementById('round2-next-btn');
+      if (nextBtn) nextBtn.style.display = 'block';
       
       // Stop music when timer ends
       if (window.round2MusicAudio) {
         window.round2MusicAudio.pause();
         window.round2MusicAudio = null;
       }
+      
+      // Update Firebase that time is up
+      gameRef.update({ round2TimeUp: true });
     }
   }, 1000);
   
