@@ -5,7 +5,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Quiz Host - Complete Multiplayer</title>
-<!-- VERSION: 7.0 - DEBUG LOGGING + intro_2 timing fix - CLEAR CACHE! -->
+<!-- VERSION: 8.0 - Full game flow: Bonus Round + Match Draw + Victory Screen - CLEAR CACHE! -->
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:ital,wght@0,400;0,600;0,700;1,400&family=Barlow:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
 
 <!-- 
@@ -1747,7 +1747,7 @@ function updateScoreboard() {
 // ═══════════════════════════════════════════════════════════════════════════
 
 async function generateIntroVoiceDirectly() {
-  const text = `That's right John... it's looking like an interesting game. We've got ${team1.name} up against ${team2.name}! Certainly one to watch! (given you're already here).`;
+  const text = `Thanks Clyde... it's looking like an interesting game. We've got ${team1.name} up against ${team2.name}! Certainly one to watch! (given you're already here).`;
   
   console.log('🎙️ Generating intro voice:', text);
   
@@ -2035,8 +2035,8 @@ function nextQuestion() {
     loadQuestion(currentQuestion);
     answerRevealed = false;
   } else {
-    // Round 1 complete, show scores review
-    showScoresReview();
+    // Round 1 complete → Bonus Round (Karaoke)
+    showBonusOffer();
   }
 }
 
@@ -2221,19 +2221,19 @@ function playScoresReaction(team1Score, team2Score) {
   
   let reactionEnded = false;
   
-  // When reaction finishes, move to Round 2
+  // When reaction finishes, move to Round 2 (Pun Round)
   reactionAudio.addEventListener('ended', () => {
     if (!reactionEnded) {
       console.log('✅ Reaction finished, moving to Round 2');
       reactionEnded = true;
       const scoresDiv = document.getElementById('scores-review');
       if (scoresDiv) scoresDiv.remove();
-      
+
       gameRef.update({ showScoresReview: false });
       startRound2();
     }
   });
-  
+
   // Fallback
   setTimeout(() => {
     if ((reactionAudio.paused || reactionAudio.currentTime === 0) && !reactionEnded) {
@@ -2245,6 +2245,9 @@ function playScoresReaction(team1Score, team2Score) {
       startRound2();
     }
   }, 8000);
+
+  // Store which scores review this is so we can route to correct next round
+  window.scoresReviewSource = window.scoresReviewSource || 'round1';
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -2358,7 +2361,7 @@ function startRound2Gameplay() {
   document.getElementById('pun-category').textContent = category;
   
   // Reset timer
-  round2TimeLeft = 60;
+  round2TimeLeft = 30;
   document.getElementById('countdown-timer').textContent = round2TimeLeft;
   
   // Show submission count instead of actual puns
@@ -2380,7 +2383,7 @@ function startRound2Gameplay() {
     round: 2,
     round2Category: category,
     round2Active: true,
-    round2TimeLeft: 60
+    round2TimeLeft: 30
   });
   
   // Start countdown
@@ -2532,8 +2535,8 @@ function startPunReview() {
     console.log(`📝 Total puns to review: ${allPuns.length}`);
     
     if (allPuns.length === 0) {
-      console.log('⚠️ No puns submitted, skipping to Round 3');
-      startRound3();
+      console.log('⚠️ No puns submitted, checking for Match Draw');
+      checkForMatchDraw();
       return;
     }
     
@@ -2588,9 +2591,9 @@ function showPunReviewIntro() {
 
 async function reviewNextPun() {
   if (currentPunIndex >= allPuns.length) {
-    // All puns reviewed, move to Round 3
-    console.log('✅ All puns reviewed');
-    startRound3();
+    // All puns reviewed → Match Draw (if 4+ players) or Round 3 (Interview)
+    console.log('✅ All puns reviewed, checking for Match Draw');
+    checkForMatchDraw();
     return;
   }
   
@@ -2899,9 +2902,8 @@ function nextRound3Question() {
   if (round3CurrentQ < ROUND_3_QUESTIONS.length) {
     loadRound3Question(round3CurrentQ);
   } else {
-    // Round 3 complete, show final results
-    document.getElementById('round3-screen').classList.remove('active');
-    showFinalScreen();
+    // Round 3 (Interview) complete → Victory Screen
+    showVictoryScreen();
   }
 }
 
@@ -2986,20 +2988,643 @@ function showFinalScreen() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// NOTES
+// PHASE 1: BONUS ROUND (KARAOKE)
+// ═══════════════════════════════════════════════════════════════════════════
+
+function showBonusOffer() {
+  console.log('🎤 Showing Bonus Round offer');
+  document.getElementById('game-screen').classList.remove('active');
+
+  const bonusDiv = document.createElement('div');
+  bonusDiv.id = 'bonus-offer-screen';
+  bonusDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, var(--motd-dark-navy) 0%, var(--motd-navy) 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 40px; text-align: center;';
+  bonusDiv.innerHTML = `
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 36px; color: var(--motd-cyan); letter-spacing: 4px; margin-bottom: 10px;">BONUS ROUND</div>
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 80px; color: var(--motd-gold); text-shadow: 0 0 40px rgba(255,198,41,0.8); letter-spacing: 6px; margin-bottom: 20px;">🎤 KARAOKE</div>
+    <div style="font-family: 'Barlow', sans-serif; font-size: 24px; color: var(--text); max-width: 700px; line-height: 1.6; margin-bottom: 40px;">
+      The first team to accept will sing a football anthem!<br>
+      <span style="color: var(--motd-gold);">+5 points</span> if the referee says you nailed it, <span style="color: var(--motd-magenta);">-5</span> if you bottle it.
+    </div>
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 32px; color: var(--text-muted);">Waiting for a team to accept on their phones...</div>
+    <div class="spinner" style="margin-top: 30px;"></div>
+  `;
+  document.body.appendChild(bonusDiv);
+
+  // Play bonus_offer.mp3 if it exists
+  const offerAudio = new Audio('Bonus_task_setup.mp3?v=2');
+  offerAudio.volume = 0.6;
+  offerAudio.play().catch(e => console.log('Bonus offer audio:', e));
+
+  // Notify players of bonus offer
+  gameRef.update({
+    bonusRoundActive: true,
+    bonusRoundPhase: 'offer',
+    bonusTeamAccepted: null
+  });
+
+  // Listen for a team to accept
+  gameRef.child('bonusTeamAccepted').on('value', (snapshot) => {
+    const teamNum = snapshot.val();
+    if (teamNum !== null && teamNum !== undefined) {
+      gameRef.child('bonusTeamAccepted').off();
+      bonusDiv.remove();
+      startKaraoke(teamNum);
+    }
+  });
+
+  // Auto-skip bonus round after 30 seconds if no team accepts
+  setTimeout(() => {
+    if (document.getElementById('bonus-offer-screen')) {
+      console.log('⏭️ No team accepted bonus, skipping to Scores Review');
+      gameRef.child('bonusTeamAccepted').off();
+      bonusDiv.remove();
+      gameRef.update({ bonusRoundActive: false, bonusRoundPhase: 'skipped' });
+      showScoresReview();
+    }
+  }, 30000);
+}
+
+function startKaraoke(teamNum) {
+  console.log(`🎤 Starting Karaoke for Team ${teamNum}`);
+
+  const teamInfo = teamNum === 1 ? team1 : team2;
+  const KARAOKE_LYRICS = [
+    { time: 0,  text: "♪ Come on, come on, let's hear you roar ♪" },
+    { time: 5,  text: "♪ Kick it high and kick it low ♪" },
+    { time: 10, text: "♪ From the stands we cheer and sing ♪" },
+    { time: 15, text: "♪ Goals and glory, that's the thing ♪" },
+    { time: 20, text: "♪ Wave your flag, make some noise ♪" },
+    { time: 25, text: "♪ Football heroes, girls and boys ♪" },
+    { time: 30, text: "♪ One last verse, give it all ♪" },
+    { time: 35, text: "♪ Score the goal, hear the call ♪" },
+    { time: 40, text: "♪ Champion, champion, OLE! ♪" }
+  ];
+
+  const karaokeDiv = document.createElement('div');
+  karaokeDiv.id = 'karaoke-screen';
+  karaokeDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, #0a1628 0%, #1a2540 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 40px; text-align: center;';
+  karaokeDiv.innerHTML = `
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 36px; color: var(--motd-cyan); margin-bottom: 15px; letter-spacing: 3px;">${teamInfo.flag} ${teamInfo.name} — SING!</div>
+    <div id="karaoke-timer" style="font-family: 'Bebas Neue', sans-serif; font-size: 80px; color: var(--motd-magenta); text-shadow: 0 0 30px rgba(212,20,90,0.8); margin-bottom: 30px;">45</div>
+    <div id="karaoke-lyric" style="font-family: 'Barlow', sans-serif; font-size: 42px; font-style: italic; color: var(--motd-gold); text-shadow: 0 0 20px rgba(255,198,41,0.6); max-width: 900px; line-height: 1.4; min-height: 100px; display: flex; align-items: center; justify-content: center;">
+      ♪ Get ready... ♪
+    </div>
+  `;
+  document.body.appendChild(karaokeDiv);
+
+  gameRef.update({ bonusRoundPhase: 'karaoke', bonusKaraokeTeam: teamNum });
+
+  // Play karaoke music
+  const karaokeMusic = new Audio('Kareoke_task.mp3?v=2');
+  karaokeMusic.volume = 0.5;
+  karaokeMusic.play().catch(e => console.log('Karaoke music:', e));
+  window.karaokeAudio = karaokeMusic;
+
+  let timeLeft = 45;
+  const timerInterval = setInterval(() => {
+    timeLeft--;
+    const timerEl = document.getElementById('karaoke-timer');
+    if (timerEl) timerEl.textContent = timeLeft;
+
+    // Update lyric based on elapsed time
+    const elapsed = 45 - timeLeft;
+    const currentLyric = KARAOKE_LYRICS.filter(l => l.time <= elapsed).pop();
+    const lyricEl = document.getElementById('karaoke-lyric');
+    if (lyricEl && currentLyric) {
+      lyricEl.textContent = currentLyric.text;
+    }
+
+    if (timeLeft <= 0) {
+      clearInterval(timerInterval);
+      if (window.karaokeAudio) { window.karaokeAudio.pause(); window.karaokeAudio = null; }
+      karaokeDiv.remove();
+      showBonusJudging(teamNum);
+    }
+  }, 1000);
+}
+
+function showBonusJudging(teamNum) {
+  console.log(`⚖️ Showing bonus judging for Team ${teamNum}`);
+  const teamInfo = teamNum === 1 ? team1 : team2;
+
+  const judgeDiv = document.createElement('div');
+  judgeDiv.id = 'bonus-judging-screen';
+  judgeDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, var(--motd-dark-navy) 0%, var(--motd-navy) 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 40px; text-align: center;';
+  judgeDiv.innerHTML = `
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 56px; color: var(--motd-gold); margin-bottom: 20px;">THE REFEREE DECIDES</div>
+    <div style="font-family: 'Barlow', sans-serif; font-size: 28px; color: var(--text); margin-bottom: 40px;">Did ${teamInfo.flag} ${teamInfo.name} earn the bonus points?</div>
+    <div style="display: flex; gap: 30px;">
+      <button onclick="bonusJudgement(${teamNum}, true)" style="background: linear-gradient(135deg, #22c55e, #16a34a); color: white; border: none; font-family: 'Bebas Neue', sans-serif; font-size: 36px; letter-spacing: 3px; padding: 20px 50px; border-radius: 12px; cursor: pointer; box-shadow: 0 6px 30px rgba(34,197,94,0.5);">
+        ✅ PASS +5
+      </button>
+      <button onclick="bonusJudgement(${teamNum}, false)" style="background: linear-gradient(135deg, var(--motd-magenta), var(--motd-red)); color: white; border: none; font-family: 'Bebas Neue', sans-serif; font-size: 36px; letter-spacing: 3px; padding: 20px 50px; border-radius: 12px; cursor: pointer; box-shadow: 0 6px 30px rgba(212,20,90,0.5);">
+        ❌ FAIL -5
+      </button>
+    </div>
+    <div style="font-family: 'Barlow', sans-serif; font-size: 16px; color: var(--text-muted); margin-top: 30px; font-style: italic;">Referee (Player 1) uses their phone to judge</div>
+    <div class="spinner" style="margin-top: 20px;"></div>
+  `;
+  document.body.appendChild(judgeDiv);
+
+  gameRef.update({ bonusRoundPhase: 'judging', bonusJudgingTeam: teamNum });
+
+  // Listen for referee decision from player phone
+  gameRef.child('bonusRefereeDecision').on('value', (snapshot) => {
+    const decision = snapshot.val();
+    if (decision !== null && decision !== undefined) {
+      gameRef.child('bonusRefereeDecision').off();
+      bonusJudgement(teamNum, decision);
+    }
+  });
+}
+
+function bonusJudgement(teamNum, passed) {
+  const existing = document.getElementById('bonus-judging-screen');
+  if (existing) existing.remove();
+
+  const pointChange = passed ? 5 : -5;
+  const message = passed ? '🎉 PASS! +5 points!' : '😬 FAIL! -5 points!';
+  console.log(`🎤 Bonus judgement: Team ${teamNum} ${passed ? 'PASSED' : 'FAILED'}`);
+
+  // Award/deduct points for all players on the team
+  Object.entries(players).forEach(([pid, player]) => {
+    if (player.team === teamNum) {
+      const newScore = Math.max(0, (player.score || 0) + pointChange);
+      gameRef.child('players/' + pid + '/score').set(newScore);
+    }
+  });
+
+  // Show result briefly
+  const resultDiv = document.createElement('div');
+  resultDiv.style.cssText = 'position: fixed; inset: 0; background: rgba(0,0,0,0.95); display: flex; align-items: center; justify-content: center; z-index: 10001;';
+  resultDiv.innerHTML = `<div style="font-family: 'Bebas Neue', sans-serif; font-size: 80px; color: ${passed ? '#22c55e' : 'var(--motd-magenta)'}; text-align: center; text-shadow: 0 0 60px ${passed ? 'rgba(34,197,94,0.8)' : 'rgba(212,20,90,0.8)'};">${message}</div>`;
+  document.body.appendChild(resultDiv);
+
+  gameRef.update({
+    bonusRoundPhase: 'complete',
+    bonusRoundActive: false,
+    bonusResult: { teamNum, passed, pointChange }
+  });
+
+  setTimeout(() => {
+    resultDiv.remove();
+    showScoresReview();
+  }, 3000);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PHASE 2: MATCH DRAW (TELESTRATIONS)
+// ═══════════════════════════════════════════════════════════════════════════
+
+const MATCH_DRAW_EASY = [
+  "A French football fan", "Offside rule", "Happy Goalie", "Spanish Fan",
+  "Referee", "Messy Player", "Super-Fast Striker", "Kid with a Trophy",
+  "Player Celebrating", "Team Coach", "Mascot", "Goal Kick",
+  "Kangaroo Playing Football", "Team Bus", "Box of oranges", "Scoreboard", "Goal"
+];
+
+const MATCH_DRAW_HARD = [
+  "Scandi crime drama", "Gothic cathedral", "Art Deco movie theater",
+  "Jean Claude Van Damme", "Victorian clock", "Traditional Japanese tea ceremony",
+  "Bazaar in Marrakech", "Underwater shipwreck", "Anatomical heart with flowers",
+  "The restaurant at the end of the universe", "Ancient Mayan temple",
+  "Library of comics", "Molecular structure of DNA", "Glasgow"
+];
+
+function checkForMatchDraw() {
+  const playerCount = Object.keys(players).length;
+  if (playerCount >= 4) {
+    startMatchDraw();
+  } else {
+    console.log('⏭️ Skipping Match Draw (need 4+ players, have ' + playerCount + ')');
+    // Go straight to Round 3 (Interview)
+    startRound3();
+  }
+}
+
+function startMatchDraw() {
+  console.log('🎨 Starting Match Draw');
+
+  const playerIds = Object.keys(players);
+  const playerCount = playerIds.length;
+  const hardPlayerIndex = Math.floor(Math.random() * playerCount);
+  const hardPlayerId = playerIds[hardPlayerIndex];
+
+  const subjects = {};
+  playerIds.forEach((pid, idx) => {
+    if (idx === hardPlayerIndex) {
+      subjects[pid] = MATCH_DRAW_HARD[Math.floor(Math.random() * MATCH_DRAW_HARD.length)];
+    } else {
+      subjects[pid] = MATCH_DRAW_EASY[Math.floor(Math.random() * MATCH_DRAW_EASY.length)];
+    }
+  });
+
+  const chains = {};
+  playerIds.forEach(pid => {
+    chains[pid] = { originalSubject: subjects[pid], rounds: [] };
+  });
+
+  gameRef.child('matchDraw').set({
+    active: true,
+    playerOrder: playerIds,
+    hardPlayer: hardPlayerId,
+    subjects: subjects,
+    currentRound: 0,
+    totalRounds: playerCount,
+    currentPhase: 'intro',
+    chains: chains
+  });
+
+  showMatchDrawIntro();
+}
+
+function showMatchDrawIntro() {
+  const introDiv = document.createElement('div');
+  introDiv.id = 'match-draw-intro';
+  introDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, var(--motd-dark-navy) 0%, var(--motd-navy) 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 40px; text-align: center;';
+  introDiv.innerHTML = `
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 80px; color: var(--motd-gold); text-shadow: 0 0 40px rgba(255,198,41,0.8); margin-bottom: 20px; letter-spacing: 6px;">MATCH DRAW</div>
+    <div style="font-family: 'Barlow', sans-serif; font-size: 32px; color: var(--text); margin-bottom: 20px; max-width: 800px; line-height: 1.5;">Draw what you see. Guess what they drew.</div>
+    <div style="font-size: 100px; margin: 30px 0;">✏️</div>
+    <div style="font-family: 'Barlow', sans-serif; font-size: 22px; color: var(--text-muted);">Players — check your phones for your secret subject!</div>
+    <div class="spinner" style="margin-top: 30px;"></div>
+  `;
+  document.body.appendChild(introDiv);
+  gameRef.update({ matchDrawIntroActive: true });
+
+  const explainerAudio = new Audio('matchdraw_explainer.mp3?v=2');
+  explainerAudio.volume = 0.6;
+  explainerAudio.play().catch(e => console.log('Explainer audio optional:', e));
+
+  let started = false;
+  explainerAudio.addEventListener('ended', () => {
+    if (!started) { started = true; introDiv.remove(); startMatchDrawRound(1); }
+  });
+  setTimeout(() => {
+    if (!started) { started = true; if (document.getElementById('match-draw-intro')) introDiv.remove(); startMatchDrawRound(1); }
+  }, 12000);
+}
+
+function startMatchDrawRound(roundNumber) {
+  console.log('🎨 Match Draw Round ' + roundNumber);
+  gameRef.update({ 'matchDraw/currentRound': roundNumber, 'matchDraw/currentPhase': 'show-subject' });
+
+  // 5-second countdown for players to memorise subject
+  let countdown = 5;
+  const cdDiv = document.createElement('div');
+  cdDiv.id = 'md-countdown';
+  cdDiv.style.cssText = 'position: fixed; inset: 0; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10001;';
+  cdDiv.innerHTML = `
+    <div style="font-family: 'Barlow', sans-serif; font-size: 28px; color: rgba(255,255,255,0.7); margin-bottom: 20px;">Players memorise your subject...</div>
+    <div id="md-cd-num" style="font-family: 'Bebas Neue', sans-serif; font-size: 200px; color: var(--motd-gold); text-shadow: 0 0 60px rgba(255,198,41,0.8);">5</div>
+  `;
+  document.body.appendChild(cdDiv);
+
+  const cdInterval = setInterval(() => {
+    countdown--;
+    const el = document.getElementById('md-cd-num');
+    if (el) el.textContent = countdown > 0 ? countdown : 'DRAW!';
+    if (countdown <= 0) {
+      clearInterval(cdInterval);
+      setTimeout(() => {
+        if (document.getElementById('md-countdown')) document.getElementById('md-countdown').remove();
+        startDrawingPhase(roundNumber);
+      }, 800);
+    }
+  }, 1000);
+}
+
+function startDrawingPhase(roundNumber) {
+  console.log('✏️ Drawing phase round ' + roundNumber);
+  gameRef.update({ 'matchDraw/currentPhase': 'drawing', 'matchDraw/drawingTimeLeft': 30 });
+
+  const timerDiv = document.createElement('div');
+  timerDiv.id = 'md-drawing-timer';
+  timerDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, var(--motd-dark-navy) 0%, var(--motd-navy) 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 40px;';
+  timerDiv.innerHTML = `
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 48px; color: var(--text); margin-bottom: 20px; letter-spacing: 3px;">✏️ DRAW YOUR SUBJECT</div>
+    <div id="md-draw-num" style="font-family: 'Bebas Neue', sans-serif; font-size: 160px; color: var(--motd-gold); text-shadow: 0 0 40px rgba(255,198,41,0.8);">30</div>
+    <div style="font-family: 'Barlow', sans-serif; font-size: 24px; color: var(--text-muted);">Players are drawing on their phones</div>
+  `;
+  document.body.appendChild(timerDiv);
+
+  const drawAudio = new Audio('matchdraw_music_30sec.mp3?v=2');
+  drawAudio.volume = 0.4;
+  drawAudio.play().catch(e => console.log('Draw music optional:', e));
+  window.matchDrawMusic = drawAudio;
+
+  let timeLeft = 30;
+  const interval = setInterval(() => {
+    timeLeft--;
+    const el = document.getElementById('md-draw-num');
+    if (el) el.textContent = timeLeft;
+    gameRef.update({ 'matchDraw/drawingTimeLeft': timeLeft });
+
+    if (timeLeft <= 0) {
+      clearInterval(interval);
+      if (window.matchDrawMusic) { window.matchDrawMusic.pause(); window.matchDrawMusic = null; }
+      if (document.getElementById('md-drawing-timer')) document.getElementById('md-drawing-timer').remove();
+
+      // Odd rounds draw→guess, even rounds draw→next draw OR finish
+      gameRef.child('matchDraw').once('value', (snap) => {
+        const md = snap.val();
+        if (md.currentRound % 2 === 1) {
+          startGuessingPhase(md.currentRound);
+        } else {
+          if (md.currentRound >= md.totalRounds) {
+            startMatchDrawReveal();
+          } else {
+            startMatchDrawRound(md.currentRound + 1);
+          }
+        }
+      });
+    }
+  }, 1000);
+}
+
+function startGuessingPhase(roundNumber) {
+  console.log('🤔 Guessing phase round ' + roundNumber);
+  gameRef.update({ 'matchDraw/currentPhase': 'guessing', 'matchDraw/guessingTimeLeft': 15 });
+
+  const timerDiv = document.createElement('div');
+  timerDiv.id = 'md-guessing-timer';
+  timerDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, var(--motd-dark-navy) 0%, var(--motd-navy) 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 40px;';
+  timerDiv.innerHTML = `
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 48px; color: var(--text); margin-bottom: 20px; letter-spacing: 3px;">🤔 WHAT DO YOU SEE?</div>
+    <div id="md-guess-num" style="font-family: 'Bebas Neue', sans-serif; font-size: 160px; color: var(--motd-cyan); text-shadow: 0 0 40px rgba(77,212,232,0.8);">15</div>
+    <div style="font-family: 'Barlow', sans-serif; font-size: 24px; color: var(--text-muted);">Players are guessing on their phones</div>
+  `;
+  document.body.appendChild(timerDiv);
+
+  let timeLeft = 15;
+  const interval = setInterval(() => {
+    timeLeft--;
+    const el = document.getElementById('md-guess-num');
+    if (el) el.textContent = timeLeft;
+    gameRef.update({ 'matchDraw/guessingTimeLeft': timeLeft });
+
+    if (timeLeft <= 0) {
+      clearInterval(interval);
+      if (document.getElementById('md-guessing-timer')) document.getElementById('md-guessing-timer').remove();
+
+      gameRef.child('matchDraw').once('value', (snap) => {
+        const md = snap.val();
+        if (md.currentRound >= md.totalRounds) {
+          startMatchDrawReveal();
+        } else {
+          startMatchDrawRound(md.currentRound + 1);
+        }
+      });
+    }
+  }, 1000);
+}
+
+function startMatchDrawReveal() {
+  console.log('🎭 Starting Match Draw reveal');
+  gameRef.update({ 'matchDraw/currentPhase': 'reveal', 'matchDraw/currentRevealPlayer': 0 });
+  showNextPlayerReveal();
+}
+
+function showNextPlayerReveal() {
+  gameRef.child('matchDraw').once('value', (snap) => {
+    const md = snap.val();
+    const revealIndex = md.currentRevealPlayer || 0;
+    const playerOrder = md.playerOrder || [];
+
+    if (revealIndex >= playerOrder.length) {
+      startMatchDrawScoring();
+      return;
+    }
+
+    const revealPlayerId = playerOrder[revealIndex];
+    const chain = md.chains ? md.chains[revealPlayerId] : null;
+    const pName = players[revealPlayerId] ? players[revealPlayerId].name : 'Player';
+
+    displayChainOnHost(revealPlayerId, pName, chain, () => {
+      gameRef.update({ 'matchDraw/currentRevealPlayer': revealIndex + 1 });
+      setTimeout(showNextPlayerReveal, 1000);
+    });
+  });
+}
+
+function displayChainOnHost(revealPlayerId, pName, chain, callback) {
+  const existing = document.getElementById('chain-reveal');
+  if (existing) existing.remove();
+
+  const chainDiv = document.createElement('div');
+  chainDiv.id = 'chain-reveal';
+  chainDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, var(--motd-dark-navy) 0%, var(--motd-navy) 100%); display: flex; flex-direction: column; align-items: center; justify-content: flex-start; z-index: 10000; padding: 40px; overflow-y: auto;';
+
+  const rounds = (chain && chain.rounds) ? Object.values(chain.rounds) : [];
+  const originalSubject = chain ? chain.originalSubject : '?';
+
+  let html = `
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 56px; color: var(--motd-gold); margin-bottom: 30px;">${pName}'s Chain</div>
+    <div style="display: flex; flex-direction: column; gap: 20px; width: 100%; max-width: 800px;">
+  `;
+
+  rounds.forEach((round) => {
+    if (round.type === 'drawing' && round.drawing) {
+      html += `
+        <div style="background: rgba(255,255,255,0.1); border-radius: 12px; padding: 20px; text-align: center;">
+          <div style="font-family: 'Barlow', sans-serif; font-size: 18px; color: rgba(255,255,255,0.6); margin-bottom: 10px;">Drawing</div>
+          <img src="${round.drawing}" style="max-width: 100%; max-height: 350px; border-radius: 8px; background: #fff; padding: 10px;">
+        </div>
+      `;
+    } else if (round.type === 'guess') {
+      const gName = players[round.by] ? players[round.by].name : 'Someone';
+      html += `
+        <div style="background: rgba(77,212,232,0.15); border-radius: 12px; padding: 20px; text-align: center;">
+          <div style="font-family: 'Barlow', sans-serif; font-size: 18px; color: rgba(255,255,255,0.6); margin-bottom: 10px;">${gName} guessed:</div>
+          <div style="font-family: 'Bebas Neue', sans-serif; font-size: 40px; color: var(--motd-cyan);">"${round.guess}"</div>
+        </div>
+      `;
+    }
+  });
+
+  html += `
+    <div style="background: rgba(255,198,41,0.2); border: 3px solid var(--motd-gold); border-radius: 12px; padding: 25px; text-align: center; margin-top: 20px;">
+      <div style="font-family: 'Barlow', sans-serif; font-size: 20px; color: rgba(255,255,255,0.7); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 3px;">The Original Subject Was</div>
+      <div style="font-family: 'Bebas Neue', sans-serif; font-size: 56px; color: var(--motd-gold);">${originalSubject}</div>
+    </div>
+    </div>
+    <button onclick="this.parentElement.remove(); window._matchDrawRevealCallback && window._matchDrawRevealCallback();" style="margin-top: 30px; background: var(--motd-cyan); color: #000; border: none; font-family: 'Bebas Neue', sans-serif; font-size: 28px; letter-spacing: 3px; padding: 14px 40px; border-radius: 8px; cursor: pointer;">Next →</button>
+  `;
+
+  chainDiv.innerHTML = html;
+  document.body.appendChild(chainDiv);
+  window._matchDrawRevealCallback = callback;
+}
+
+function startMatchDrawScoring() {
+  console.log('⚖️ Match Draw scoring');
+  gameRef.update({ 'matchDraw/currentPhase': 'scoring', 'matchDraw/currentScoringPlayer': 0 });
+
+  gameRef.child('matchDraw/playerOrder').once('value', (snap) => {
+    const playerOrder = snap.val() || [];
+    showNextMatchDrawScoring(playerOrder, 0);
+  });
+}
+
+function showNextMatchDrawScoring(playerOrder, index) {
+  if (index >= playerOrder.length) {
+    applyMatchDrawScores(playerOrder);
+    return;
+  }
+
+  const scoringPlayerId = playerOrder[index];
+  const pName = players[scoringPlayerId] ? players[scoringPlayerId].name : 'Player';
+
+  const scoringDiv = document.createElement('div');
+  scoringDiv.id = 'md-scoring-screen';
+  scoringDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, var(--motd-dark-navy) 0%, var(--motd-navy) 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 40px; text-align: center;';
+  scoringDiv.innerHTML = `
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 56px; color: var(--text); margin-bottom: 20px;">Rate ${pName}'s Drawing</div>
+    <div style="font-family: 'Barlow', sans-serif; font-size: 24px; color: var(--motd-cyan); margin-bottom: 40px;">Referee (Player 1) — score on their phone</div>
+    <div class="spinner"></div>
+  `;
+  document.body.appendChild(scoringDiv);
+
+  gameRef.update({
+    'matchDraw/currentScoringPlayer': index,
+    'matchDraw/currentScoringPlayerId': scoringPlayerId,
+    'matchDraw/currentScoringPlayerName': pName
+  });
+
+  // Listen for score from player phone
+  const scoreListener = gameRef.child('matchDraw/scores/' + scoringPlayerId).on('value', (snap) => {
+    if (snap.val() !== null && snap.val() !== undefined) {
+      gameRef.child('matchDraw/scores/' + scoringPlayerId).off('value', scoreListener);
+      if (document.getElementById('md-scoring-screen')) document.getElementById('md-scoring-screen').remove();
+      setTimeout(() => showNextMatchDrawScoring(playerOrder, index + 1), 1000);
+    }
+  });
+}
+
+function applyMatchDrawScores(playerOrder) {
+  gameRef.child('matchDraw/scores').once('value', (snap) => {
+    const scores = snap.val() || {};
+    const updates = {};
+    playerOrder.forEach(pid => {
+      const score = scores[pid] || 0;
+      const current = players[pid] ? (players[pid].score || 0) : 0;
+      updates['players/' + pid + '/score'] = current + score;
+    });
+    gameRef.update(updates);
+
+    setTimeout(() => {
+      // After Match Draw, go to Round 3 (Interview)
+      startRound3();
+    }, 2000);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PHASE 6: FINAL VICTORY SCREEN (replaces showFinalScreen)
+// ═══════════════════════════════════════════════════════════════════════════
+
+function showVictoryScreen() {
+  console.log('🏆 Showing Victory Screen');
+
+  document.getElementById('round3-screen').classList.remove('active');
+  document.getElementById('round-indicator').textContent = 'Full Time';
+
+  gameRef.once('value', (snapshot) => {
+    const data = snapshot.val() || {};
+    const playersData = data.players || {};
+
+    let team1Total = 0;
+    let team2Total = 0;
+    let mvp = { name: '—', score: 0 };
+    const team1Players = [];
+    const team2Players = [];
+
+    Object.values(playersData).forEach(player => {
+      const score = player.score || 0;
+      if (player.team === 1) { team1Total += score; team1Players.push(player); }
+      if (player.team === 2) { team2Total += score; team2Players.push(player); }
+      if (score > mvp.score) { mvp = { name: player.name, score: score }; }
+    });
+
+    const winnerTeam = team1Total > team2Total ? (team1 || {}) : team2Total > team1Total ? (team2 || {}) : null;
+    const winnerScore = Math.max(team1Total, team2Total);
+    const loserScore = Math.min(team1Total, team2Total);
+
+    const victoryDiv = document.createElement('div');
+    victoryDiv.id = 'victory-screen';
+    victoryDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, var(--motd-dark-navy) 0%, var(--motd-navy) 100%); display: flex; flex-direction: column; align-items: center; justify-content: flex-start; z-index: 10000; padding: 40px; overflow-y: auto;';
+
+    const teamDisplay = winnerTeam
+      ? `${winnerTeam.flag || ''} ${winnerTeam.name || 'Winner'} Wins!`
+      : "It's a Draw!";
+
+    const t1Players = team1Players.sort((a, b) => (b.score || 0) - (a.score || 0));
+    const t2Players = team2Players.sort((a, b) => (b.score || 0) - (a.score || 0));
+
+    victoryDiv.innerHTML = `
+      <div style="font-family: 'Bebas Neue', sans-serif; font-size: 72px; color: var(--motd-gold); text-shadow: 0 0 60px rgba(255,198,41,0.8); margin-bottom: 10px; letter-spacing: 6px; text-align: center;">🏆 FULL TIME! 🏆</div>
+
+      <div style="background: rgba(255,255,255,0.08); border: 3px solid var(--motd-gold); border-radius: 20px; padding: 30px 50px; margin-bottom: 30px; text-align: center;">
+        <div style="font-family: 'Bebas Neue', sans-serif; font-size: 56px; color: var(--text);">${teamDisplay}</div>
+        <div style="font-family: 'Bebas Neue', sans-serif; font-size: 100px; color: var(--motd-cyan); text-shadow: 0 0 40px rgba(77,212,232,0.6); line-height: 1;">${team1Total} — ${team2Total}</div>
+        ${team1 && team2 ? `<div style="font-family: 'Barlow Condensed', sans-serif; font-size: 24px; color: var(--text-muted);">${team1.flag} ${team1.name} vs ${team2.flag} ${team2.name}</div>` : ''}
+      </div>
+
+      <div style="background: rgba(255,198,41,0.15); border: 3px solid var(--motd-gold); border-radius: 16px; padding: 25px 40px; margin-bottom: 30px; text-align: center; width: 100%; max-width: 600px;">
+        <div style="font-family: 'Barlow Condensed', sans-serif; font-size: 18px; color: rgba(255,255,255,0.7); text-transform: uppercase; letter-spacing: 3px; margin-bottom: 10px;">⭐ MVP ⭐</div>
+        <div style="font-family: 'Bebas Neue', sans-serif; font-size: 52px; color: var(--motd-gold);">${mvp.name}</div>
+        <div style="font-family: 'Bebas Neue', sans-serif; font-size: 36px; color: var(--text);">${mvp.score} points</div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; width: 100%; max-width: 900px; margin-bottom: 30px;">
+        <div style="background: rgba(77,212,232,0.1); border: 2px solid var(--motd-cyan); border-radius: 12px; padding: 20px;">
+          <div style="font-family: 'Bebas Neue', sans-serif; font-size: 28px; color: var(--motd-cyan); margin-bottom: 15px;">${team1 ? team1.flag + ' ' + team1.name : 'Team 1'}</div>
+          ${t1Players.map((p, i) => `<div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.1); font-family: 'Barlow Condensed', sans-serif; font-size: 20px;"><span>${i === 0 ? '⭐ ' : ''}${p.name}</span><span style="color: var(--motd-cyan);">${p.score || 0}</span></div>`).join('')}
+          <div style="font-family: 'Bebas Neue', sans-serif; font-size: 32px; color: var(--motd-gold); margin-top: 10px; text-align: right;">Total: ${team1Total}</div>
+        </div>
+        <div style="background: rgba(212,20,90,0.1); border: 2px solid var(--motd-magenta); border-radius: 12px; padding: 20px;">
+          <div style="font-family: 'Bebas Neue', sans-serif; font-size: 28px; color: var(--motd-magenta); margin-bottom: 15px;">${team2 ? team2.flag + ' ' + team2.name : 'Team 2'}</div>
+          ${t2Players.map((p, i) => `<div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.1); font-family: 'Barlow Condensed', sans-serif; font-size: 20px;"><span>${i === 0 ? '⭐ ' : ''}${p.name}</span><span style="color: var(--motd-magenta);">${p.score || 0}</span></div>`).join('')}
+          <div style="font-family: 'Bebas Neue', sans-serif; font-size: 32px; color: var(--motd-gold); margin-top: 10px; text-align: right;">Total: ${team2Total}</div>
+        </div>
+      </div>
+
+      <button onclick="location.reload()" style="background: linear-gradient(135deg, var(--motd-magenta), var(--motd-red)); color: white; border: none; font-family: 'Bebas Neue', sans-serif; font-size: 28px; letter-spacing: 4px; padding: 16px 50px; border-radius: 8px; cursor: pointer; box-shadow: 0 4px 30px rgba(212,20,90,0.5); margin-top: 10px;">
+        🔄 Play Again
+      </button>
+    `;
+
+    document.body.appendChild(victoryDiv);
+
+    // Play final whistle → victory fanfare
+    const whistleAudio = new Audio('final_whistle.mp3?v=2');
+    whistleAudio.volume = 0.7;
+    whistleAudio.play().catch(e => console.log('Whistle optional:', e));
+    whistleAudio.addEventListener('ended', () => {
+      const fanfareAudio = new Audio('victory_fanfare.mp3?v=2');
+      fanfareAudio.volume = 0.6;
+      fanfareAudio.play().catch(e => console.log('Fanfare optional:', e));
+    });
+
+    gameRef.update({
+      gameComplete: true,
+      winner: winnerTeam ? winnerTeam.name : 'Draw',
+      finalScore: `${team1Total} - ${team2Total}`,
+      mvp: mvp.name
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// NOTES (UPDATED)
 // ═══════════════════════════════════════════════════════════════════════════
 /*
-  This is a SIMPLIFIED multiplayer version with Round 1 only.
-  
-  For the FULL experience with all audio/video features:
-  - Karaoke bonus round
-  - Commentary video recording
-  - Interview questions
-  
-  Use the single-player version (gaffers-chair.html) instead.
-  
-  Multiplayer works best for the core quiz questions where players
-  answer on their phones and see results live on TV.
+  FULL GAME FLOW (v8.0):
+  Round 1 Quiz → Bonus Round (Karaoke) → Scores Review #1
+  → Round 2 Puns (30s) → Pun Review → [Match Draw if 4+ players]
+  → Round 3 Interview → Victory Screen
+
+  Phases 3 (Commentary) and 4 (Toilet Paper) are deferred.
 */
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -3008,29 +3633,35 @@ function showFinalScreen() {
 
 function testSkipQuestion() {
   if (currentRound === 1) {
-    // Skip to next Round 1 question
     currentQuestion++;
     if (currentQuestion < ROUND_1_QUESTIONS.length) {
       loadQuestion(currentQuestion);
       answerRevealed = false;
     } else {
-      startRound3();
+      showBonusOffer();
     }
   } else if (currentRound === 3) {
-    // Skip to next Round 3 question
     round3CurrentQ++;
     if (round3CurrentQ < ROUND_3_QUESTIONS.length) {
       loadRound3Question(round3CurrentQ);
     } else {
-      showFinalScreen();
+      showVictoryScreen();
     }
   }
+}
+
+function testSkipToMatchDraw() {
+  checkForMatchDraw();
 }
 
 function testSkipToRound3() {
   currentRound = 3;
   round3CurrentQ = -1;
   startRound3();
+}
+
+function testSkipToVictory() {
+  showVictoryScreen();
 }
 
 function testTriggerSabotage(teamNumber) {
@@ -3052,11 +3683,14 @@ function testResetGame() {
 
 <!-- TESTING CONTROLS (REMOVE WHEN FINISHED) -->
 <div class="testing-controls">
-  <button class="test-btn" onclick="testSkipQuestion()">⏭️ Next Question</button>
-  <button class="test-btn" onclick="testSkipToRound3()">🎤 Skip to Round 3</button>
-  <button class="test-btn" onclick="testTriggerSabotage(1)">💣 Sabotage Team 1</button>
-  <button class="test-btn" onclick="testTriggerSabotage(2)">💣 Sabotage Team 2</button>
-  <button class="test-btn danger" onclick="testResetGame()">🔄 Reset Game</button>
+  <button class="test-btn" onclick="testSkipQuestion()">⏭️ Next Q</button>
+  <button class="test-btn" onclick="showBonusOffer()">🎤 Bonus Rd</button>
+  <button class="test-btn" onclick="testSkipToMatchDraw()">✏️ Match Draw</button>
+  <button class="test-btn" onclick="testSkipToRound3()">🎙️ Interview</button>
+  <button class="test-btn" onclick="testSkipToVictory()">🏆 Victory</button>
+  <button class="test-btn" onclick="testTriggerSabotage(1)">💣 Sab T1</button>
+  <button class="test-btn" onclick="testTriggerSabotage(2)">💣 Sab T2</button>
+  <button class="test-btn danger" onclick="testResetGame()">🔄 Reset</button>
 </div>
 
 </body>
