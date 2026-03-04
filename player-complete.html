@@ -1621,6 +1621,22 @@ function startPlayerRound2() {
   gameRef.child(`round2/puns/${playerId}`).on('child_added', (snapshot) => {
     displayMySubmittedPun(snapshot.val());
   });
+
+  // Listen for time up — lock the input so no more puns can be submitted
+  gameRef.child('round2TimeUp').on('value', (snapshot) => {
+    if (snapshot.val() === true) {
+      const submitBtn = document.getElementById('pun-submit-btn');
+      const punInput = document.getElementById('pun-input');
+      if (submitBtn) submitBtn.disabled = true;
+      if (punInput) punInput.disabled = true;
+      const icon = document.getElementById('pun-status-icon');
+      const text = document.getElementById('pun-status-text');
+      const status = document.getElementById('pun-status');
+      if (icon) icon.textContent = '⏱️';
+      if (text) text.textContent = "Time's up! Your puns have been saved.";
+      if (status) status.classList.remove('hidden');
+    }
+  });
 }
 
 function displayMySubmittedPun(punText) {
