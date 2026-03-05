@@ -981,9 +981,8 @@
         <div class="score-list" id="round3-score-list"></div>
       </div>
       
-      <div class="host-controls">
-        <button class="host-btn" id="round3-next-btn" onclick="nextRound3Question()">Next Question →</button>
-      </div>
+      <!-- Next Question is triggered by Player 1 via Firebase -->
+      <div class="host-controls" style="display: none;" id="round3-host-controls"></div>
     </div>
 
     <!-- FINAL RESULTS -->
@@ -1079,13 +1078,28 @@ function getScoreReactionFile(team1Score, team2Score) {
     return files[Math.floor(Math.random() * files.length)];
   }
 
+  // Generic scores reactions (2-11) added to every pool for variety
+  const generic = [
+    'scores_reaction_2.mp3',
+    'scores_reaction_3.mp3',
+    'scores_reaction_4.mp3',
+    'scores_reaction_5.mp3',
+    'scores_reaction_6.mp3',
+    'scores_reaction_7.mp3',
+    'scores_reaction_8.mp3',
+    'scores_reaction_9.mp3',
+    'scores_reaction_10.mp3',
+    'scores_reaction_11.mp3'
+  ];
+
   // Check for struggling score first (0-2 points for either team)
   if (team1Score <= 2 || team2Score <= 2) {
     return pick([
       'struggling_reaction_1.mp3',
       'struggling_reaction_3.mp3',
       'struggling_reaction_4mp3.mp3',
-      'struggling_reaction_5.mp3'
+      'struggling_reaction_5.mp3',
+      ...generic
     ]);
   }
 
@@ -1096,7 +1110,8 @@ function getScoreReactionFile(team1Score, team2Score) {
       'close_score_reaction_2.mp3',
       'close_score_reaction_3.mp3',
       'close_score_reaction_4.mp3',
-      'close_score_reaction_5.mp3'
+      'close_score_reaction_5.mp3',
+      ...generic
     ]);
   }
 
@@ -1108,7 +1123,8 @@ function getScoreReactionFile(team1Score, team2Score) {
       'slight_lead_reaction_3.mp3',
       'slight_lead_reaction_4.mp3',
       'slight_lead_reaction_5.mp3',
-      'slight_lead_reaction_6.mp3'
+      'slight_lead_reaction_6.mp3',
+      ...generic
     ]);
   }
 
@@ -1116,12 +1132,13 @@ function getScoreReactionFile(team1Score, team2Score) {
   if (difference <= 15) {
     return pick([
       'comfortable_lead_reaction_1.mp3',
-      'comfortable_lead_reaction_2.mp3'
+      'comfortable_lead_reaction_2.mp3',
+      ...generic
     ]);
   }
 
   // Dominant lead (16+)
-  return 'dominant_lead_reaction_1.mp3';
+  return pick(['dominant_lead_reaction_1.mp3', ...generic]);
 }
 
 // Round 3 - Interview Questions
@@ -1156,6 +1173,20 @@ const ROUND_3_ANSWER_POOL = [
   "Paul Gascoigne, uninvited but inevitably there",
   "A single bead of sweat from Pep's forehead"
 ];
+
+// ═══════════════════════════════════════════════════════════════════════════
+// COMMENTARY ROUND - DATA
+// ═══════════════════════════════════════════════════════════════════════════
+
+const COMMENTARY_VIDEOS = [
+  'commentary_video_2.mp4',
+  'commentary_video_3.mp4',
+  'commentary_video_4.mp4',
+  'commentary_video_5.mp4',
+  'commentary_video_6.mp4'
+];
+
+let usedCommentaryVideos = [];
 
 // World Cup Finals History (countries that reached the final)
 const WORLD_CUP_FINALISTS = [
@@ -2260,14 +2291,30 @@ function showScoresReview() {
     if (player.team === 2) team2Score += (player.score || 0);
   });
   
-  // Determine leader
+  // Determine leader — pick a random comment from a pool for variety
+  const pick = arr => arr[Math.floor(Math.random() * arr.length)];
   let leadText = '';
   if (team1Score > team2Score) {
-    leadText = `${team1.name} took an early lead there with ${team1Score} points, meanwhile ${team2.name} are trailing with ${team2Score} points`;
+    leadText = pick([
+      `${team1.name} took an early lead there with ${team1Score} points, meanwhile ${team2.name} are trailing with ${team2Score} points`,
+      `${team1.name} are out in front with ${team1Score} points! ${team2.name} will need to pull something out of the bag — they're on ${team2Score}`,
+      `It's looking good for ${team1.name}, they're ahead on ${team1Score} points. ${team2.name} on ${team2Score} will have to fight back in round two`,
+      `${team1.name} have the edge — ${team1Score} points to ${team2.name}'s ${team2Score}. Can the gap be closed?`,
+    ]);
   } else if (team2Score > team1Score) {
-    leadText = `${team2.name} took an early lead there with ${team2Score} points, meanwhile ${team1.name} are trailing with ${team1Score} points`;
+    leadText = pick([
+      `${team2.name} took an early lead there with ${team2Score} points, meanwhile ${team1.name} are trailing with ${team1Score} points`,
+      `${team2.name} are looking very comfortable up top with ${team2Score} points. ${team1.name} are on ${team1Score} and will need to pick things up`,
+      `It's ${team2.name} in the driving seat on ${team2Score} points. ${team1.name} are chasing on ${team1Score}`,
+      `${team2.name} have taken control — ${team2Score} points to ${team1.name}'s ${team1Score}. What a turnaround it would be if ${team1.name} can claw it back`,
+    ]);
   } else {
-    leadText = `It's all square! Both teams on ${team1Score} points. This is going to be close!`;
+    leadText = pick([
+      `It's all square! Both teams on ${team1Score} points. This is going to be close!`,
+      `Absolutely level! ${team1Score} points each — everything still to play for`,
+      `You couldn't separate them! Level at ${team1Score} apiece. The second round could decide everything`,
+      `It's a draw! ${team1Score} points each. This one is far from over`,
+    ]);
   }
   
   // Create scores review screen
@@ -2345,10 +2392,7 @@ async function generateScoresCommentary(leadText, team1Score, team2Score) {
   
   if (!commentaryDiv) {
     console.error('❌ Commentary div not found, skipping');
-    // Skip to reaction anyway
-    setTimeout(() => {
-      playScoresReaction(team1Score, team2Score);
-    }, 1000);
+    setTimeout(() => { routeAfterScoresReview(); }, 1000);
     return;
   }
   
@@ -2390,35 +2434,35 @@ async function generateScoresCommentary(leadText, team1Score, team2Score) {
     window._commentaryAudio.play().catch(err => console.error('Commentary audio play failed:', err));
     console.log('🔊 Playing generated commentary');
 
-    let reactionTriggered = false;
+    let routeTriggered = false;
 
-    // 3. When commentary finishes, play reaction audio
+    // 3. When commentary finishes, move on
     window._commentaryAudio.addEventListener('ended', () => {
       window._commentaryAudio = null;
-      if (!reactionTriggered) {
-        reactionTriggered = true;
-        console.log('✅ Commentary finished, playing reaction');
-        playScoresReaction(team1Score, team2Score);
+      if (!routeTriggered) {
+        routeTriggered = true;
+        console.log('✅ Commentary finished, routing to next round');
+        routeAfterScoresReview();
       }
     });
 
     // Fallback — only fire if audio genuinely hasn't played (not just ended)
     const _ca = window._commentaryAudio;
     setTimeout(() => {
-      if (!reactionTriggered && _ca && !_ca.ended && _ca.paused) {
-        reactionTriggered = true;
-        console.log('⚠️ Commentary audio not playing, showing reaction anyway');
-        playScoresReaction(team1Score, team2Score);
+      if (!routeTriggered && _ca && !_ca.ended && _ca.paused) {
+        routeTriggered = true;
+        console.log('⚠️ Commentary audio not playing, routing anyway');
+        routeAfterScoresReview();
       }
     }, 15000);
-    
+
   } catch (error) {
     console.error('❌ ElevenLabs error:', error);
     commentaryDiv.textContent = `"Well Clyde, ${leadText}"`;
-    
-    // Skip to reaction even if commentary fails
+
+    // Skip to next round even if commentary fails
     setTimeout(() => {
-      playScoresReaction(team1Score, team2Score);
+      routeAfterScoresReview();
     }, 3000);
   }
 }
@@ -2470,11 +2514,13 @@ function routeAfterScoresReview() {
   console.log(`📊 Scores review done — routing from: ${source}`);
 
   switch (source) {
-    case 'round1':    startRound2();           break;
-    case 'round2':    checkForMatchDraw();      break;
-    case 'matchdraw': showToiletPaperAlert();   break;
-    case 'toiletpaper': startRound3();          break;
-    default:          startRound2();
+    case 'round1':      startRound2();            break;
+    case 'round2':      startRound3();            break; // → Interview Round
+    case 'interview':   checkForMatchDraw();       break; // → Match Draw
+    case 'matchdraw':   startCommentaryRound();    break;
+    case 'commentary':  showToiletPaperAlert();    break;
+    case 'toiletpaper': showSabotageReveals();     break; // → Sabotage Reveals
+    default:            startRound2();
   }
 }
 
@@ -2483,7 +2529,7 @@ function routeAfterScoresReview() {
 // ═══════════════════════════════════════════════════════════════════════════
 
 let round2Timer = null;
-let round2TimeLeft = 30;
+let round2TimeLeft = 60;
 let round2Started = false; // Prevent duplicate starts
 
 function startRound2() {
@@ -2590,7 +2636,7 @@ function startRound2Gameplay() {
   document.getElementById('pun-category').textContent = category;
   
   // Reset timer
-  round2TimeLeft = 30;
+  round2TimeLeft = 60;
   document.getElementById('countdown-timer').textContent = round2TimeLeft;
   
   // Show submission count instead of actual puns
@@ -2612,7 +2658,7 @@ function startRound2Gameplay() {
     round: 2,
     round2Category: category,
     round2Active: true,
-    round2TimeLeft: 30,
+    round2TimeLeft: 60,
     round2TimeUp: false,
     crackedOn: false
   });
@@ -3041,12 +3087,59 @@ let round3CurrentQ = 0;
 
 function startRound3() {
   document.getElementById('game-screen').classList.remove('active');
-  document.getElementById('round3-screen').classList.add('active');
   document.getElementById('round-indicator').textContent = 'Round 3 - Interview';
-  
-  round3CurrentQ = 0;
-  gameRef.update({ round: 3, currentRound3Question: 0 });
-  loadRound3Question(0);
+
+  // Show intro screen
+  const introDiv = document.createElement('div');
+  introDiv.id = 'round3-intro';
+  introDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, var(--motd-dark-navy) 0%, var(--motd-navy) 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 40px; text-align: center;';
+  introDiv.innerHTML = `
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 80px; color: var(--motd-gold); text-shadow: 0 0 40px rgba(255,198,41,0.8); margin-bottom: 20px; letter-spacing: 6px;">
+      🎙️ INTERVIEW ROUND
+    </div>
+    <div style="font-family: 'Oswald', sans-serif; font-size: 32px; color: var(--text); margin-bottom: 20px;">
+      Round 3
+    </div>
+    <div class="spinner" style="margin-top: 30px;"></div>
+  `;
+  document.body.appendChild(introDiv);
+
+  // Signal players to show their interview round intro screen
+  gameRef.update({ round3IntroActive: true });
+
+  const introAudio = new Audio('interview_round_intro.mp3?v=2');
+  introAudio.volume = 0.7;
+
+  const launchRound = () => {
+    introDiv.remove();
+    gameRef.update({ round3IntroActive: false, round: 3, currentRound3Question: 0 });
+    document.getElementById('round3-screen').classList.add('active');
+    round3CurrentQ = 0;
+
+    // Set up a SINGLE 'next question' listener — only here, never inside loadRound3Question.
+    // Flush any stale value first so it doesn't fire immediately on attach.
+    gameRef.child('round3NextQuestion').remove();
+    gameRef.child('round3NextQuestion').off();
+    gameRef.child('round3NextQuestion').on('value', (snap) => {
+      if (snap.val() === true) {
+        gameRef.child('round3NextQuestion').remove();
+        nextRound3Question();
+      }
+    });
+
+    loadRound3Question(0);
+  };
+
+  introAudio.addEventListener('ended', launchRound);
+  introAudio.play().catch(() => {
+    // Audio not found — fallback after 3 s
+    setTimeout(launchRound, 3000);
+  });
+
+  // Safety fallback: never wait more than 30 s
+  setTimeout(() => {
+    if (document.getElementById('round3-intro')) launchRound();
+  }, 30000);
 }
 
 function loadRound3Question(index) {
@@ -3077,6 +3170,9 @@ function loadRound3Question(index) {
     const votes = voteSnapshot.val() || {};
     awardRound3Points(votes, index);
   });
+
+  // NOTE: The 'round3NextQuestion' listener lives in launchRound() — not here.
+  // It is set up exactly once so it never stacks across multiple question loads.
 }
 
 function displaySubmittedAnswers(submissions, questionIndex) {
@@ -3158,29 +3254,42 @@ function updateRound3Scoreboard() {
   `;
 }
 
+const _round3AcceptPlayed = {};
+
 function awardRound3Points(votes, questionIndex) {
   // Count votes for each player
   const voteCounts = {};
   Object.values(votes).forEach(targetPlayerId => {
     voteCounts[targetPlayerId] = (voteCounts[targetPlayerId] || 0) + 1;
   });
-  
+
   // Find winner (most votes)
   let winnerId = null;
   let maxVotes = 0;
-  Object.entries(voteCounts).forEach(([playerId, count]) => {
+  Object.entries(voteCounts).forEach(([pid, count]) => {
     if (count > maxVotes) {
       maxVotes = count;
-      winnerId = playerId;
+      winnerId = pid;
     }
   });
-  
+
   // Award bonus points to winner (3 points for winning)
   if (winnerId && maxVotes > 0) {
     gameRef.child('players/' + winnerId + '/score').once('value', (snap) => {
       const currentScore = snap.val() || 0;
       gameRef.child('players/' + winnerId + '/score').set(currentScore + 3);
     });
+  }
+
+  // Play accept audio once all players have voted
+  const totalPlayers = Object.keys(players).length;
+  const totalVotes   = Object.keys(votes).length;
+  if (totalVotes >= totalPlayers && !_round3AcceptPlayed[questionIndex]) {
+    _round3AcceptPlayed[questionIndex] = true;
+    if (window.playPunReactionAudio) {
+      window.playPunReactionAudio('accept');
+      console.log('🎵 Playing accept audio — all votes in for question', questionIndex);
+    }
   }
 }
 
@@ -3189,8 +3298,11 @@ function nextRound3Question() {
   if (round3CurrentQ < ROUND_3_QUESTIONS.length) {
     loadRound3Question(round3CurrentQ);
   } else {
-    // Round 3 (Interview) complete → Victory Screen
-    showVictoryScreen();
+    // Round 3 (Interview) complete → tear down the single listener, then go to Scores Review
+    console.log('✅ Interview Round complete, showing scores review');
+    gameRef.child('round3NextQuestion').off();
+    window.scoresReviewSource = 'interview';
+    showScoresReview();
   }
 }
 
@@ -3388,7 +3500,7 @@ function startKaraoke(teamNum, offerDiv) {
 
 const KARAOKE_LYRICS = [
   { time: 0,  polish: "♪ ♪ ♪",                                            english: "" },
-  { time: 8,  polish: "Gola! Gola! Gola!",                                 english: "Goal! Goal! Goal!" },
+  { time: 8,  polish: "Futbol! Futbol! Yeah!",                              english: "Football! Football! Yeah!" },
   { time: 15, polish: "Futbol, futbol, przeżyjmy to jeszcze raz",          english: "Football, football, let's live it once again" },
   { time: 22, polish: "Gdy piłka w grze, gdy idzie na strzał",             english: "When the ball is in play, when it goes for a shot" },
   { time: 26, polish: "Śledzi jej lot cały świat",                         english: "The whole world follows its flight" },
@@ -4027,6 +4139,257 @@ function applyMatchDrawScores(playerOrder) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// COMMENTARY ROUND
+// ═══════════════════════════════════════════════════════════════════════════
+
+function startCommentaryRound() {
+  console.log('🎙️ Starting Commentary Round');
+  if (usedCommentaryVideos.length >= COMMENTARY_VIDEOS.length) usedCommentaryVideos = [];
+
+  const introDiv = document.createElement('div');
+  introDiv.id = 'commentary-intro';
+  introDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, var(--motd-dark-navy) 0%, var(--motd-navy) 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 40px; text-align: center;';
+  introDiv.innerHTML = `
+    <div style="font-size: 80px; margin-bottom: 20px;">🎙️</div>
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 72px; color: var(--motd-gold); text-shadow: 0 0 40px rgba(255,198,41,0.8); margin-bottom: 30px; letter-spacing: 6px;">COMMENTARY CHALLENGE</div>
+    <div style="font-family: 'Barlow', sans-serif; font-size: 28px; color: var(--text); max-width: 700px; line-height: 1.6;">Each team picks a commentator to provide live commentary over a football clip!</div>
+    <div class="spinner" style="margin-top: 40px;"></div>
+  `;
+  document.body.appendChild(introDiv);
+  gameRef.update({ commentaryPhase: 'intro' });
+
+  const explainerAudio = new Audio('commentary_explainer.mp3?v=2');
+  explainerAudio.volume = 0.7;
+  explainerAudio.play().catch(e => console.log('commentary_explainer not found:', e));
+  explainerAudio.addEventListener('ended', () => {
+    if (document.getElementById('commentary-intro')) { introDiv.remove(); startCommentaryTeamSelection(1); }
+  });
+  setTimeout(() => {
+    if (document.getElementById('commentary-intro')) { introDiv.remove(); startCommentaryTeamSelection(1); }
+  }, 12000);
+}
+
+function startCommentaryTeamSelection(teamNumber) {
+  console.log(`🎙️ Commentary Team ${teamNumber} selection`);
+  const team = teamNumber === 1 ? team1 : team2;
+
+  const available = COMMENTARY_VIDEOS.filter(v => !usedCommentaryVideos.includes(v));
+  const videoFile = available[Math.floor(Math.random() * available.length)];
+  usedCommentaryVideos.push(videoFile);
+  gameRef.child(`commentary/team${teamNumber}`).update({ videoFile });
+
+  const selectionDiv = document.createElement('div');
+  selectionDiv.id = 'commentary-selection';
+  selectionDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, var(--motd-dark-navy) 0%, var(--motd-navy) 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 40px; text-align: center;';
+  selectionDiv.innerHTML = `
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 56px; color: var(--motd-cyan); margin-bottom: 20px; letter-spacing: 4px;">${team ? team.flag + ' ' + team.name : 'Team ' + teamNumber}</div>
+    <div style="font-family: 'Barlow', sans-serif; font-size: 32px; color: var(--text); margin-bottom: 40px;">Who wants to commentate?</div>
+    <div id="commentary-selection-status" style="font-family: 'Bebas Neue', sans-serif; font-size: 40px; color: var(--motd-gold); margin-bottom: 30px;">Waiting for a volunteer...</div>
+    <div class="spinner"></div>
+  `;
+  document.body.appendChild(selectionDiv);
+
+  gameRef.update({ commentaryPhase: `team${teamNumber}Selection`, [`commentaryTeam${teamNumber}SelectionActive`]: true });
+
+  const selectionAudio = new Audio(teamNumber === 1 ? 'commentary_intro_home.mp3?v=2' : 'commentary_intro_away.mp3?v=2');
+  selectionAudio.volume = 0.7;
+  selectionAudio.play().catch(e => console.log('Commentary selection audio not found:', e));
+
+  let selectionTimeout = null;
+  const volunteerRef = gameRef.child(`commentary/team${teamNumber}/commentator`);
+  const volunteerListener = volunteerRef.on('value', (snap) => {
+    const commentatorId = snap.val();
+    if (!commentatorId) return;
+    volunteerRef.off('value', volunteerListener);
+    clearTimeout(selectionTimeout);
+    const commentatorName = players[commentatorId]?.name || 'Player';
+    const statusEl = document.getElementById('commentary-selection-status');
+    if (statusEl) statusEl.textContent = `${commentatorName} is up! 🎙️`;
+    setTimeout(() => {
+      if (document.getElementById('commentary-selection')) {
+        selectionDiv.remove();
+        gameRef.update({ [`commentaryTeam${teamNumber}SelectionActive`]: false });
+        startCommentaryCountdown(teamNumber, commentatorId, videoFile);
+      }
+    }, 2000);
+  });
+
+  selectionTimeout = setTimeout(() => {
+    volunteerRef.off('value', volunteerListener);
+    if (!document.getElementById('commentary-selection')) return;
+    selectionDiv.remove();
+    console.log(`⚠️ No volunteer from Team ${teamNumber} — -5 points`);
+    const updates = {};
+    Object.entries(players).forEach(([pid, player]) => {
+      if (player.team === teamNumber) {
+        const newScore = Math.max(0, (player.score || 0) - 5);
+        updates['players/' + pid + '/score'] = newScore;
+        if (players[pid]) players[pid].score = newScore;
+      }
+    });
+    gameRef.update({ ...updates, [`commentaryTeam${teamNumber}SelectionActive`]: false });
+    if (teamNumber === 1) { startCommentaryTeamSelection(2); } else { endCommentaryRound(); }
+  }, 30000);
+}
+
+function startCommentaryCountdown(teamNumber, commentatorId, videoFile) {
+  console.log(`🎙️ Commentary countdown Team ${teamNumber}`);
+  const countdownDiv = document.createElement('div');
+  countdownDiv.id = 'commentary-countdown';
+  countdownDiv.style.cssText = 'position: fixed; inset: 0; background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; text-align: center;';
+  countdownDiv.innerHTML = `
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 40px; color: var(--motd-cyan); margin-bottom: 30px; letter-spacing: 3px;">GET READY TO COMMENTATE!</div>
+    <div id="commentary-countdown-num" style="font-family: 'Bebas Neue', sans-serif; font-size: 200px; color: var(--motd-gold); text-shadow: 0 0 60px rgba(255,198,41,0.9); line-height: 1;">3</div>
+  `;
+  document.body.appendChild(countdownDiv);
+  gameRef.update({ commentaryPhase: `team${teamNumber}Countdown` });
+
+  let count = 3;
+  const countInterval = setInterval(() => {
+    count--;
+    const numEl = document.getElementById('commentary-countdown-num');
+    if (count > 0) {
+      if (numEl) numEl.textContent = count;
+    } else {
+      clearInterval(countInterval);
+      if (document.getElementById('commentary-countdown')) {
+        countdownDiv.remove();
+        startCommentaryRecording(teamNumber, commentatorId, videoFile);
+      }
+    }
+  }, 1000);
+}
+
+function startCommentaryRecording(teamNumber, commentatorId, videoFile) {
+  console.log(`🎙️ Commentary recording Team ${teamNumber} — ${videoFile}`);
+  const recordingDiv = document.createElement('div');
+  recordingDiv.id = 'commentary-recording';
+  recordingDiv.style.cssText = 'position: fixed; inset: 0; background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 20px;';
+  recordingDiv.innerHTML = `
+    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+      <div style="width: 16px; height: 16px; background: #ff0000; border-radius: 50%; animation: pulse 1s infinite;"></div>
+      <div style="font-family: 'Bebas Neue', sans-serif; font-size: 36px; color: #ff4444; letter-spacing: 3px;">● RECORDING</div>
+    </div>
+    <video id="commentary-video" src="${videoFile}" style="width: 100%; max-width: 900px; max-height: 65vh; border-radius: 8px;" playsinline muted></video>
+  `;
+  document.body.appendChild(recordingDiv);
+  gameRef.update({ commentaryPhase: `team${teamNumber}Recording`, [`commentary/team${teamNumber}/commentatorRecording`]: true });
+
+  const video = document.getElementById('commentary-video');
+  video.play().catch(e => console.log('Commentary video play failed:', e));
+  video.addEventListener('ended', () => {
+    if (document.getElementById('commentary-recording')) {
+      recordingDiv.remove();
+      gameRef.update({ [`commentary/team${teamNumber}/commentatorRecording`]: false });
+      setTimeout(() => { startCommentaryPlayback(teamNumber, commentatorId, videoFile); }, 1500);
+    }
+  });
+  setTimeout(() => {
+    if (document.getElementById('commentary-recording')) {
+      recordingDiv.remove();
+      gameRef.update({ [`commentary/team${teamNumber}/commentatorRecording`]: false });
+      startCommentaryPlayback(teamNumber, commentatorId, videoFile);
+    }
+  }, 35000);
+}
+
+function startCommentaryPlayback(teamNumber, commentatorId, videoFile) {
+  console.log(`🎙️ Commentary playback Team ${teamNumber}`);
+  const commentatorName = players[commentatorId]?.name || 'Player';
+  const playbackDiv = document.createElement('div');
+  playbackDiv.id = 'commentary-playback';
+  playbackDiv.style.cssText = 'position: fixed; inset: 0; background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 20px; text-align: center;';
+  playbackDiv.innerHTML = `
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 32px; color: var(--motd-cyan); margin-bottom: 16px; letter-spacing: 3px;">🎙️ ${commentatorName}'s Commentary</div>
+    <video id="commentary-playback-video" src="${videoFile}" style="width: 100%; max-width: 900px; max-height: 55vh; border-radius: 8px; margin-bottom: 16px;" playsinline></video>
+    <div style="font-family: 'Barlow', sans-serif; font-size: 22px; color: rgba(255,255,255,0.7);">Listen carefully — the referee is scoring!</div>
+  `;
+  document.body.appendChild(playbackDiv);
+  gameRef.update({ commentaryPhase: `team${teamNumber}Playback` });
+
+  // Play commentary_review.mp3 first, then start video (gives commentator's phone time to sync)
+  const reviewAudio = new Audio('commentary_review.mp3?v=2');
+  reviewAudio.volume = 0.7;
+  reviewAudio.play().catch(() => {
+    const v = document.getElementById('commentary-playback-video');
+    if (v) v.play().catch(() => {});
+  });
+  reviewAudio.addEventListener('ended', () => {
+    const v = document.getElementById('commentary-playback-video');
+    if (v) v.play().catch(e => console.log('Playback video play failed:', e));
+  });
+
+  const pbVideo = document.getElementById('commentary-playback-video');
+  pbVideo.addEventListener('ended', () => {
+    if (document.getElementById('commentary-playback')) {
+      playbackDiv.remove();
+      showCommentaryRefereeScoring(teamNumber);
+    }
+  });
+  setTimeout(() => {
+    if (document.getElementById('commentary-playback')) {
+      playbackDiv.remove();
+      showCommentaryRefereeScoring(teamNumber);
+    }
+  }, 45000);
+}
+
+function showCommentaryRefereeScoring(teamNumber) {
+  console.log(`⚖️ Commentary referee scoring Team ${teamNumber}`);
+  const team = teamNumber === 1 ? team1 : team2;
+  const scoringDiv = document.createElement('div');
+  scoringDiv.id = 'commentary-scoring';
+  scoringDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, var(--motd-dark-navy) 0%, var(--motd-navy) 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 40px; text-align: center;';
+  scoringDiv.innerHTML = `
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 52px; color: var(--motd-gold); margin-bottom: 12px; letter-spacing: 4px;">⚽ Rate the Commentary</div>
+    <div style="font-family: 'Barlow', sans-serif; font-size: 26px; color: rgba(255,255,255,0.7); margin-bottom: 40px;">${team ? team.flag + ' ' + team.name : 'Team ' + teamNumber} — Waiting for referee to score...</div>
+    <div class="spinner"></div>
+  `;
+  document.body.appendChild(scoringDiv);
+  gameRef.update({ commentaryPhase: `team${teamNumber}Scoring`, commentaryScoringTeam: teamNumber });
+
+  let scoringTimeout = null;
+  const scoreRef = gameRef.child(`commentary/team${teamNumber}/score`);
+  const scoreListener = scoreRef.on('value', (snap) => {
+    const score = snap.val();
+    if (score === null || score === undefined) return;
+    scoreRef.off('value', scoreListener);
+    clearTimeout(scoringTimeout);
+    if (document.getElementById('commentary-scoring')) scoringDiv.remove();
+    applyCommentaryScore(teamNumber, score);
+  });
+  scoringTimeout = setTimeout(() => {
+    scoreRef.off('value', scoreListener);
+    if (document.getElementById('commentary-scoring')) scoringDiv.remove();
+    console.log(`⚠️ Referee didn't score Team ${teamNumber} in time — no points`);
+    applyCommentaryScore(teamNumber, 0);
+  }, 30000);
+}
+
+function applyCommentaryScore(teamNumber, score) {
+  console.log(`✅ Commentary score Team ${teamNumber}: ${score}`);
+  const updates = {};
+  Object.entries(players).forEach(([pid, player]) => {
+    if (player.team === teamNumber) {
+      const newScore = (player.score || 0) + score;
+      updates['players/' + pid + '/score'] = newScore;
+      if (players[pid]) players[pid].score = newScore;
+    }
+  });
+  if (Object.keys(updates).length) gameRef.update(updates);
+  gameRef.update({ commentaryPhase: null, commentaryScoringTeam: null });
+  setTimeout(() => {
+    if (teamNumber === 1) { startCommentaryTeamSelection(2); } else { endCommentaryRound(); }
+  }, 1500);
+}
+
+function endCommentaryRound() {
+  console.log('🎙️ Commentary Round complete → Toilet Paper');
+  gameRef.update({ commentaryPhase: null });
+  showToiletPaperAlert();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // PHASE 4: TOILET PAPER ROUNDS
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -4092,7 +4455,73 @@ function continueToToiletPaperRounds() {
   const alertDiv = document.getElementById('toilet-paper-alert');
   if (alertDiv) alertDiv.remove();
   gameRef.update({ toiletPaperAlertActive: false, toiletPaperReady: null });
+  assignSabotageTasks();
   startBogRolling();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SABOTAGE TASK ASSIGNMENT
+// ═══════════════════════════════════════════════════════════════════════════
+
+function assignSabotageTasks() {
+  console.log('🕵️ Assigning initial sabotage tasks');
+
+  const team1Players = Object.keys(players).filter(pid => players[pid].team === 1);
+  const team2Players = Object.keys(players).filter(pid => players[pid].team === 2);
+
+  // Task definitions
+  const sabotageTaskDefinitions = {
+    clean_sheet: {
+      id: 'clean_sheet',
+      name: 'Clean Sheet',
+      description: 'Put as many pieces of toilet paper in your pocket as possible. You may only pick up pieces off the floor and each piece must be separated. You will get one point per piece at the end of the game if nobody has spotted you. Tell no one.',
+      pointsPerPiece: 1
+    },
+    on_bench: {
+      id: 'on_bench',
+      name: 'On The Bench',
+      description: 'Choose a hiding place and stash as many pieces of toilet paper as possible there. You may only pick pieces up off the floor, and each piece must be separated. You will get one point per piece at the end of the game if nobody has spotted you. Tell no one.',
+      pointsPerPiece: 1
+    }
+  };
+
+  // Assign Clean Sheet to random Team 1 player
+  if (team1Players.length > 0) {
+    const randomPlayer1 = team1Players[Math.floor(Math.random() * team1Players.length)];
+    const task = sabotageTaskDefinitions.clean_sheet;
+
+    gameRef.child(`sabotage/${randomPlayer1}`).set({
+      task: task.id,
+      name: task.name,
+      description: task.description,
+      pointsPerPiece: task.pointsPerPiece,
+      assigned: true,
+      completed: false,
+      piecesCollected: 0,
+      points: 0
+    });
+
+    console.log(`🕵️ Assigned Clean Sheet to ${players[randomPlayer1].name}`);
+  }
+
+  // Assign On The Bench to random Team 2 player
+  if (team2Players.length > 0) {
+    const randomPlayer2 = team2Players[Math.floor(Math.random() * team2Players.length)];
+    const task = sabotageTaskDefinitions.on_bench;
+
+    gameRef.child(`sabotage/${randomPlayer2}`).set({
+      task: task.id,
+      name: task.name,
+      description: task.description,
+      pointsPerPiece: task.pointsPerPiece,
+      assigned: true,
+      completed: false,
+      piecesCollected: 0,
+      points: 0
+    });
+
+    console.log(`🕵️ Assigned On The Bench to ${players[randomPlayer2].name}`);
+  }
 }
 
 function startBogRolling() {
@@ -4296,70 +4725,456 @@ function startGoalPostsTimer() {
 // ═══════════════════════════════════════════════════════════════════════════
 
 function showGoalPostsJudging() {
-  console.log('⚖️ Goal Posts Judging');
+  console.log('⚖️ Goal Posts Judging — sending to Player 1');
 
-  let team1Score = null;
-  let team2Score = null;
+  // Find Team 1 captain name for display
+  const captain1 = Object.values(players).find(p => p.team === 1 && p.isCaptain);
+  const captainName = captain1 ? captain1.name : 'Player 1';
 
-  const judgingDiv = document.createElement('div');
-  judgingDiv.id = 'goalpost-judging';
-  judgingDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, var(--motd-dark-navy) 0%, var(--motd-navy) 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 40px; overflow-y: auto;';
+  const waitingDiv = document.createElement('div');
+  waitingDiv.id = 'goalpost-judging';
+  waitingDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, var(--motd-dark-navy) 0%, var(--motd-navy) 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 40px; text-align: center;';
+  waitingDiv.innerHTML = `
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 56px; color: var(--motd-gold); margin-bottom: 30px; letter-spacing: 4px;">⚽ Goal Post Glory</div>
+    <div style="font-family: 'Barlow', sans-serif; font-size: 28px; color: var(--text); margin-bottom: 40px;">
+      Waiting for <strong style="color: var(--motd-cyan);">${captainName}</strong> to score the goal posts...
+    </div>
+    <div class="spinner"></div>
+  `;
+  document.body.appendChild(waitingDiv);
 
-  function render() {
-    const confirmBtn = (team1Score !== null && team2Score !== null)
-      ? `<button onclick="confirmGoalPostScores()" style="margin-top: 40px; padding: 20px 60px; background: linear-gradient(135deg, #ffc629, #4dd4e8); color: #0a1628; border: none; border-radius: 15px; font-family: 'Bebas Neue', sans-serif; font-size: 36px; cursor: pointer; box-shadow: 0 10px 30px rgba(255,198,41,0.4);">✅ Award Points</button>`
-      : '';
+  // Signal player screens that judging is active
+  gameRef.update({ goalPostsJudging: true });
 
-    judgingDiv.innerHTML = `
-      <div style="font-family: 'Bebas Neue', sans-serif; font-size: 56px; color: var(--motd-gold); margin-bottom: 10px; letter-spacing: 4px;">⚽ Goal Post Glory</div>
-      <div style="font-family: 'Barlow', sans-serif; font-size: 22px; color: rgba(255,255,255,0.7); margin-bottom: 40px;">Score each team's goal posts out of 5</div>
+  // Listen for scores submitted by player 1
+  gameRef.child('goalPostsScores').on('value', (snapshot) => {
+    const scores = snapshot.val();
+    if (!scores || scores.team1 === undefined || scores.team2 === undefined) return;
 
-      ${[team1, team2].map((team, i) => {
-        const teamNum = i + 1;
-        const selected = teamNum === 1 ? team1Score : team2Score;
-        const btnStyle = (n) => `padding: 14px 22px; border: 3px solid ${n === selected ? '#ffc629' : 'rgba(255,255,255,0.3)'}; background: ${n === selected ? '#ffc629' : 'transparent'}; color: ${n === selected ? '#0a1628' : '#fff'}; border-radius: 10px; font-family: 'Bebas Neue', sans-serif; font-size: 28px; cursor: pointer; margin: 0 6px;`;
-        return `
-          <div style="margin-bottom: 30px; text-align: center;">
-            <div style="font-family: 'Bebas Neue', sans-serif; font-size: 36px; color: var(--text); margin-bottom: 14px;">${team ? team.flag + ' ' + team.name : 'Team ' + teamNum}</div>
-            <div>
-              ${[1,2,3,4,5].map(n => `<button style="${btnStyle(n)}" onclick="setGoalPostScore(${teamNum}, ${n})">${n}</button>`).join('')}
-            </div>
-          </div>`;
-      }).join('')}
+    gameRef.child('goalPostsScores').off();
+    waitingDiv.remove();
+    gameRef.update({ goalPostsJudging: false });
 
-      ${confirmBtn}
-    `;
+    const t1 = scores.team1;
+    const t2 = scores.team2;
 
-    // Re-attach window functions after innerHTML reset
-    window.setGoalPostScore = (teamNum, score) => {
-      if (teamNum === 1) team1Score = score;
-      else team2Score = score;
-      render();
-    };
-    window.confirmGoalPostScores = () => {
-      if (team1Score === null || team2Score === null) return;
-      judgingDiv.remove();
+    // Award points to every player on each team
+    const updates = {};
+    Object.entries(players).forEach(([pid, player]) => {
+      const award = player.team === 1 ? t1 : t2;
+      updates['players/' + pid + '/score'] = (player.score || 0) + award;
+      if (players[pid]) players[pid].score = (players[pid].score || 0) + award;
+    });
+    gameRef.update(updates);
+    gameRef.child('goalPostsScores').remove();
+    console.log(`✅ Goal Posts scored: Team 1 = ${t1}, Team 2 = ${t2}`);
 
-      // Award points to every player on each team
-      const updates = {};
-      Object.entries(players).forEach(([pid, player]) => {
-        const award = player.team === 1 ? team1Score : team2Score;
-        updates['players/' + pid + '/score'] = (player.score || 0) + award;
-        if (players[pid]) players[pid].score = (players[pid].score || 0) + award;
-      });
-      gameRef.update(updates);
-      console.log(`✅ Goal Posts scored: Team 1 = ${team1Score}, Team 2 = ${team2Score}`);
+    // Move to Blow Ball
+    setTimeout(() => {
+      startBlowBall();
+    }, 2000);
+  });
+}
 
-      // Show Scores Review #5 → then Interview Round
-      setTimeout(() => {
-        window.scoresReviewSource = 'toiletpaper';
-        showScoresReview();
-      }, 1500);
-    };
+// ═══════════════════════════════════════════════════════════════════════════
+// BLOW BALL ROUND
+// ═══════════════════════════════════════════════════════════════════════════
+
+const BLOW_BALL_EMOTIONS = [
+  '😐 Serious',
+  '😕 Confused',
+  '😣 In Pain',
+  '🤩 Excited',
+  '🤤 Hungry',
+  '😊 Happy'
+];
+
+let blowBallCurrentEmotion = 0;
+let blowBallPhotoCount = 0;
+const TOTAL_BLOW_BALL_PHOTOS = 6;
+
+function startBlowBall() {
+  console.log('💨 Starting Blow Ball');
+
+  const explainerDiv = document.createElement('div');
+  explainerDiv.id = 'blowball-explainer';
+  explainerDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, var(--motd-dark-navy) 0%, var(--motd-navy) 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 40px;';
+  explainerDiv.innerHTML = `
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 72px; color: var(--motd-gold); text-shadow: 0 0 40px rgba(255,198,41,0.8); margin-bottom: 40px;">
+      BLOW BALL
+    </div>
+    <div style="font-family: 'Oswald', sans-serif; font-size: 28px; color: var(--text); text-align: center; max-width: 900px; line-height: 1.5; margin-bottom: 40px;">
+      Both teams must take a single piece of toilet paper<br>
+      and using only your breath, propel it from your goal<br>
+      to your opponent's goal.<br><br>
+      Every 10 seconds, STOP and take a photo<br>
+      showing the emotion on screen!
+    </div>
+    <div class="spinner"></div>
+  `;
+
+  document.body.appendChild(explainerDiv);
+
+  const explainerAudio = new Audio('blowball_explainer.mp3?v=2');
+  explainerAudio.volume = 0.6;
+  explainerAudio.play().catch(e => console.log('Blow Ball explainer audio:', e));
+
+  explainerAudio.addEventListener('ended', () => {
+    if (document.getElementById('blowball-explainer')) {
+      explainerDiv.remove();
+      selectPhotographers();
+    }
+  });
+
+  // Fallback if audio is missing/short
+  setTimeout(() => {
+    if (document.getElementById('blowball-explainer')) {
+      explainerDiv.remove();
+      selectPhotographers();
+    }
+  }, 15000);
+
+  gameRef.update({ blowBallActive: true });
+}
+
+function selectPhotographers() {
+  console.log('📸 Selecting team photographers');
+
+  const selectionDiv = document.createElement('div');
+  selectionDiv.id = 'photographer-selection';
+  selectionDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, var(--motd-dark-navy) 0%, var(--motd-navy) 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 40px;';
+  selectionDiv.innerHTML = `
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 56px; color: var(--text); margin-bottom: 30px;">
+      Select Team Photographers
+    </div>
+    <div style="font-family: 'Barlow', sans-serif; font-size: 28px; color: var(--motd-cyan); margin-top: 20px;">
+      Waiting for one player from each team…
+    </div>
+    <div class="spinner" style="margin-top: 40px;"></div>
+  `;
+
+  document.body.appendChild(selectionDiv);
+
+  gameRef.update({ blowBallPhotographerSelectionActive: true });
+
+  let checkPhotographers;
+  const startBlowBallIfReady = () => {
+    gameRef.child('blowBall/photographers').once('value', (snapshot) => {
+      const photographers = snapshot.val();
+      if (photographers && photographers.team1 && photographers.team2) {
+        clearInterval(checkPhotographers);
+        selectionDiv.remove();
+        startBlowBallRound();
+      }
+    });
+  };
+
+  checkPhotographers = setInterval(startBlowBallIfReady, 500);
+
+  // Timeout fallback — start anyway after 30 s
+  setTimeout(() => {
+    if (document.getElementById('photographer-selection')) {
+      clearInterval(checkPhotographers);
+      selectionDiv.remove();
+      console.log('⚠️ Photographer selection timed out — starting Blow Ball anyway');
+      startBlowBallRound();
+    }
+  }, 30000);
+}
+
+function startBlowBallRound() {
+  console.log('💨 Starting Blow Ball emotion rounds');
+  blowBallCurrentEmotion = 0;
+  blowBallPhotoCount = 0;
+
+  // After 20 seconds unlock the "Full Time" button on the referee's device
+  setTimeout(() => {
+    gameRef.update({ blowBallFullTimeAvailable: true });
+    console.log('🏁 Full Time button now available for referee');
+  }, 20000);
+
+  // Listen for the referee pressing Full Time
+  gameRef.child('blowBallFullTime').off();
+  gameRef.child('blowBallFullTime').on('value', (snap) => {
+    if (snap.val() === true) {
+      console.log('🏁 Referee called Full Time — ending Blow Ball');
+      gameRef.child('blowBallFullTime').off();
+      gameRef.child('blowBallFullTime').remove();
+      // Remove whatever emotion screen is showing
+      const emotionDiv = document.getElementById('blowball-emotion');
+      if (emotionDiv) emotionDiv.remove();
+      finishBlowBall();
+    }
+  });
+
+  showNextEmotion();
+}
+
+function showNextEmotion() {
+  if (blowBallPhotoCount >= TOTAL_BLOW_BALL_PHOTOS) {
+    finishBlowBall();
+    return;
   }
 
+  const emotion = BLOW_BALL_EMOTIONS[blowBallCurrentEmotion % BLOW_BALL_EMOTIONS.length];
+  const roundNumber = blowBallPhotoCount + 1;
+
+  // Remove any leftover emotion div from previous round
+  const prevDiv = document.getElementById('blowball-emotion');
+  if (prevDiv) prevDiv.remove();
+
+  // ── HOST SCREEN: hidden phase ──
+  const emotionDiv = document.createElement('div');
+  emotionDiv.id = 'blowball-emotion';
+  emotionDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, var(--motd-dark-navy) 0%, var(--motd-navy) 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 40px; text-align: center;';
+  emotionDiv.innerHTML = `
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 44px; color: var(--text-muted); margin-bottom: 24px; letter-spacing: 4px;">
+      ROUND ${roundNumber} / ${TOTAL_BLOW_BALL_PHOTOS}
+    </div>
+    <div id="blowball-mystery" style="font-family: 'Bebas Neue', sans-serif; font-size: 110px; color: var(--motd-gold); opacity: 0.35; letter-spacing: 16px; margin-bottom: 30px;">
+      ? ? ?
+    </div>
+    <div id="blowball-revealed" style="display: none; font-family: 'Bebas Neue', sans-serif; font-size: 110px; color: var(--motd-gold); text-shadow: 0 0 80px rgba(255,198,41,1); margin-bottom: 30px;">
+      ${emotion}
+    </div>
+    <div id="blowball-timer" style="font-family: 'Bebas Neue', sans-serif; font-size: 90px; color: var(--motd-cyan);">
+      10
+    </div>
+  `;
+
+  document.body.appendChild(emotionDiv);
+
+  // Signal players: new snap round starting — emotion deliberately withheld
+  gameRef.update({
+    blowBallSnapActive: roundNumber,
+    blowBallEmotion: null,
+    blowBallTimeLeft: 10,
+    blowBallPhotoRound: roundNumber
+  });
+
+  // Rotate through the 7 audio files
+  const audioIndex = ((blowBallPhotoCount) % 7) + 1;
+  const musicAudio = new Audio(`blowball_10sec_${audioIndex}.mp3?v=2`);
+  musicAudio.volume = 0.5;
+  musicAudio.play().catch(e => console.log('Blow Ball audio:', e));
+
+  let timeLeft = 10;
+  const interval = setInterval(() => {
+    timeLeft--;
+    const timerEl = document.getElementById('blowball-timer');
+    if (timerEl) timerEl.textContent = timeLeft;
+    gameRef.update({ blowBallTimeLeft: timeLeft });
+
+    if (timeLeft <= 0) {
+      clearInterval(interval);
+
+      // ── REVEAL ──
+      const mysteryEl = document.getElementById('blowball-mystery');
+      const revealEl  = document.getElementById('blowball-revealed');
+      if (mysteryEl) mysteryEl.style.display = 'none';
+      if (revealEl)  revealEl.style.display  = 'block';
+
+      // Play reveal sound
+      const photoAudio = new Audio('photo.mp3?v=2');
+      photoAudio.volume = 0.8;
+      photoAudio.play().catch(e => {});
+
+      // Now tell players the emotion
+      gameRef.update({ blowBallEmotion: emotion });
+
+      blowBallPhotoCount++;
+      blowBallCurrentEmotion++;
+
+      // Pause to enjoy the reveal, then move to next emotion
+      setTimeout(() => {
+        const div = document.getElementById('blowball-emotion');
+        if (div) div.remove();
+        showNextEmotion();
+      }, 2000);
+    }
+  }, 1000);
+}
+
+function finishBlowBall() {
+  console.log('✅ Blow Ball complete — waiting for referee scores');
+
+  // Clean up Full Time listener and availability flag
+  gameRef.child('blowBallFullTime').off();
+  gameRef.child('blowBallFullTimeAvailable').remove();
+
+  gameRef.update({
+    blowBallActive: false,
+    blowBallComplete: true,
+    blowBallJudgingActive: true
+  });
+
+  const judgingDiv = document.createElement('div');
+  judgingDiv.id = 'blowball-judging';
+  judgingDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, var(--motd-dark-navy) 0%, var(--motd-navy) 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 40px;';
+  judgingDiv.innerHTML = `
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 72px; color: var(--text); margin-bottom: 30px;">
+      Full Time! 📢
+    </div>
+    <div style="font-family: 'Barlow', sans-serif; font-size: 28px; color: var(--motd-cyan); margin-top: 20px;">
+      Referee is scoring both teams on speed, flair, and huff…
+    </div>
+    <div class="spinner" style="margin-top: 40px;"></div>
+  `;
+
   document.body.appendChild(judgingDiv);
-  render();
+
+  let scoreWait;
+  const checkScores = () => {
+    gameRef.child('blowBall/scores').once('value', (snapshot) => {
+      const scores = snapshot.val();
+      if (scores && scores.team1 !== undefined && scores.team2 !== undefined) {
+        clearInterval(scoreWait);
+        judgingDiv.remove();
+
+        // Award points to every player on each team
+        Object.entries(players).forEach(([pid, player]) => {
+          const teamScore = player.team === 1 ? scores.team1 : scores.team2;
+          gameRef.child(`players/${pid}/score`).transaction((current) => {
+            return (current || 0) + teamScore;
+          });
+          if (players[pid]) players[pid].score = (players[pid].score || 0) + teamScore;
+        });
+
+        console.log(`✅ Blow Ball scores: Team 1 = ${scores.team1}, Team 2 = ${scores.team2}`);
+        gameRef.update({ blowBallJudgingActive: false });
+
+        // Scores Review → Sabotage Reveals (via 'toiletpaper' case)
+        setTimeout(() => {
+          window.scoresReviewSource = 'toiletpaper';
+          showScoresReview();
+        }, 2000);
+      }
+    });
+  };
+
+  scoreWait = setInterval(checkScores, 500);
+
+  // Fallback timeout — skip scoring after 60 s
+  setTimeout(() => {
+    if (document.getElementById('blowball-judging')) {
+      clearInterval(scoreWait);
+      judgingDiv.remove();
+      console.log('⚠️ Blow Ball scoring timed out — skipping to Scores Review');
+      window.scoresReviewSource = 'toiletpaper';
+      showScoresReview();
+    }
+  }, 60000);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SABOTAGE REVEALS
+// ═══════════════════════════════════════════════════════════════════════════
+
+function showSabotageReveals() {
+  console.log('🕵️ Showing Sabotage Reveals');
+
+  // Get all sabotage tasks from Firebase
+  gameRef.child('sabotage').once('value', (snapshot) => {
+    const sabotageData = snapshot.val();
+
+    // Filter to only task-based sabotages (assigned: true), not offside-trap ones
+    const taskSabotages = sabotageData
+      ? Object.fromEntries(
+          Object.entries(sabotageData).filter(([, d]) => d.assigned === true)
+        )
+      : {};
+
+    if (Object.keys(taskSabotages).length === 0) {
+      // No sabotage tasks assigned, go straight to victory
+      console.log('🕵️ No sabotage tasks found, going to victory');
+      showVictoryScreen();
+      return;
+    }
+
+    // Award sabotage points first
+    Object.entries(taskSabotages).forEach(([pid, data]) => {
+      if (data.completed && !data.spotted) {
+        const pts = data.piecesCollected || 0;
+        if (pts > 0) {
+          gameRef.child(`players/${pid}/score`).transaction((current) => {
+            return (current || 0) + pts;
+          });
+          console.log(`✅ Awarded ${pts} sabotage points to ${players[pid]?.name}`);
+        }
+      }
+    });
+
+    const revealDiv = document.createElement('div');
+    revealDiv.id = 'sabotage-reveals';
+    revealDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, var(--motd-dark-navy) 0%, var(--motd-navy) 100%); display: flex; flex-direction: column; align-items: center; padding: 40px; overflow-y: auto; z-index: 10000;';
+
+    let cardsHtml = '';
+    Object.entries(taskSabotages).forEach(([pid, data]) => {
+      const playerName = players[pid]?.name || 'Unknown';
+      const completed = data.completed || false;
+      const spotted   = data.spotted   || false;
+      const pieces    = data.piecesCollected || 0;
+
+      let statusText, statusColor, pts;
+      if (spotted) {
+        statusText = '🚨 CAUGHT!';    statusColor = '#d4145a'; pts = 0;
+      } else if (completed) {
+        statusText = '✅ COMPLETED';  statusColor = '#4dd4e8'; pts = pieces;
+      } else {
+        statusText = '❌ NOT COMPLETED'; statusColor = '#888';  pts = 0;
+      }
+
+      cardsHtml += `
+        <div style="background: rgba(212,20,90,0.2); border: 2px solid #d4145a; border-radius: 15px; padding: 30px;">
+          <div style="font-family: 'Bebas Neue', sans-serif; font-size: 36px; color: #fff; margin-bottom: 10px;">
+            ${playerName}
+          </div>
+          <div style="font-family: 'Bebas Neue', sans-serif; font-size: 22px; color: #d4145a; margin-bottom: 10px;">
+            Mission: ${data.name || data.task}
+          </div>
+          <div style="font-family: 'Barlow', sans-serif; font-size: 16px; color: rgba(255,255,255,0.75); margin-bottom: 18px; line-height: 1.5;">
+            ${data.description || ''}
+          </div>
+          ${pieces > 0 ? `
+            <div style="font-family: 'Barlow', sans-serif; font-size: 18px; color: rgba(255,255,255,0.9); margin-bottom: 14px;">
+              📊 Collected: ${pieces} piece${pieces === 1 ? '' : 's'}
+            </div>` : ''}
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
+            <div style="font-family: 'Bebas Neue', sans-serif; font-size: 26px; color: ${statusColor};">
+              ${statusText}
+            </div>
+            <div style="font-family: 'Bebas Neue', sans-serif; font-size: 34px; color: #ffc629;">
+              +${pts} point${pts === 1 ? '' : 's'}
+            </div>
+          </div>
+        </div>
+      `;
+    });
+
+    revealDiv.innerHTML = `
+      <div style="font-family: 'Bebas Neue', sans-serif; font-size: 68px; color: var(--motd-gold); text-shadow: 0 0 40px rgba(255,198,41,0.8); margin-bottom: 30px; letter-spacing: 5px; text-align: center;">
+        🕵️ SABOTAGE REVEALS
+      </div>
+      <div style="font-family: 'Oswald', sans-serif; font-size: 28px; color: var(--text); margin-bottom: 40px; text-align: center; opacity: 0.85;">
+        Some players had secret missions…
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 28px; width: 100%; max-width: 820px;">
+        ${cardsHtml}
+      </div>
+      <button onclick="finishSabotageReveals()"
+              style="margin-top: 50px; margin-bottom: 40px; padding: 20px 50px; background: linear-gradient(135deg, #4dd4e8, #ffc629); color: #0a1628; border: none; border-radius: 15px; font-family: 'Bebas Neue', sans-serif; font-size: 32px; cursor: pointer; box-shadow: 0 10px 30px rgba(255,198,41,0.4);">
+        Continue to Results
+      </button>
+    `;
+
+    document.body.appendChild(revealDiv);
+  });
+}
+
+function finishSabotageReveals() {
+  const revealDiv = document.getElementById('sabotage-reveals');
+  if (revealDiv) revealDiv.remove();
+  showVictoryScreen();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -4435,9 +5250,16 @@ function showVictoryScreen() {
       <button onclick="location.reload()" style="background: linear-gradient(135deg, var(--motd-magenta), var(--motd-red)); color: white; border: none; font-family: 'Bebas Neue', sans-serif; font-size: 28px; letter-spacing: 4px; padding: 16px 50px; border-radius: 8px; cursor: pointer; box-shadow: 0 4px 30px rgba(212,20,90,0.5); margin-top: 10px;">
         🔄 Play Again
       </button>
+
+      <div id="photo-album" style="width: 100%; max-width: 1200px; margin-top: 60px;">
+        <!-- Blow Ball photos loaded here -->
+      </div>
     `;
 
     document.body.appendChild(victoryDiv);
+
+    // Load photo album after a short delay
+    setTimeout(() => loadPhotoAlbum(), 1500);
 
     // Play final whistle → victory fanfare
     playAudio('final_whistle.mp3?v=2', {
@@ -4454,6 +5276,44 @@ function showVictoryScreen() {
   });
 }
 
+function loadPhotoAlbum() {
+  gameRef.child('blowBall/photos').once('value', (snapshot) => {
+    const photosData = snapshot.val();
+    const albumEl = document.getElementById('photo-album');
+    if (!albumEl) return;
+
+    if (!photosData) {
+      albumEl.style.display = 'none';
+      return;
+    }
+
+    let photoItems = '';
+    Object.entries(photosData).forEach(([pid, playerPhotos]) => {
+      const playerName = players[pid]?.name || 'Unknown';
+      Object.values(playerPhotos).forEach((photoData) => {
+        photoItems += `
+          <div style="background: rgba(255,255,255,0.08); border-radius: 12px; padding: 10px; text-align: center;">
+            <div style="font-family: 'Barlow', sans-serif; font-size: 15px; color: rgba(255,255,255,0.75); margin-bottom: 8px;">
+              ${playerName}
+            </div>
+            <img src="${photoData.photo}"
+                 style="width: 100%; height: 200px; object-fit: cover; border-radius: 8px;">
+          </div>
+        `;
+      });
+    });
+
+    albumEl.innerHTML = `
+      <div style="font-family: 'Bebas Neue', sans-serif; font-size: 48px; color: var(--text); margin-bottom: 30px; text-align: center;">
+        📸 Blow Ball Photo Album 📸
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 20px;">
+        ${photoItems}
+      </div>
+    `;
+  });
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // NOTES (UPDATED)
 // ═══════════════════════════════════════════════════════════════════════════
@@ -4466,73 +5326,8 @@ function showVictoryScreen() {
   Phases 3 (Commentary) and 4 (Toilet Paper) are deferred.
 */
 
-// ═══════════════════════════════════════════════════════════════════════════
-// TESTING FUNCTIONS (REMOVE WHEN FINISHED)
-// ═══════════════════════════════════════════════════════════════════════════
-
-function testSkipQuestion() {
-  if (currentRound === 1) {
-    currentQuestion++;
-    if (currentQuestion < ROUND_1_QUESTIONS.length) {
-      loadQuestion(currentQuestion);
-      answerRevealed = false;
-    } else {
-      showBonusOffer();
-    }
-  } else if (currentRound === 3) {
-    round3CurrentQ++;
-    if (round3CurrentQ < ROUND_3_QUESTIONS.length) {
-      loadRound3Question(round3CurrentQ);
-    } else {
-      showVictoryScreen();
-    }
-  }
-}
-
-function testSkipToMatchDraw() {
-  checkForMatchDraw();
-}
-
-function testSkipToRound3() {
-  currentRound = 3;
-  round3CurrentQ = -1;
-  startRound3();
-}
-
-function testSkipToVictory() {
-  showVictoryScreen();
-}
-
-function testTriggerSabotage(teamNumber) {
-  if (!teamsSelected) {
-    alert('Teams must be selected first!');
-    return;
-  }
-  activateSabotageForTeam(teamNumber);
-  alert(`Sabotage button activated for Team ${teamNumber}`);
-}
-
-function testResetGame() {
-  if (confirm('Reset entire game? This will clear all data.')) {
-    location.reload();
-  }
-}
 
 </script>
-
-<!-- TESTING CONTROLS (REMOVE WHEN FINISHED) -->
-<div class="testing-controls">
-  <button class="test-btn" onclick="testSkipQuestion()">⏭️ Next Q</button>
-  <button class="test-btn" onclick="showBonusOffer()">🎤 Bonus Rd</button>
-  <button class="test-btn" onclick="testSkipToMatchDraw()">✏️ Match Draw</button>
-  <button class="test-btn" onclick="showToiletPaperAlert()">🧻 TP Alert</button>
-  <button class="test-btn" onclick="showGoalPostsJudging()">⚽ GP Judge</button>
-  <button class="test-btn" onclick="testSkipToRound3()">🎙️ Interview</button>
-  <button class="test-btn" onclick="testSkipToVictory()">🏆 Victory</button>
-  <button class="test-btn" onclick="testTriggerSabotage(1)">💣 Sab T1</button>
-  <button class="test-btn" onclick="testTriggerSabotage(2)">💣 Sab T2</button>
-  <button class="test-btn danger" onclick="testResetGame()">🔄 Reset</button>
-</div>
 
 </body>
 </html>

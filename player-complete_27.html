@@ -926,7 +926,7 @@
       <div class="sabotage-subtitle">Steal 2 points from each opponent!</div>
       <div class="sabotage-timer" id="offside-timer">10</div>
       <button class="sabotage-btn" onclick="useOffsideTrap()">
-        🚩 SPRING THE TRAP 🚩
+        🚩 OFFSIDE TRAP 🚩
       </button>
       <div class="sabotage-warning">Only you can see this! Act fast...</div>
     </div>
@@ -1351,10 +1351,13 @@ function listenForGameStart() {
     else if (phase === 'scoring') showPlayerScoring();
   });
 
-  // ── SCORES REVIEW LISTENER (between Round 1 and Round 2) ──
+  // ── SCORES REVIEW LISTENER (between Round 1 and Round 2, and after pun round) ──
   gameRef.child('showScoresReview').on('value', (snapshot) => {
     if (snapshot.val() === true) {
       showPlayerScoresReview();
+    } else {
+      // Reset guard so the second scores review (after pun round) can show
+      playerScoresReviewShown = false;
     }
   });
 
@@ -1448,6 +1451,21 @@ function listenForGameStart() {
         crackOnBtn.disabled = true;
         crackOnBtn.textContent = '✅ CRACKING ON...';
       }
+    }
+  });
+
+  // ── COMMENTARY ROUND ──
+  gameRef.child('commentaryPhase').on('value', (snapshot) => {
+    showCommentaryScreen(snapshot.val());
+  });
+
+  // ── GOAL POSTS JUDGING — shown to Team 1 captain only ──
+  gameRef.child('goalPostsJudging').on('value', (snapshot) => {
+    if (snapshot.val() === true) {
+      showGoalPostsJudgingOnPlayer();
+    } else {
+      const div = document.getElementById('player-goalpost-judging');
+      if (div) div.remove();
     }
   });
 
@@ -1662,10 +1680,16 @@ function startGameAsLead() {
 }
 
 function startPlaying() {
+  // Remove Round 1 explainer if still present (race-condition safety:
+  // 'started' can arrive before 'round1Started' is cleared by the host,
+  // so the overlay may still be on screen when this fires)
+  const r1Explainer = document.getElementById('player-round1-explainer');
+  if (r1Explainer) r1Explainer.remove();
+
   // Hide all other screens
   document.getElementById('waiting-screen').classList.remove('active');
   document.getElementById('team-selection-mobile').classList.remove('active');
-  
+
   // Show game screen
   document.getElementById('game-screen').classList.add('active');
   document.getElementById('player-name-header').textContent = playerName;
@@ -1685,14 +1709,66 @@ function startPlaying() {
     }
   });
   
-  // Listen for sabotage button activation
+  // Listen for sabotage button activation AND task assignment
   gameRef.child('sabotage/' + playerId).on('value', (snapshot) => {
     const sabotageData = snapshot.val();
+    // Offside-trap sabotage (active: true)
     if (sabotageData && sabotageData.active) {
       showOffsideTrapButton();
     }
+    // Secret mission sabotage (assigned: true) – show once
+    if (sabotageData && sabotageData.assigned && !window._sabotageTaskShown) {
+      window._sabotageTaskShown = true;
+      showSabotageTask(sabotageData);
+    }
   });
   
+  // ── BLOW BALL ──
+  gameRef.child('blowBallPhotographerSelectionActive').on('value', (snapshot) => {
+    if (snapshot.val() === true) {
+      showPhotographerSelection();
+    } else {
+      const div = document.getElementById('player-photographer-selection');
+      if (div) div.remove();
+    }
+  });
+
+  // Fires when a new snap round starts — emotion is still hidden
+  gameRef.child('blowBallSnapActive').on('value', (snapshot) => {
+    const roundNumber = snapshot.val();
+    if (roundNumber) showPlayerBlowBallSnap(roundNumber);
+  });
+
+  // Fires at REVEAL (after 10 s) — update the existing snap screen to show the emotion
+  gameRef.child('blowBallEmotion').on('value', (snapshot) => {
+    const emotion = snapshot.val();
+    if (emotion) revealBlowBallEmotion(emotion);
+  });
+
+  // After 20 s, the referee gets a Full Time button
+  gameRef.child('blowBallFullTimeAvailable').on('value', (snapshot) => {
+    if (snapshot.val() === true) showBlowBallFullTimeButton();
+  });
+
+  gameRef.child('blowBallJudgingActive').on('value', (snapshot) => {
+    if (snapshot.val() === true) {
+      showPlayerBlowBallJudging();
+    } else {
+      const div = document.getElementById('player-blowball-judging');
+      if (div) div.remove();
+    }
+  });
+
+  // ── INTERVIEW ROUND INTRO ──
+  gameRef.child('round3IntroActive').on('value', (snapshot) => {
+    if (snapshot.val() === true) {
+      showPlayerRound3Intro();
+    } else {
+      const div = document.getElementById('player-round3-intro');
+      if (div) div.remove();
+    }
+  });
+
   // Listen for round changes
   gameRef.child('round').on('value', (snapshot) => {
     currentRound = snapshot.val() || 1;
@@ -1710,6 +1786,545 @@ function startPlaying() {
       }
     }
   });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SABOTAGE TASK DISPLAY (Steps 2-5)
+// ═══════════════════════════════════════════════════════════════════════════
+
+function showSabotageTask(sabotageData) {
+  console.log('🕵️ Showing sabotage task:', sabotageData.name);
+
+  const alertDiv = document.getElementById('player-tp-alert');
+  if (!alertDiv) {
+    // Toilet paper alert already gone — create standalone display
+    createStandaloneSabotageDisplay(sabotageData);
+    return;
+  }
+
+  // Append to the toilet paper alert screen
+  const sabotageHTML = `
+    <div id="sabotage-task-display" style="margin-top: 40px; padding: 30px; background: rgba(212,20,90,0.3); border: 2px solid #d4145a; border-radius: 15px; max-width: 600px; text-align: left;">
+      <div style="font-family: 'Bebas Neue', sans-serif; font-size: 30px; color: #d4145a; margin-bottom: 12px; text-align: center;">
+        🕵️ SECRET SABOTAGE MISSION
+      </div>
+      <div style="font-family: 'Bebas Neue', sans-serif; font-size: 24px; color: #fff; margin-bottom: 10px;">
+        ${sabotageData.name}
+      </div>
+      <div style="font-family: 'Barlow', sans-serif; font-size: 17px; color: rgba(255,255,255,0.9); margin-bottom: 18px; line-height: 1.6;">
+        ${sabotageData.description}
+      </div>
+      <div style="font-family: 'Barlow', sans-serif; font-size: 15px; color: rgba(255,255,255,0.65); margin-bottom: 20px; font-style: italic;">
+        ${sabotageData.pointsPerPiece} point per piece — don't get caught!
+      </div>
+      <button onclick="acknowledgeSabotage()"
+              style="width: 100%; padding: 15px; background: linear-gradient(135deg, #4dd4e8, #ffc629); color: #0a1628; border: none; border-radius: 12px; font-family: 'Bebas Neue', sans-serif; font-size: 24px; cursor: pointer; box-shadow: 0 8px 20px rgba(77,212,232,0.4); -webkit-tap-highlight-color: transparent;">
+        Understood
+      </button>
+    </div>
+  `;
+
+  alertDiv.innerHTML += sabotageHTML;
+}
+
+function createStandaloneSabotageDisplay(sabotageData) {
+  if (document.getElementById('standalone-sabotage')) return;
+
+  const sabotageDiv = document.createElement('div');
+  sabotageDiv.id = 'standalone-sabotage';
+  sabotageDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, #0a1628 0%, #1a2b4a 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 30px; text-align: center;';
+  sabotageDiv.innerHTML = `
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 46px; color: #d4145a; margin-bottom: 28px;">
+      🕵️ SECRET MISSION
+    </div>
+    <div style="max-width: 560px; padding: 30px; background: rgba(212,20,90,0.3); border: 2px solid #d4145a; border-radius: 15px; text-align: left;">
+      <div style="font-family: 'Bebas Neue', sans-serif; font-size: 26px; color: #fff; margin-bottom: 12px;">
+        ${sabotageData.name}
+      </div>
+      <div style="font-family: 'Barlow', sans-serif; font-size: 17px; color: rgba(255,255,255,0.9); margin-bottom: 18px; line-height: 1.6;">
+        ${sabotageData.description}
+      </div>
+      <div style="font-family: 'Barlow', sans-serif; font-size: 15px; color: rgba(255,255,255,0.65); margin-bottom: 24px; font-style: italic;">
+        ${sabotageData.pointsPerPiece} point per piece!
+      </div>
+      <button onclick="acknowledgeSabotage()"
+              style="width: 100%; padding: 15px; background: linear-gradient(135deg, #4dd4e8, #ffc629); color: #0a1628; border: none; border-radius: 12px; font-family: 'Bebas Neue', sans-serif; font-size: 24px; cursor: pointer; -webkit-tap-highlight-color: transparent;">
+        Understood
+      </button>
+    </div>
+  `;
+
+  document.body.appendChild(sabotageDiv);
+}
+
+function acknowledgeSabotage() {
+  console.log('✅ Sabotage task acknowledged');
+
+  const taskDisplay = document.getElementById('sabotage-task-display');
+  if (taskDisplay) taskDisplay.remove();
+
+  const standaloneDisplay = document.getElementById('standalone-sabotage');
+  if (standaloneDisplay) standaloneDisplay.remove();
+
+  showSabotageReminder();
+}
+
+function showSabotageReminder() {
+  if (document.getElementById('sabotage-reminder')) return;
+
+  const reminderDiv = document.createElement('div');
+  reminderDiv.id = 'sabotage-reminder';
+  reminderDiv.style.cssText = 'position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: rgba(212,20,90,0.9); padding: 10px 18px; border-radius: 8px; z-index: 9999; box-shadow: 0 4px 12px rgba(0,0,0,0.4); white-space: nowrap;';
+  reminderDiv.innerHTML = `
+    <div style="font-family: 'Barlow', sans-serif; font-size: 13px; color: white; display: flex; align-items: center; gap: 8px;">
+      <span style="font-size: 16px;">🕵️</span>
+      <span>Secret Mission Active</span>
+      <button onclick="viewSabotageDetails()"
+              style="margin-left: 6px; padding: 4px 10px; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.4); border-radius: 4px; color: white; font-size: 11px; cursor: pointer; -webkit-tap-highlight-color: transparent;">
+        View
+      </button>
+      <button onclick="showSabotageCompletionInterface()"
+              style="padding: 4px 10px; background: rgba(77,212,232,0.3); border: 1px solid rgba(77,212,232,0.6); border-radius: 4px; color: white; font-size: 11px; cursor: pointer; -webkit-tap-highlight-color: transparent;">
+        Report
+      </button>
+    </div>
+  `;
+
+  document.body.appendChild(reminderDiv);
+}
+
+function viewSabotageDetails() {
+  gameRef.child('sabotage/' + playerId).once('value', (snapshot) => {
+    const sabotageData = snapshot.val();
+    if (sabotageData) {
+      // Remove any existing standalone display before re-showing
+      const existing = document.getElementById('standalone-sabotage');
+      if (existing) existing.remove();
+      createStandaloneSabotageDisplay(sabotageData);
+    }
+  });
+}
+
+// ── SABOTAGE COMPLETION TRACKING ──
+
+function markSabotageInProgress() {
+  gameRef.child('sabotage/' + playerId).update({
+    inProgress: true,
+    startedAt: Date.now()
+  });
+  console.log('🕵️ Sabotage marked as in progress');
+}
+
+function updateSabotagePieces(pieces) {
+  gameRef.child('sabotage/' + playerId).update({ piecesCollected: pieces });
+  console.log('🕵️ Updated sabotage pieces:', pieces);
+}
+
+function markSabotageComplete(pieces) {
+  gameRef.child('sabotage/' + playerId).update({
+    completed: true,
+    piecesCollected: pieces,
+    points: pieces,
+    completedAt: Date.now()
+  });
+
+  console.log('✅ Sabotage complete:', pieces, 'pieces');
+
+  const confirmDiv = document.createElement('div');
+  confirmDiv.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(77,212,232,0.97); padding: 28px 36px; border-radius: 15px; z-index: 11000; box-shadow: 0 10px 30px rgba(0,0,0,0.5); text-align: center;';
+  confirmDiv.innerHTML = `
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 30px; color: #0a1628; margin-bottom: 12px;">
+      ✅ Mission Reported!
+    </div>
+    <div style="font-family: 'Barlow', sans-serif; font-size: 17px; color: #0a1628;">
+      ${pieces} piece${pieces === 1 ? '' : 's'} collected<br>
+      Worth ${pieces} point${pieces === 1 ? '' : 's'} if not caught!
+    </div>
+  `;
+  document.body.appendChild(confirmDiv);
+  setTimeout(() => confirmDiv.remove(), 3000);
+}
+
+function reportSabotageSpotted(spottedPlayerId) {
+  gameRef.child('sabotage/' + spottedPlayerId).update({
+    spotted: true,
+    spottedBy: playerId,
+    spottedAt: Date.now(),
+    points: 0
+  });
+  console.log('🚨 Reported sabotage spotted for', spottedPlayerId);
+}
+
+// ── SABOTAGE SELF-REPORTING INTERFACE ──
+
+function showSabotageCompletionInterface() {
+  if (document.getElementById('sabotage-completion-interface')) return;
+
+  const interfaceDiv = document.createElement('div');
+  interfaceDiv.id = 'sabotage-completion-interface';
+  interfaceDiv.style.cssText = 'position: fixed; bottom: 80px; right: 20px; background: rgba(212,20,90,0.97); padding: 20px; border-radius: 12px; z-index: 10000; box-shadow: 0 8px 20px rgba(0,0,0,0.5); width: 280px;';
+  interfaceDiv.innerHTML = `
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 20px; color: white; margin-bottom: 12px;">
+      🕵️ Report Your Pieces
+    </div>
+    <div style="font-family: 'Barlow', sans-serif; font-size: 14px; color: rgba(255,255,255,0.9); margin-bottom: 12px;">
+      How many pieces have you collected?
+    </div>
+    <input type="number" id="sabotage-pieces-input"
+           min="0" max="200" placeholder="Number of pieces"
+           style="width: 100%; padding: 10px; border: none; border-radius: 6px; font-size: 16px; margin-bottom: 12px; box-sizing: border-box;">
+    <div style="display: flex; gap: 10px;">
+      <button onclick="submitSabotagePieces()"
+              style="flex: 1; padding: 10px; background: linear-gradient(135deg, #4dd4e8, #ffc629); color: #0a1628; border: none; border-radius: 6px; font-family: 'Bebas Neue', sans-serif; font-size: 16px; cursor: pointer;">
+        Submit
+      </button>
+      <button onclick="closeSabotageInterface()"
+              style="padding: 10px 14px; background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.4); border-radius: 6px; font-size: 14px; cursor: pointer;">
+        Cancel
+      </button>
+    </div>
+  `;
+
+  document.body.appendChild(interfaceDiv);
+}
+
+function submitSabotagePieces() {
+  const input = document.getElementById('sabotage-pieces-input');
+  const pieces = parseInt(input.value, 10);
+
+  if (isNaN(pieces) || pieces < 0) {
+    input.style.borderColor = 'red';
+    input.style.border = '2px solid red';
+    return;
+  }
+
+  markSabotageComplete(pieces);
+  closeSabotageInterface();
+
+  // Remove the bottom reminder now that reporting is done
+  const reminder = document.getElementById('sabotage-reminder');
+  if (reminder) reminder.remove();
+}
+
+function closeSabotageInterface() {
+  const interfaceDiv = document.getElementById('sabotage-completion-interface');
+  if (interfaceDiv) interfaceDiv.remove();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// BLOW BALL - PLAYER (Step B4)
+// ═══════════════════════════════════════════════════════════════════════════
+
+function showPhotographerSelection() {
+  if (document.getElementById('player-photographer-selection')) return;
+
+  const selectionDiv = document.createElement('div');
+  selectionDiv.id = 'player-photographer-selection';
+  selectionDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, #0a1628 0%, #1a2b4a 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 30px; text-align: center;';
+  selectionDiv.innerHTML = `
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 48px; color: #ffc629; margin-bottom: 30px;">
+      📸 Blow Ball
+    </div>
+    <div style="font-family: 'Barlow', sans-serif; font-size: 22px; color: rgba(255,255,255,0.9); margin-bottom: 40px; line-height: 1.6;">
+      Your team needs a photographer!<br>
+      They will capture photos every 10 seconds.
+    </div>
+    <button onclick="volunteerAsPhotographer()"
+            style="padding: 20px 50px; background: linear-gradient(135deg, #4dd4e8, #ffc629); color: #0a1628; border: none; border-radius: 15px; font-family: 'Bebas Neue', sans-serif; font-size: 28px; cursor: pointer; box-shadow: 0 10px 30px rgba(255,198,41,0.4); -webkit-tap-highlight-color: transparent;">
+      I'm the Team Photographer!
+    </button>
+  `;
+
+  document.body.appendChild(selectionDiv);
+}
+
+function volunteerAsPhotographer() {
+  console.log('📸 Volunteering as photographer');
+
+  const playerTeam = players[playerId]?.team;
+  if (!playerTeam) return;
+
+  // Only first volunteer per team wins (Firebase will silently overwrite but that's fine here)
+  gameRef.child(`blowBall/photographers/team${playerTeam}`).set(playerId);
+
+  const selectionDiv = document.getElementById('player-photographer-selection');
+  if (selectionDiv) selectionDiv.remove();
+
+  // Show waiting screen
+  const waitDiv = document.createElement('div');
+  waitDiv.id = 'waiting-blowball';
+  waitDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, #0a1628 0%, #1a2b4a 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 30px; text-align: center;';
+  waitDiv.innerHTML = `
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 48px; color: #4dd4e8; margin-bottom: 30px;">
+      Get Ready to Photograph!
+    </div>
+    <div class="spinner"></div>
+  `;
+
+  document.body.appendChild(waitDiv);
+}
+
+// Called when a new snap round starts — emotion is still HIDDEN
+function showPlayerBlowBallSnap(roundNumber) {
+  // Remove photographer waiting screen if present
+  const waitDiv = document.getElementById('waiting-blowball');
+  if (waitDiv) waitDiv.remove();
+
+  // Check if this player is a photographer
+  gameRef.child('blowBall/photographers').once('value', (snapshot) => {
+    const photographers = snapshot.val() || {};
+    const isPhotographer = photographers.team1 === playerId || photographers.team2 === playerId;
+
+    if (isPhotographer) {
+      showPhotographerSnapScreen(roundNumber);
+    } else {
+      showSpectatorSnapScreen(roundNumber);
+    }
+  });
+}
+
+// Called at REVEAL — update the existing screen to show the emotion
+function revealBlowBallEmotion(emotion) {
+  const revealEl = document.getElementById('blowball-player-reveal');
+  if (revealEl) {
+    revealEl.textContent = emotion;
+    revealEl.style.display = 'block';
+  }
+  const hiddenEl = document.getElementById('blowball-player-hidden');
+  if (hiddenEl) hiddenEl.style.display = 'none';
+}
+
+// Photographer screen during the hidden snap phase — camera ready, no emotion shown
+function showPhotographerSnapScreen(roundNumber) {
+  let emotionDiv = document.getElementById('player-blowball-emotion');
+  if (!emotionDiv) {
+    emotionDiv = document.createElement('div');
+    emotionDiv.id = 'player-blowball-emotion';
+    emotionDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, #0a1628 0%, #1a2b4a 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 30px; text-align: center;';
+    document.body.appendChild(emotionDiv);
+  }
+
+  emotionDiv.innerHTML = `
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 32px; color: rgba(255,255,255,0.6); margin-bottom: 10px; letter-spacing: 3px;">
+      ROUND ${roundNumber}
+    </div>
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 40px; color: #fff; margin-bottom: 20px;">
+      📸 You're the Photographer!
+    </div>
+    <div id="blowball-player-hidden" style="font-family: 'Bebas Neue', sans-serif; font-size: 72px; color: #ffc629; opacity: 0.3; letter-spacing: 12px; margin-bottom: 24px;">
+      ? ? ?
+    </div>
+    <div id="blowball-player-reveal" style="display: none; font-family: 'Bebas Neue', sans-serif; font-size: 72px; color: #ffc629; text-shadow: 0 0 40px rgba(255,198,41,0.8); margin-bottom: 24px;"></div>
+    <input type="file" accept="image/*" capture="user" id="photo-capture"
+           style="display: none;" onchange="handlePhotoCapture(this)">
+    <button onclick="document.getElementById('photo-capture').click()"
+            style="padding: 20px 50px; background: linear-gradient(135deg, #4dd4e8, #ffc629); color: #0a1628; border: none; border-radius: 15px; font-family: 'Bebas Neue', sans-serif; font-size: 28px; cursor: pointer; box-shadow: 0 10px 30px rgba(255,198,41,0.4); -webkit-tap-highlight-color: transparent;">
+      📸 Take Photo
+    </button>
+    <div id="photo-preview" style="margin-top: 30px; display: none;">
+      <img id="preview-img" style="max-width: 280px; border-radius: 12px; border: 3px solid #4dd4e8;">
+    </div>
+  `;
+}
+
+// Spectator screen during the hidden snap phase — emotion not shown yet
+function showSpectatorSnapScreen(roundNumber) {
+  let emotionDiv = document.getElementById('player-blowball-emotion');
+  if (!emotionDiv) {
+    emotionDiv = document.createElement('div');
+    emotionDiv.id = 'player-blowball-emotion';
+    emotionDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, #0a1628 0%, #1a2b4a 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 30px; text-align: center;';
+    document.body.appendChild(emotionDiv);
+  }
+
+  emotionDiv.innerHTML = `
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 32px; color: rgba(255,255,255,0.6); margin-bottom: 10px; letter-spacing: 3px;">
+      ROUND ${roundNumber}
+    </div>
+    <div id="blowball-player-hidden" style="font-family: 'Bebas Neue', sans-serif; font-size: 80px; color: #ffc629; opacity: 0.3; letter-spacing: 12px; margin-bottom: 24px;">
+      ? ? ?
+    </div>
+    <div id="blowball-player-reveal" style="display: none; font-family: 'Bebas Neue', sans-serif; font-size: 80px; color: #ffc629; text-shadow: 0 0 40px rgba(255,198,41,0.8); margin-bottom: 24px;"></div>
+    <div style="font-family: 'Barlow', sans-serif; font-size: 22px; color: rgba(255,255,255,0.8);">
+      Watch the big screen!
+    </div>
+  `;
+}
+
+// Shows the Full Time button on the referee's screen after 20 s
+function showBlowBallFullTimeButton() {
+  // Only the first player (referee) gets this button
+  const playerIds = Object.keys(players);
+  const refereeId = playerIds[0];
+  if (playerId !== refereeId) return;
+
+  if (document.getElementById('blowball-full-time-btn')) return;
+
+  const btn = document.createElement('button');
+  btn.id = 'blowball-full-time-btn';
+  btn.textContent = '🏁 Full Time';
+  btn.style.cssText = 'position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); padding: 18px 44px; background: linear-gradient(135deg, #d4145a, #ff4d4d); color: #fff; border: none; border-radius: 14px; font-family: "Bebas Neue", sans-serif; font-size: 30px; letter-spacing: 2px; cursor: pointer; z-index: 11000; box-shadow: 0 8px 30px rgba(212,20,90,0.5); -webkit-tap-highlight-color: transparent;';
+  btn.onclick = () => {
+    btn.disabled = true;
+    btn.textContent = '⏳ Ending…';
+    gameRef.update({ blowBallFullTime: true });
+    setTimeout(() => { if (btn.parentNode) btn.remove(); }, 3000);
+  };
+  document.body.appendChild(btn);
+  console.log('🏁 Full Time button shown to referee');
+}
+
+async function handlePhotoCapture(input) {
+  const file = input.files[0];
+  if (!file) return;
+
+  console.log('📸 Photo captured');
+
+  // Show preview
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const preview = document.getElementById('photo-preview');
+    const previewImg = document.getElementById('preview-img');
+    if (preview && previewImg) {
+      previewImg.src = e.target.result;
+      preview.style.display = 'block';
+    }
+  };
+  reader.readAsDataURL(file);
+
+  // Upload to Firebase as base64
+  try {
+    const base64 = await convertToBase64(file);
+    const photoRoundSnap = await gameRef.child('blowBallPhotoRound').once('value');
+    const roundNumber = photoRoundSnap.val() || 1;
+
+    gameRef.child(`blowBall/photos/${playerId}`).push({
+      photo: base64,
+      round: roundNumber,
+      timestamp: Date.now()
+    });
+
+    console.log('✅ Photo uploaded to Firebase');
+  } catch (err) {
+    console.error('❌ Photo upload failed:', err);
+  }
+}
+
+function convertToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload  = () => resolve(reader.result);
+    reader.onerror = (err) => reject(err);
+  });
+}
+
+function showPlayerBlowBallJudging() {
+  const emotionDiv = document.getElementById('player-blowball-emotion');
+  if (emotionDiv) emotionDiv.remove();
+  // Remove Full Time button if still present
+  const ftBtn = document.getElementById('blowball-full-time-btn');
+  if (ftBtn) ftBtn.remove();
+
+  // Player 1 (first in the players object) acts as referee
+  const playerIds = Object.keys(players);
+  const refereeId = playerIds[0];
+
+  if (playerId === refereeId) {
+    showRefereeBlowBallScoring();
+  } else {
+    showWaitingForBlowBallScoring();
+  }
+}
+
+function showRefereeBlowBallScoring() {
+  const scoringDiv = document.createElement('div');
+  scoringDiv.id = 'player-blowball-judging';
+  scoringDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, #0a1628 0%, #1a2b4a 100%); display: flex; flex-direction: column; align-items: center; padding: 30px; overflow-y: auto; z-index: 10000; text-align: center;';
+
+  const btns = (team, fn) => [1,2,3,4,5].map(s => `
+    <button onclick="${fn}(${s})"
+            style="width: 64px; height: 64px; background: linear-gradient(135deg, #4dd4e8, #ffc629); color: #0a1628; border: none; border-radius: 50%; font-family: 'Bebas Neue', sans-serif; font-size: 36px; cursor: pointer; -webkit-tap-highlight-color: transparent;">
+      ${s}
+    </button>
+  `).join('');
+
+  scoringDiv.innerHTML = `
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 46px; color: #ffc629; margin-bottom: 24px;">
+      ⚽ You Are the Referee ⚽
+    </div>
+    <div style="font-family: 'Barlow', sans-serif; font-size: 22px; color: rgba(255,255,255,0.85); margin-bottom: 36px;">
+      Score each team on speed, flair, and huff!
+    </div>
+
+    <div style="margin-bottom: 36px; width: 100%; max-width: 480px;">
+      <div style="font-family: 'Bebas Neue', sans-serif; font-size: 30px; color: #fff; margin-bottom: 16px;">Team 1 Score</div>
+      <div style="display: flex; gap: 12px; justify-content: center;">${btns(1, 'setBlowBallTeam1Score')}</div>
+      <div id="t1-selected" style="font-family: 'Barlow', sans-serif; font-size: 16px; color: #4dd4e8; margin-top: 8px; min-height: 20px;"></div>
+    </div>
+
+    <div style="margin-bottom: 36px; width: 100%; max-width: 480px;">
+      <div style="font-family: 'Bebas Neue', sans-serif; font-size: 30px; color: #fff; margin-bottom: 16px;">Team 2 Score</div>
+      <div style="display: flex; gap: 12px; justify-content: center;">${btns(2, 'setBlowBallTeam2Score')}</div>
+      <div id="t2-selected" style="font-family: 'Barlow', sans-serif; font-size: 16px; color: #4dd4e8; margin-top: 8px; min-height: 20px;"></div>
+    </div>
+
+    <div style="font-family: 'Barlow', sans-serif; font-size: 15px; color: rgba(255,255,255,0.55);">
+      1 = Poor &nbsp;|&nbsp; 5 = Excellent
+    </div>
+  `;
+
+  document.body.appendChild(scoringDiv);
+}
+
+let blowBallTeam1Score = null;
+let blowBallTeam2Score = null;
+
+function setBlowBallTeam1Score(score) {
+  blowBallTeam1Score = score;
+  const el = document.getElementById('t1-selected');
+  if (el) el.textContent = `Selected: ${score}`;
+  if (blowBallTeam2Score !== null) submitBlowBallScores();
+}
+
+function setBlowBallTeam2Score(score) {
+  blowBallTeam2Score = score;
+  const el = document.getElementById('t2-selected');
+  if (el) el.textContent = `Selected: ${score}`;
+  if (blowBallTeam1Score !== null) submitBlowBallScores();
+}
+
+function submitBlowBallScores() {
+  gameRef.child('blowBall/scores').set({
+    team1: blowBallTeam1Score,
+    team2: blowBallTeam2Score
+  });
+
+  const scoringDiv = document.getElementById('player-blowball-judging');
+  if (scoringDiv) scoringDiv.remove();
+
+  blowBallTeam1Score = null;
+  blowBallTeam2Score = null;
+
+  showWaitingForBlowBallScoring();
+}
+
+function showWaitingForBlowBallScoring() {
+  if (document.getElementById('waiting-blowball-scoring')) return;
+
+  const waitDiv = document.createElement('div');
+  waitDiv.id = 'waiting-blowball-scoring';
+  waitDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, #0a1628 0%, #1a2b4a 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 30px; text-align: center;';
+  waitDiv.innerHTML = `
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 48px; color: #4dd4e8; margin-bottom: 30px;">
+      Full Time!
+    </div>
+    <div style="font-family: 'Barlow', sans-serif; font-size: 22px; color: rgba(255,255,255,0.9);">
+      Calculating final scores…
+    </div>
+  `;
+
+  document.body.appendChild(waitDiv);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1802,11 +2417,19 @@ function showPlayerScoresReview() {
   playerScoresReviewShown = true;
   console.log('📊 Showing scores review on player screen');
 
-  // Remove any lingering bonus round screens that might be covering us
-  ['player-bonus-karaoke','player-bonus-judging','player-bonus-offer'].forEach(id => {
+  // End interview round — prevents the currentRound3Question listener from firing
+  window._round3Active = false;
+
+  // Remove any lingering screens that might be covering us
+  ['player-bonus-karaoke','player-bonus-judging','player-bonus-offer','player-pun-review'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.remove();
   });
+
+  // Remove Round 3 / interview-specific elements
+  document.getElementById('round3-screen')?.classList.remove('active');
+  const nqBtn = document.getElementById('round3-next-q-btn');
+  if (nqBtn) nqBtn.remove();
 
   // Hide other screens (optional chaining — not all elements exist in every player state)
   document.getElementById('game-screen')?.classList.remove('active');
@@ -2013,6 +2636,332 @@ function submitPun() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════
+// COMMENTARY ROUND (Player side)
+// ═══════════════════════════════════════════════════════════════════════════
+
+let commentaryMediaRecorder = null;
+let commentaryAudioChunks = [];
+let commentaryAudioBlob = null;
+
+const COMMENTARY_SCREEN_IDS = [
+  'player-commentary-intro', 'player-commentary-selection', 'player-commentary-countdown',
+  'player-commentary-recording', 'player-commentary-waiting', 'player-commentary-playback',
+  'player-commentary-scoring'
+];
+
+function clearCommentaryScreens() {
+  COMMENTARY_SCREEN_IDS.forEach(id => { const el = document.getElementById(id); if (el) el.remove(); });
+}
+
+function showCommentaryScreen(phase) {
+  clearCommentaryScreens();
+  if (!phase) return;
+
+  const myData = players[playerId];
+  const isCaptain1 = myData?.isCaptain === true && myData?.team === 1;
+
+  if (phase === 'intro') {
+    showCommentaryIntroOnPlayer();
+  } else if (phase === 'team1Selection' || phase === 'team2Selection') {
+    const t = phase === 'team1Selection' ? 1 : 2;
+    showCommentarySelectionOnPlayer(t);
+  } else if (phase === 'team1Countdown' || phase === 'team2Countdown') {
+    showCommentaryWaiting('Get ready...', '🎙️');
+  } else if (phase === 'team1Recording' || phase === 'team2Recording') {
+    const t = phase === 'team1Recording' ? 1 : 2;
+    gameRef.child(`commentary/team${t}/commentator`).once('value', (snap) => {
+      if (snap.val() === playerId) { startPlayerMicRecording(t); }
+      else { showCommentaryWaiting('Recording in progress...', '🔴'); }
+    });
+  } else if (phase === 'team1Playback' || phase === 'team2Playback') {
+    const t = phase === 'team1Playback' ? 1 : 2;
+    gameRef.child(`commentary/team${t}/commentator`).once('value', (snap) => {
+      if (snap.val() === playerId && commentaryAudioBlob) { showCommentaryPlaybackOnPlayer(t); }
+      else { showCommentaryWaiting('Watch the screen!', '📺'); }
+    });
+  } else if (phase === 'team1Scoring' || phase === 'team2Scoring') {
+    const t = phase === 'team1Scoring' ? 1 : 2;
+    if (isCaptain1) { showCommentaryRefereeOnPlayer(t); }
+    else { showCommentaryWaiting('Referee is scoring...', '⚖️'); }
+  }
+}
+
+function showCommentaryIntroOnPlayer() {
+  const div = document.createElement('div');
+  div.id = 'player-commentary-intro';
+  div.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, #0a1628 0%, #1a2540 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 30px; text-align: center;';
+  div.innerHTML = `
+    <div style="font-size: 64px; margin-bottom: 16px;">🎙️</div>
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 48px; color: #ffc629; letter-spacing: 4px; margin-bottom: 16px;">COMMENTARY CHALLENGE</div>
+    <div style="font-family: 'Barlow', sans-serif; font-size: 20px; color: rgba(255,255,255,0.8); line-height: 1.5;">Each team picks someone to commentate over a football clip!</div>
+    <div class="spinner" style="margin-top: 30px;"></div>
+  `;
+  document.body.appendChild(div);
+}
+
+function showCommentarySelectionOnPlayer(teamNumber) {
+  const myTeam = players[playerId]?.team;
+  const isMyTeam = myTeam === teamNumber;
+  const div = document.createElement('div');
+  div.id = 'player-commentary-selection';
+  div.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, #0a1628 0%, #1a2540 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 30px; text-align: center;';
+  if (isMyTeam) {
+    div.innerHTML = `
+      <div style="font-family: 'Bebas Neue', sans-serif; font-size: 36px; color: #ffc629; margin-bottom: 12px; letter-spacing: 3px;">🎙️ YOUR TEAM IS UP!</div>
+      <div style="font-family: 'Barlow', sans-serif; font-size: 22px; color: rgba(255,255,255,0.8); margin-bottom: 40px; line-height: 1.5;">Who wants to be the commentator?<br>First to tap wins!</div>
+      <button id="commentary-im-up-btn"
+        style="padding: 24px 60px; background: linear-gradient(135deg, #ffc629, #4dd4e8); color: #0a1628; border: none; border-radius: 16px; font-family: 'Bebas Neue', sans-serif; font-size: 42px; cursor: pointer; letter-spacing: 3px; box-shadow: 0 10px 30px rgba(255,198,41,0.4); -webkit-tap-highlight-color: transparent; margin-bottom: 20px;">
+        🎙️ I'M UP!
+      </button>
+      <button onclick="declineCommentary()"
+        style="padding: 14px 36px; background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.6); border: 2px solid rgba(255,255,255,0.2); border-radius: 12px; font-family: 'Barlow', sans-serif; font-size: 18px; cursor: pointer; -webkit-tap-highlight-color: transparent;">
+        Not me
+      </button>
+    `;
+    document.body.appendChild(div);
+    document.getElementById('commentary-im-up-btn').addEventListener('click', () => volunteerAsCommentator(teamNumber));
+  } else {
+    div.innerHTML = `
+      <div style="font-size: 48px; margin-bottom: 20px;">👀</div>
+      <div style="font-family: 'Bebas Neue', sans-serif; font-size: 36px; color: rgba(255,255,255,0.7); letter-spacing: 3px;">WATCH &amp; WAIT</div>
+      <div style="font-family: 'Barlow', sans-serif; font-size: 20px; color: rgba(255,255,255,0.5); margin-top: 16px;">The other team is picking their commentator</div>
+    `;
+    document.body.appendChild(div);
+  }
+}
+
+function volunteerAsCommentator(teamNumber) {
+  const btn = document.getElementById('commentary-im-up-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Claiming spot...'; }
+  gameRef.child(`commentary/team${teamNumber}/commentator`).transaction((current) => {
+    if (current === null) return playerId;
+    return; // Already claimed — abort
+  }, (err, committed) => {
+    if (!committed) {
+      const div = document.getElementById('player-commentary-selection');
+      if (div) div.innerHTML = `
+        <div style="font-family: 'Bebas Neue', sans-serif; font-size: 32px; color: rgba(255,255,255,0.7); letter-spacing: 3px; margin-bottom: 20px;">Someone else got there first!</div>
+        <div class="spinner"></div>
+      `;
+    }
+  });
+}
+
+function declineCommentary() {
+  const div = document.getElementById('player-commentary-selection');
+  if (div) div.innerHTML = `
+    <div style="font-size: 48px; margin-bottom: 16px;">😅</div>
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 32px; color: rgba(255,255,255,0.7); letter-spacing: 3px;">No worries!</div>
+    <div style="font-family: 'Barlow', sans-serif; font-size: 18px; color: rgba(255,255,255,0.5); margin-top: 12px;">Waiting for someone else...</div>
+    <div class="spinner" style="margin-top: 24px;"></div>
+  `;
+}
+
+function showCommentaryWaiting(message, emoji) {
+  const div = document.createElement('div');
+  div.id = 'player-commentary-waiting';
+  div.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, #0a1628 0%, #1a2540 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 30px; text-align: center;';
+  div.innerHTML = `
+    <div style="font-size: 64px; margin-bottom: 20px;">${emoji}</div>
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 32px; color: rgba(255,255,255,0.7); letter-spacing: 3px;">${message}</div>
+    <div class="spinner" style="margin-top: 30px;"></div>
+  `;
+  document.body.appendChild(div);
+}
+
+async function startPlayerMicRecording(teamNumber) {
+  commentaryAudioChunks = [];
+  commentaryAudioBlob = null;
+  const div = document.createElement('div');
+  div.id = 'player-commentary-recording';
+  div.style.cssText = 'position: fixed; inset: 0; background: #0a0a0a; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 30px; text-align: center;';
+  div.innerHTML = `
+    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 20px;">
+      <div style="width: 18px; height: 18px; background: #ff0000; border-radius: 50%; animation: pulse 1s infinite;"></div>
+      <div style="font-family: 'Bebas Neue', sans-serif; font-size: 32px; color: #ff4444; letter-spacing: 3px;">LIVE — YOU'RE ON!</div>
+    </div>
+    <div style="font-size: 64px; margin-bottom: 20px;">🎙️</div>
+    <div style="font-family: 'Barlow', sans-serif; font-size: 22px; color: rgba(255,255,255,0.8); line-height: 1.6;">Commentate out loud!<br>Watch the screen &amp; keep talking!</div>
+  `;
+  document.body.appendChild(div);
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    commentaryMediaRecorder = new MediaRecorder(stream);
+    commentaryAudioChunks = [];
+    commentaryMediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) commentaryAudioChunks.push(e.data); };
+    commentaryMediaRecorder.onstop = () => {
+      commentaryAudioBlob = new Blob(commentaryAudioChunks, { type: 'audio/webm' });
+      stream.getTracks().forEach(t => t.stop());
+      // Save to Firebase as base64 for host-side reference
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        gameRef.child(`commentary/team${teamNumber}/recordingURL`).set(reader.result)
+          .then(() => console.log('✅ Commentary recording saved'))
+          .catch(err => console.error('❌ Recording save failed:', err));
+      };
+      reader.readAsDataURL(commentaryAudioBlob);
+    };
+    commentaryMediaRecorder.start();
+    console.log('🎙️ Mic recording started');
+
+    // Stop when host signals recording is over
+    const stopRef = gameRef.child(`commentary/team${teamNumber}/commentatorRecording`);
+    const stopListener = stopRef.on('value', (snap) => {
+      if (snap.val() === false || snap.val() === null) {
+        stopRef.off('value', stopListener);
+        if (commentaryMediaRecorder && commentaryMediaRecorder.state === 'recording') {
+          commentaryMediaRecorder.stop();
+          console.log('🎙️ Recording stopped by host signal');
+        }
+      }
+    });
+  } catch (err) {
+    console.error('❌ Mic access denied:', err);
+    div.innerHTML = `
+      <div style="font-size: 48px; margin-bottom: 16px;">🚫</div>
+      <div style="font-family: 'Bebas Neue', sans-serif; font-size: 28px; color: #ff4444;">Mic not available</div>
+      <div style="font-family: 'Barlow', sans-serif; font-size: 18px; color: rgba(255,255,255,0.6); margin-top: 12px;">Commentate out loud anyway!</div>
+    `;
+  }
+}
+
+function showCommentaryPlaybackOnPlayer(teamNumber) {
+  if (!commentaryAudioBlob) return;
+  const audioURL = URL.createObjectURL(commentaryAudioBlob);
+  const div = document.createElement('div');
+  div.id = 'player-commentary-playback';
+  div.style.cssText = 'position: fixed; inset: 0; background: #0a0a0a; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 30px; text-align: center;';
+  div.innerHTML = `
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 32px; color: #4dd4e8; margin-bottom: 20px; letter-spacing: 3px;">🎙️ YOUR COMMENTARY PLAYBACK</div>
+    <audio id="player-commentary-audio" src="${audioURL}" style="width: 100%; max-width: 400px; margin-bottom: 20px;" controls></audio>
+    <div style="font-family: 'Barlow', sans-serif; font-size: 20px; color: rgba(255,255,255,0.6);">Playing back on the big screen...</div>
+  `;
+  document.body.appendChild(div);
+  // Auto-play after a short delay (host plays commentary_review.mp3 first, ~3-4 seconds)
+  setTimeout(() => {
+    const audio = document.getElementById('player-commentary-audio');
+    if (audio) audio.play().catch(() => {});
+  }, 4000);
+}
+
+function showCommentaryRefereeOnPlayer(teamNumber) {
+  const div = document.createElement('div');
+  div.id = 'player-commentary-scoring';
+  div.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, #0a1628 0%, #1a2540 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 30px; text-align: center;';
+
+  let selectedScore = null;
+  function render() {
+    const canSubmit = selectedScore !== null;
+    const btnStyle = (n) => `padding: 18px 24px; margin: 6px; border: 3px solid ${n === selectedScore ? '#ffc629' : 'rgba(255,255,255,0.3)'}; background: ${n === selectedScore ? '#ffc629' : 'transparent'}; color: ${n === selectedScore ? '#0a1628' : '#fff'}; border-radius: 12px; font-family: 'Bebas Neue', sans-serif; font-size: 32px; cursor: pointer; -webkit-tap-highlight-color: transparent;`;
+    div.innerHTML = `
+      <div style="font-family: 'Bebas Neue', sans-serif; font-size: 38px; color: #ffc629; margin-bottom: 10px; letter-spacing: 3px;">⚖️ YOU'RE THE REFEREE!</div>
+      <div style="font-family: 'Barlow', sans-serif; font-size: 20px; color: rgba(255,255,255,0.7); margin-bottom: 30px;">Rate Team ${teamNumber}'s commentary out of 5</div>
+      <div style="display: flex; flex-wrap: wrap; justify-content: center; margin-bottom: 30px;">
+        ${[1,2,3,4,5].map(n => `<button data-score="${n}" style="${btnStyle(n)}">${n}</button>`).join('')}
+      </div>
+      <button id="commentary-score-submit" style="padding: 16px 44px; background: ${canSubmit ? 'linear-gradient(135deg, #ffc629, #4dd4e8)' : 'rgba(255,255,255,0.15)'}; color: ${canSubmit ? '#0a1628' : 'rgba(255,255,255,0.4)'}; border: none; border-radius: 12px; font-family: 'Bebas Neue', sans-serif; font-size: 28px; cursor: ${canSubmit ? 'pointer' : 'default'}; letter-spacing: 2px; -webkit-tap-highlight-color: transparent;">
+        ✅ Submit Score
+      </button>
+    `;
+    div.querySelectorAll('button[data-score]').forEach(btn => {
+      btn.addEventListener('click', () => { selectedScore = parseInt(btn.dataset.score); render(); });
+    });
+    const submitBtn = div.querySelector('#commentary-score-submit');
+    if (submitBtn && canSubmit) {
+      submitBtn.addEventListener('click', () => {
+        gameRef.child(`commentary/team${teamNumber}/score`).set(selectedScore);
+        div.innerHTML = `
+          <div style="font-family: 'Bebas Neue', sans-serif; font-size: 40px; color: #4dd4e8; letter-spacing: 3px;">✅ Score Submitted!</div>
+          <div style="font-family: 'Bebas Neue', sans-serif; font-size: 80px; color: #ffc629; margin-top: 20px;">${selectedScore}</div>
+        `;
+      });
+    }
+  }
+  document.body.appendChild(div);
+  render();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GOAL POSTS JUDGING (Team 1 captain scores both teams)
+// ═══════════════════════════════════════════════════════════════════════════
+
+function showGoalPostsJudgingOnPlayer() {
+  // Only the Team 1 captain scores
+  const myData = players[playerId];
+  if (!myData || !(myData.isCaptain === true && myData.team === 1)) return;
+  if (document.getElementById('player-goalpost-judging')) return;
+
+  let score1 = null;
+  let score2 = null;
+
+  const div = document.createElement('div');
+  div.id = 'player-goalpost-judging';
+  div.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, #0a1628 0%, #1a2540 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 30px; text-align: center; overflow-y: auto;';
+
+  function render() {
+    const canSubmit = score1 !== null && score2 !== null;
+    const btnStyle = (selected, n) =>
+      `padding: 14px 20px; margin: 5px; border: 3px solid ${n === selected ? '#ffc629' : 'rgba(255,255,255,0.3)'}; background: ${n === selected ? '#ffc629' : 'transparent'}; color: ${n === selected ? '#0a1628' : '#fff'}; border-radius: 10px; font-family: 'Bebas Neue', sans-serif; font-size: 26px; cursor: pointer;`;
+
+    div.innerHTML = `
+      <div style="font-family: 'Bebas Neue', sans-serif; font-size: 40px; color: #ffc629; margin-bottom: 8px; letter-spacing: 3px;">⚽ Goal Post Glory</div>
+      <div style="font-family: 'Barlow', sans-serif; font-size: 20px; color: rgba(255,255,255,0.7); margin-bottom: 30px;">Score each team's goal posts out of 5</div>
+
+      <div id="gp-team1-row" style="margin-bottom: 24px; text-align: center;"></div>
+      <div id="gp-team2-row" style="margin-bottom: 30px; text-align: center;"></div>
+
+      <button id="gp-submit-btn" style="padding: 16px 44px; background: ${canSubmit ? 'linear-gradient(135deg, #ffc629, #4dd4e8)' : 'rgba(255,255,255,0.15)'}; color: ${canSubmit ? '#0a1628' : 'rgba(255,255,255,0.4)'}; border: none; border-radius: 12px; font-family: 'Bebas Neue', sans-serif; font-size: 30px; cursor: ${canSubmit ? 'pointer' : 'default'}; letter-spacing: 2px;">
+        ✅ Submit Scores
+      </button>
+    `;
+
+    // Populate team rows from Firebase
+    gameRef.once('value', (snap) => {
+      const data = snap.val() || {};
+      [1, 2].forEach(teamNum => {
+        const team = data['team' + teamNum];
+        const selected = teamNum === 1 ? score1 : score2;
+        const rowEl = div.querySelector('#gp-team' + teamNum + '-row');
+        if (!rowEl) return;
+        rowEl.innerHTML = `
+          <div style="font-family: 'Bebas Neue', sans-serif; font-size: 28px; color: #fff; margin-bottom: 10px;">
+            ${team ? team.flag + ' ' + team.name : 'Team ' + teamNum}
+          </div>
+          <div>
+            ${[1,2,3,4,5].map(n => `<button style="${btnStyle(selected, n)}" data-team="${teamNum}" data-n="${n}">${n}</button>`).join('')}
+          </div>
+        `;
+      });
+
+      // Attach score button listeners
+      div.querySelectorAll('button[data-team]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const t = parseInt(btn.dataset.team);
+          const n = parseInt(btn.dataset.n);
+          if (t === 1) score1 = n; else score2 = n;
+          render();
+        });
+      });
+
+      // Attach submit listener
+      const submitBtn = div.querySelector('#gp-submit-btn');
+      if (submitBtn && canSubmit) {
+        submitBtn.addEventListener('click', () => {
+          gameRef.child('goalPostsScores').set({ team1: score1, team2: score2 });
+          div.innerHTML = `
+            <div style="font-family: 'Bebas Neue', sans-serif; font-size: 40px; color: #4dd4e8; letter-spacing: 3px;">✅ Scores Submitted!</div>
+          `;
+        });
+      }
+    });
+  }
+
+  document.body.appendChild(div);
+  render();
+}
+
 // PUN REVIEW (Watch on player screen)
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -2109,6 +3058,9 @@ function rejectPunAsPlayer() {
 // ═══════════════════════════════════════════════════════════════════════════
 
 function startRound3() {
+  // Flag: interview round is active — used to gate the currentRound3Question listener
+  window._round3Active = true;
+
   // Clean up any lingering Round 2 screens
   document.getElementById('pun-input-screen')?.classList.remove('active');
   document.getElementById('game-screen')?.classList.remove('active');
@@ -2118,7 +3070,7 @@ function startRound3() {
   document.getElementById('voting-screen').classList.add('active');
   document.getElementById('voting-player-name').textContent = playerName;
   document.getElementById('voting-score').textContent = currentScore;
-  
+
   // Show team badge
   gameRef.child('players/' + playerId + '/team').once('value', (snapshot) => {
     const teamNumber = snapshot.val();
@@ -2133,9 +3085,10 @@ function startRound3() {
       });
     }
   });
-  
-  // Listen for Round 3 questions
+
+  // Listen for Round 3 questions — guarded so it only fires during the interview phase
   gameRef.child('currentRound3Question').on('value', (snapshot) => {
+    if (!window._round3Active) return;
     const questionIndex = snapshot.val();
     if (questionIndex !== null && questionIndex !== round3CurrentQ) {
       round3CurrentQ = questionIndex;
@@ -2146,7 +3099,11 @@ function startRound3() {
 
 function loadRound3Question(index) {
   if (index >= ROUND_3_QUESTIONS.length) return;
-  
+
+  // Remove lingering Next Question button from previous round
+  const prevBtn = document.getElementById('round3-next-q-btn');
+  if (prevBtn) prevBtn.remove();
+
   const q = ROUND_3_QUESTIONS[index];
   document.getElementById('voting-header-text').textContent = q.question;
   document.getElementById('voting-status').classList.add('hidden');
@@ -2174,13 +3131,40 @@ function loadRound3Question(index) {
 function showRound3AnswerOptions(options, questionIndex) {
   const optionsContainer = document.getElementById('vote-options');
   const letters = ['A', 'B', 'C', 'D'];
-  
+
   optionsContainer.innerHTML = options.map((answer, i) => `
     <button class="vote-btn" id="round3-answer-${i}" onclick="submitRound3Answer('${answer.replace(/'/g, "\\'")}', ${questionIndex})">
       <div class="vote-player-name">Option ${letters[i]}</div>
       <div class="vote-answer-text">${answer}</div>
     </button>
-  `).join('');
+  `).join('') + `
+    <div style="margin-top: 20px; width: 100%;">
+      <div style="font-family: 'Barlow', sans-serif; font-size: 14px; color: rgba(255,255,255,0.6); margin-bottom: 8px; text-align: center;">
+        — or write your own —
+      </div>
+      <textarea id="round3-custom-answer"
+                maxlength="120"
+                placeholder="Type your own answer…"
+                style="width: 100%; box-sizing: border-box; padding: 12px 14px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.25); border-radius: 10px; color: #fff; font-family: 'Barlow', sans-serif; font-size: 16px; resize: none; outline: none; min-height: 70px;">
+      </textarea>
+      <button onclick="submitCustomRound3Answer(${questionIndex})"
+              style="margin-top: 10px; width: 100%; padding: 12px; background: linear-gradient(135deg, #4dd4e8, #ffc629); color: #0a1628; border: none; border-radius: 10px; font-family: 'Bebas Neue', sans-serif; font-size: 20px; cursor: pointer; -webkit-tap-highlight-color: transparent;">
+        Submit My Answer
+      </button>
+    </div>
+  `;
+}
+
+function submitCustomRound3Answer(questionIndex) {
+  const textarea = document.getElementById('round3-custom-answer');
+  if (!textarea) return;
+  const answer = textarea.value.trim();
+  if (!answer) {
+    textarea.style.borderColor = '#d4145a';
+    setTimeout(() => { textarea.style.borderColor = 'rgba(255,255,255,0.25)'; }, 1500);
+    return;
+  }
+  submitRound3Answer(answer, questionIndex);
 }
 
 function submitRound3Answer(answer, questionIndex) {
@@ -2284,12 +3268,31 @@ function voteForAnswer(targetPlayerId, questionIndex) {
     document.getElementById('voting-status-icon').textContent = '🎉';
     document.getElementById('voting-status-text').textContent = 'Vote recorded!';
     document.getElementById('voting-status').classList.remove('hidden');
-    
+
     // Add haptic feedback
-    if (navigator.vibrate) {
-      navigator.vibrate(50);
-    }
+    if (navigator.vibrate) navigator.vibrate(50);
+
+    // Player 1 (first in list) gets the Next Question button
+    const isFirstPlayer = Object.keys(players)[0] === playerId;
+    if (isFirstPlayer) showRound3NextQuestionButton();
   });
+}
+
+function showRound3NextQuestionButton() {
+  if (document.getElementById('round3-next-q-btn')) return;
+
+  const btn = document.createElement('button');
+  btn.id = 'round3-next-q-btn';
+  btn.style.cssText = 'position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); padding: 16px 50px; background: linear-gradient(135deg, #4dd4e8, #ffc629); color: #0a1628; border: none; border-radius: 14px; font-family: \'Bebas Neue\', sans-serif; font-size: 28px; cursor: pointer; z-index: 9999; box-shadow: 0 8px 24px rgba(255,198,41,0.4); -webkit-tap-highlight-color: transparent;';
+  btn.textContent = 'Next Question →';
+  btn.onclick = () => {
+    btn.disabled = true;
+    btn.textContent = 'Loading…';
+    gameRef.update({ round3NextQuestion: true });
+    setTimeout(() => btn.remove(), 3000);
+  };
+
+  document.body.appendChild(btn);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -2566,6 +3569,28 @@ function nextQuestionAsLead() {
   });
 }
 
+function showPlayerRound3Intro() {
+  if (document.getElementById('player-round3-intro')) return;
+
+  const div = document.createElement('div');
+  div.id = 'player-round3-intro';
+  div.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, #0a1628 0%, #1a2b4a 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 30px; text-align: center;';
+  div.innerHTML = `
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 64px; color: #ffc629; text-shadow: 0 0 30px rgba(255,198,41,0.6); margin-bottom: 20px; letter-spacing: 4px;">
+      🎙️ INTERVIEW ROUND
+    </div>
+    <div style="font-family: 'Oswald', sans-serif; font-size: 28px; color: #fff; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 2px;">
+      Round 3
+    </div>
+    <div style="font-family: 'Barlow', sans-serif; font-size: 20px; color: rgba(255,255,255,0.75); margin-top: 20px;">
+      Get ready to answer!
+    </div>
+    <div class="spinner" style="margin-top: 30px;"></div>
+  `;
+
+  document.body.appendChild(div);
+}
+
 function showPlayerRound1Explainer() {
   console.log('📱 Showing Round 1 explainer on player screen');
   
@@ -2694,7 +3719,7 @@ function acceptBonusRound() {
 
 const PLAYER_KARAOKE_LYRICS = [
   { time: 0,  polish: "♪ ♪ ♪",                                            english: "" },
-  { time: 8,  polish: "Gola! Gola! Gola!",                                 english: "Goal! Goal! Goal!" },
+  { time: 8,  polish: "Futbol! Futbol! Yeah!",                              english: "Football! Football! Yeah!" },
   { time: 15, polish: "Futbol, futbol, przeżyjmy to jeszcze raz",          english: "Football, football, let's live it once again" },
   { time: 22, polish: "Gdy piłka w grze, gdy idzie na strzał",             english: "When the ball is in play, when it goes for a shot" },
   { time: 26, polish: "Śledzi jej lot cały świat",                         english: "The whole world follows its flight" },
@@ -2755,9 +3780,13 @@ function showPlayerBonusKaraoke() {
           </div>
         `;
       } else {
+        const isFirstPlayerOverall = Object.keys(players)[0] === playerId;
+        const watchMsg = isFirstPlayerOverall
+          ? 'Watch the big screen you mug.'
+          : 'Watch the screen.';
         div.innerHTML = `
           <div style="font-family: 'Bebas Neue', sans-serif; font-size: 48px; color: #4dd4e8; margin-bottom: 20px;">👀 WATCH!</div>
-          <div style="font-family: 'Barlow', sans-serif; font-size: 22px; color: rgba(255,255,255,0.8); margin-bottom: 30px;">Watch the big screen you mug.</div>
+          <div style="font-family: 'Barlow', sans-serif; font-size: 22px; color: rgba(255,255,255,0.8); margin-bottom: 30px;">${watchMsg}</div>
           <div style="font-size: 60px; margin-bottom: 20px;">😏</div>
           <div id="player-karaoke-lyrics" style="display:none; min-height:70px; max-width:380px; text-align:center;">
             <div id="player-karaoke-polish" style="font-family:'Barlow',sans-serif; font-size:22px; font-style:italic; font-weight:700; color:#ffc629; text-shadow:0 0 16px rgba(255,198,41,0.5); line-height:1.3;">♪ ♪ ♪</div>
