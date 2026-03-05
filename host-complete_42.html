@@ -2387,7 +2387,10 @@ function showScoresReview() {
     const whistleAudio = new Audio('full_time_whistle.mp3?v=2');
     whistleAudio.volume = 0.8;
 
+    let introStarted = false; // guard against double-calling playFinalIntro
     const playFinalIntro = () => {
+      if (introStarted) return;
+      introStarted = true;
       console.log('🎵 Playing final_scores_intro.mp3');
       const finalIntroAudio = new Audio('final_scores_intro.mp3?v=2');
       finalIntroAudio.volume = 0.6;
@@ -2408,8 +2411,8 @@ function showScoresReview() {
       console.warn('⚠️ full_time_whistle failed, skipping to final_scores_intro');
       playFinalIntro();
     });
-    // Fallback if whistle is silent/missing
-    setTimeout(() => { if (!commentaryTriggered) playFinalIntro(); }, 8000);
+    // Fallback if whistle is silent/missing (uses introStarted guard so it won't double-play)
+    setTimeout(() => { if (!introStarted) playFinalIntro(); }, 8000);
 
   } else {
     // ── REGULAR SEQUENCE: commentary_review.mp3 → ElevenLabs ──
@@ -2870,7 +2873,7 @@ let currentPunIndex = 0;
     let done = false;
     const finish = () => {
       window._punReactionAudio = null;
-      if (!done) { done = true; callback(); }
+      if (!done) { done = true; if (typeof callback === 'function') callback(); }
     };
     window._punReactionAudio = new Audio(`${file}?v=2`);
     window._punReactionAudio.volume = 0.85;
@@ -4979,8 +4982,9 @@ function showBlowBallGetReadyHost() {
   // Signal all players to show the Get Ready screen
   gameRef.update({ blowBallGetReady: true });
 
-  // Listen for the referee pressing Ready
+  // Listen for the referee pressing Ready — flush any stale value first
   gameRef.child('blowBallReady').off();
+  gameRef.child('blowBallReady').remove();
   gameRef.child('blowBallReady').on('value', (snap) => {
     if (snap.val() === true) {
       gameRef.child('blowBallReady').off();
