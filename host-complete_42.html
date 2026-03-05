@@ -953,7 +953,7 @@
       </div>
       
       <div class="countdown-display">
-        <div class="countdown-time" id="countdown-timer">60</div>
+        <div class="countdown-time" id="countdown-timer">30</div>
       </div>
       
       <div class="puns-submitted-display" id="puns-submitted"></div>
@@ -2317,13 +2317,26 @@ function showScoresReview() {
     ]);
   }
   
+  // Dynamic heading based on which scores review this is
+  const _src = window.scoresReviewSource || 'round1';
+  const scoresHeading = {
+    'round1':     'After Round 1',
+    'round2':     'After Round 2',
+    'interview':  'After Round 3',
+    'matchdraw':  'After Match Draw',
+    'toiletpaper':'Full Time',
+  }[_src] || 'Scores';
+
+  // Also pass the source to Firebase so player screens can show the right label
+  // (written below in gameRef.update)
+
   // Create scores review screen
   const scoresDiv = document.createElement('div');
   scoresDiv.id = 'scores-review';
   scoresDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, var(--motd-dark-navy) 0%, var(--motd-navy) 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 40px;';
   scoresDiv.innerHTML = `
     <div style="font-family: 'Bebas Neue', sans-serif; font-size: 60px; color: var(--motd-gold); text-shadow: 0 0 40px rgba(255,198,41,0.8); margin-bottom: 60px; letter-spacing: 6px;">
-      After Round 1
+      ${scoresHeading}
     </div>
     
     <div style="display: flex; gap: 80px; margin-bottom: 60px;">
@@ -2349,42 +2362,78 @@ function showScoresReview() {
   
   document.body.appendChild(scoresDiv);
   
-  // Update Firebase for players
+  // Update Firebase for players — include scoresHeading so player screens match
   gameRef.update({
     showScoresReview: true,
+    scoresReviewHeading: scoresHeading,
     team1ScoreAfterRound1: team1Score,
     team2ScoreAfterRound1: team2Score
   });
   
-  // AUDIO SEQUENCE:
-  // 1. Play commentary_review.mp3 ("What are the scores?")
-  console.log('🎵 Playing commentary_review.mp3');
-  window.scoresIntroAudio = new Audio('commentary_review.mp3?v=2');
-  window.scoresIntroAudio.volume = 0.6;
-  window.scoresIntroAudio.play()
-    .then(() => console.log('🔊 Playing scores_intro'))
-    .catch(err => console.error('scores_intro play failed:', err));
-
-  // 2. When intro finishes, generate dynamic commentary
+  // AUDIO SEQUENCE — branches on whether this is the final scores review (after Blow Ball)
   let commentaryTriggered = false;
-
-  window.scoresIntroAudio.addEventListener('ended', () => {
-    window.scoresIntroAudio = null;
+  const triggerCommentary = () => {
     if (!commentaryTriggered) {
       commentaryTriggered = true;
-      console.log('✅ Scores intro finished, generating commentary');
       generateScoresCommentary(leadText, team1Score, team2Score);
     }
-  });
+  };
 
-  // Fallback — only fire if audio genuinely hasn't played (not just ended)
-  setTimeout(() => {
-    if (!commentaryTriggered && window.scoresIntroAudio && !window.scoresIntroAudio.ended && (window.scoresIntroAudio.paused || window.scoresIntroAudio.currentTime === 0)) {
-      commentaryTriggered = true;
-      console.log('⚠️ Scores intro timeout, generating commentary anyway');
-      generateScoresCommentary(leadText, team1Score, team2Score);
-    }
-  }, 5000);
+  const isFinalScores = window.scoresReviewSource === 'toiletpaper';
+
+  if (isFinalScores) {
+    // ── FINAL SCORES SEQUENCE: whistle → final_scores_intro → ElevenLabs ──
+    console.log('🎵 Playing full_time_whistle.mp3');
+    const whistleAudio = new Audio('full_time_whistle.mp3?v=2');
+    whistleAudio.volume = 0.8;
+
+    const playFinalIntro = () => {
+      console.log('🎵 Playing final_scores_intro.mp3');
+      const finalIntroAudio = new Audio('final_scores_intro.mp3?v=2');
+      finalIntroAudio.volume = 0.6;
+      finalIntroAudio.addEventListener('ended', () => {
+        console.log('✅ final_scores_intro finished, generating commentary');
+        triggerCommentary();
+      });
+      finalIntroAudio.play().catch(() => {
+        console.warn('⚠️ final_scores_intro failed, triggering commentary');
+        triggerCommentary();
+      });
+      // Fallback if final_scores_intro is silent/missing
+      setTimeout(triggerCommentary, 10000);
+    };
+
+    whistleAudio.addEventListener('ended', playFinalIntro);
+    whistleAudio.play().catch(() => {
+      console.warn('⚠️ full_time_whistle failed, skipping to final_scores_intro');
+      playFinalIntro();
+    });
+    // Fallback if whistle is silent/missing
+    setTimeout(() => { if (!commentaryTriggered) playFinalIntro(); }, 8000);
+
+  } else {
+    // ── REGULAR SEQUENCE: commentary_review.mp3 → ElevenLabs ──
+    console.log('🎵 Playing commentary_review.mp3');
+    window.scoresIntroAudio = new Audio('commentary_review.mp3?v=2');
+    window.scoresIntroAudio.volume = 0.6;
+    window.scoresIntroAudio.addEventListener('ended', () => {
+      window.scoresIntroAudio = null;
+      console.log('✅ Scores intro finished, generating commentary');
+      triggerCommentary();
+    });
+    window.scoresIntroAudio.play()
+      .catch(err => console.error('commentary_review play failed:', err));
+
+    // Fallback — only fire if audio genuinely hasn't started
+    setTimeout(() => {
+      if (!commentaryTriggered && window.scoresIntroAudio &&
+          !window.scoresIntroAudio.ended &&
+          (window.scoresIntroAudio.paused || window.scoresIntroAudio.currentTime === 0)) {
+        console.log('⚠️ Scores intro timeout, generating commentary anyway');
+        triggerCommentary();
+      }
+    }, 5000);
+  }
 }
 
 async function generateScoresCommentary(leadText, team1Score, team2Score) {
@@ -2529,7 +2578,7 @@ function routeAfterScoresReview() {
 // ═══════════════════════════════════════════════════════════════════════════
 
 let round2Timer = null;
-let round2TimeLeft = 60;
+let round2TimeLeft = 30;
 let round2Started = false; // Prevent duplicate starts
 
 function startRound2() {
@@ -2567,7 +2616,7 @@ function showRound2Explainer() {
         Turn footballer names into puns on a given theme!
       </p>
       <p style="font-family: 'Barlow', sans-serif; font-size: 24px; color: var(--text-muted); line-height: 1.6;">
-        You have 60 seconds. Be creative!
+        You have 30 seconds. Be creative!
       </p>
     </div>
     
@@ -2636,7 +2685,7 @@ function startRound2Gameplay() {
   document.getElementById('pun-category').textContent = category;
   
   // Reset timer
-  round2TimeLeft = 60;
+  round2TimeLeft = 30;
   document.getElementById('countdown-timer').textContent = round2TimeLeft;
   
   // Show submission count instead of actual puns
@@ -2658,7 +2707,7 @@ function startRound2Gameplay() {
     round: 2,
     round2Category: category,
     round2Active: true,
-    round2TimeLeft: 60,
+    round2TimeLeft: 30,
     round2TimeUp: false,
     crackedOn: false
   });
@@ -3054,29 +3103,37 @@ function handlePunRejected() {
 // OFFSIDE TRAP MECHANIC
 // ═══════════════════════════════════════════════════════════════════════════
 
+// Track which teams have already had an offside trap opportunity this game
+window._offsideTrapTeamsUsed = window._offsideTrapTeamsUsed || new Set();
+
 function triggerOffsideTrap() {
-  // Only trigger from Round 2 onwards
-  const currentRound = 2; // This would come from game state
-  if (currentRound < 2) return;
-  
   // Random chance (50%)
   if (Math.random() > 0.5) return;
-  
+
+  // Build a list of players whose team hasn't had the trap yet
+  const eligible = Object.entries(players).filter(([pid, player]) => {
+    return player.team && !window._offsideTrapTeamsUsed.has(player.team);
+  });
+
+  if (eligible.length === 0) {
+    console.log('🚩 Offside Trap: both teams already had their opportunity — skipping');
+    return;
+  }
+
   console.log('🚩 Triggering Offside Trap opportunity');
-  
-  // Pick a random player to give the opportunity
-  const playerIds = Object.keys(players);
-  if (playerIds.length === 0) return;
-  
-  const randomIndex = Math.floor(Math.random() * playerIds.length);
-  const luckyPlayerId = playerIds[randomIndex];
-  
+
+  // Pick a random eligible player
+  const [luckyPlayerId, luckyPlayer] = eligible[Math.floor(Math.random() * eligible.length)];
+
+  // Mark that team as used
+  window._offsideTrapTeamsUsed.add(luckyPlayer.team);
+
   // Send trigger to that specific player
   gameRef.child(`offsideTrapOpportunity/${luckyPlayerId}`).set({
     timestamp: Date.now()
   });
-  
-  console.log(`🚩 Offside Trap opportunity sent to ${players[luckyPlayerId]?.name}`);
+
+  console.log(`🚩 Offside Trap opportunity sent to ${luckyPlayer.name} (Team ${luckyPlayer.team})`);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -3633,6 +3690,17 @@ function bonusJudgement(teamNum, passed) {
   resultDiv.innerHTML = `<div style="font-family: 'Bebas Neue', sans-serif; font-size: 80px; color: ${passed ? '#22c55e' : 'var(--motd-magenta)'}; text-align: center; text-shadow: 0 0 60px ${passed ? 'rgba(34,197,94,0.8)' : 'rgba(212,20,90,0.8)'};">${message}</div>`;
   document.body.appendChild(resultDiv);
 
+  // Play accept or reject audio
+  if (passed) {
+    if (window.playPunReactionAudio) {
+      window.playPunReactionAudio('accept');
+    }
+  } else {
+    if (window.playPunReactionAudio) {
+      window.playPunReactionAudio('reject');
+    }
+  }
+
   gameRef.update({
     bonusRoundPhase: 'complete',
     bonusRoundActive: false,
@@ -3669,10 +3737,11 @@ function checkForMatchDraw() {
   if (playerCount >= 4) {
     startMatchDraw();
   } else {
-    console.log('⏭️ Skipping Match Draw (need 4+ players, have ' + playerCount + ') — going to Scores Review #3');
-    // Still show scores review before Toilet Paper even when Match Draw is skipped
-    window.scoresReviewSource = 'matchdraw';
-    showScoresReview();
+    // Not enough players for Match Draw — go directly to Commentary Round.
+    // Do NOT call showScoresReview() again: the interview scores review just played,
+    // and calling it again would play the audio sequence a second time.
+    console.log('⏭️ Skipping Match Draw (need 4+ players, have ' + playerCount + ') — going straight to Commentary');
+    startCommentaryRound();
   }
 }
 
@@ -4307,17 +4376,31 @@ function startCommentaryPlayback(teamNumber, commentatorId, videoFile) {
   document.body.appendChild(playbackDiv);
   gameRef.update({ commentaryPhase: `team${teamNumber}Playback` });
 
-  // Play commentary_review.mp3 first, then start video (gives commentator's phone time to sync)
+  // Play commentary_review.mp3 first, then start the muted video + the player's mic recording
   const reviewAudio = new Audio('commentary_review.mp3?v=2');
   reviewAudio.volume = 0.7;
-  reviewAudio.play().catch(() => {
+
+  // Shared helper: start muted video + play the player's recorded audio in sync
+  const playCommentaryRecording = () => {
     const v = document.getElementById('commentary-playback-video');
-    if (v) v.play().catch(() => {});
-  });
-  reviewAudio.addEventListener('ended', () => {
-    const v = document.getElementById('commentary-playback-video');
-    if (v) v.play().catch(e => console.log('Playback video play failed:', e));
-  });
+    if (!v) return;
+    v.muted = true; // mute video — we play the mic recording instead
+    v.play().catch(e => console.log('Playback video play failed:', e));
+    gameRef.child(`commentary/team${teamNumber}/recordingURL`).once('value', (snap) => {
+      const recordingURL = snap.val();
+      if (recordingURL) {
+        const recordingAudio = new Audio(recordingURL);
+        recordingAudio.play().catch(e => console.log('Commentary recording play failed:', e));
+        console.log('🎙️ Playing player mic recording for Team', teamNumber);
+      } else {
+        console.warn('⚠️ No recording URL found — video audio only');
+        v.muted = false;
+      }
+    });
+  };
+
+  reviewAudio.play().catch(() => { playCommentaryRecording(); });
+  reviewAudio.addEventListener('ended', () => { playCommentaryRecording(); });
 
   const pbVideo = document.getElementById('commentary-playback-video');
   pbVideo.addEventListener('ended', () => {
@@ -4864,22 +4947,49 @@ function selectPhotographers() {
       if (photographers && photographers.team1 && photographers.team2) {
         clearInterval(checkPhotographers);
         selectionDiv.remove();
-        startBlowBallRound();
+        showBlowBallGetReadyHost();
       }
     });
   };
 
   checkPhotographers = setInterval(startBlowBallIfReady, 500);
 
-  // Timeout fallback — start anyway after 30 s
+  // Timeout fallback — show Get Ready anyway after 30 s
   setTimeout(() => {
     if (document.getElementById('photographer-selection')) {
       clearInterval(checkPhotographers);
       selectionDiv.remove();
-      console.log('⚠️ Photographer selection timed out — starting Blow Ball anyway');
-      startBlowBallRound();
+      console.log('⚠️ Photographer selection timed out — showing Get Ready screen');
+      showBlowBallGetReadyHost();
     }
   }, 30000);
+}
+
+function showBlowBallGetReadyHost() {
+  const getReadyDiv = document.createElement('div');
+  getReadyDiv.id = 'blowball-get-ready-host';
+  getReadyDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, #0a1628 0%, #0d2137 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; text-align: center; padding: 40px;';
+  getReadyDiv.innerHTML = `
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 120px; color: var(--motd-gold); letter-spacing: 10px; margin-bottom: 20px; line-height: 1;">GET READY</div>
+    <div style="font-family: 'Barlow', sans-serif; font-size: 30px; color: rgba(255,255,255,0.7); margin-bottom: 50px;">Waiting for Player 1 to start…</div>
+    <div class="spinner"></div>
+  `;
+  document.body.appendChild(getReadyDiv);
+
+  // Signal all players to show the Get Ready screen
+  gameRef.update({ blowBallGetReady: true });
+
+  // Listen for the referee pressing Ready
+  gameRef.child('blowBallReady').off();
+  gameRef.child('blowBallReady').on('value', (snap) => {
+    if (snap.val() === true) {
+      gameRef.child('blowBallReady').off();
+      gameRef.child('blowBallReady').remove();
+      gameRef.child('blowBallGetReady').remove();
+      getReadyDiv.remove();
+      startBlowBallRound();
+    }
+  });
 }
 
 function startBlowBallRound() {
