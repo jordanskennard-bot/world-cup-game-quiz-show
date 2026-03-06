@@ -2271,11 +2271,23 @@ function nextQuestion() {
 // SCORES REVIEW (Between Round 1 and Round 2)
 // ═══════════════════════════════════════════════════════════════════════════
 
+// Guards against double-invocation (which would play audio twice)
+let _scoresReviewActive = false;
+let _scoresReviewRouted = false;
+
 function showScoresReview() {
+  if (_scoresReviewActive) {
+    console.warn('⚠️ showScoresReview already active — ignoring duplicate call');
+    return;
+  }
+  _scoresReviewActive = true;
+  _scoresReviewRouted = false; // reset route flag for this new review
   console.log('📊 Showing scores review');
   
-  // Hide game screen
+  // Hide game screen and interview screen (round3-screen may be active if coming from Round 3)
   document.getElementById('game-screen').classList.remove('active');
+  const _r3el = document.getElementById('round3-screen');
+  if (_r3el) _r3el.classList.remove('active');
   
   // Calculate scores
   let team1Score = 0;
@@ -2439,7 +2451,7 @@ async function generateScoresCommentary(leadText, team1Score, team2Score) {
   
   if (!commentaryDiv) {
     console.error('❌ Commentary div not found, skipping');
-    setTimeout(() => { routeAfterScoresReview(); }, 1000);
+    setTimeout(() => { playScoresReaction(team1Score, team2Score); }, 1000);
     return;
   }
   
@@ -2488,8 +2500,8 @@ async function generateScoresCommentary(leadText, team1Score, team2Score) {
       window._commentaryAudio = null;
       if (!routeTriggered) {
         routeTriggered = true;
-        console.log('✅ Commentary finished, routing to next round');
-        routeAfterScoresReview();
+        console.log('✅ Commentary finished, playing scores reaction');
+        playScoresReaction(team1Score, team2Score);
       }
     });
 
@@ -2498,8 +2510,8 @@ async function generateScoresCommentary(leadText, team1Score, team2Score) {
     setTimeout(() => {
       if (!routeTriggered && _ca && !_ca.ended && _ca.paused) {
         routeTriggered = true;
-        console.log('⚠️ Commentary audio not playing, routing anyway');
-        routeAfterScoresReview();
+        console.log('⚠️ Commentary audio not playing, playing scores reaction anyway');
+        playScoresReaction(team1Score, team2Score);
       }
     }, 15000);
 
@@ -2507,9 +2519,9 @@ async function generateScoresCommentary(leadText, team1Score, team2Score) {
     console.error('❌ ElevenLabs error:', error);
     commentaryDiv.textContent = `"Well Clyde, ${leadText}"`;
 
-    // Skip to next round even if commentary fails
+    // Skip to next round even if commentary fails — still play reaction
     setTimeout(() => {
-      routeAfterScoresReview();
+      playScoresReaction(team1Score, team2Score);
     }, 3000);
   }
 }
@@ -2552,6 +2564,13 @@ function playScoresReaction(team1Score, team2Score) {
 }
 
 function routeAfterScoresReview() {
+  if (_scoresReviewRouted) {
+    console.warn('⚠️ routeAfterScoresReview already called — ignoring duplicate');
+    return;
+  }
+  _scoresReviewRouted = true;
+  _scoresReviewActive = false; // allow the next scores review to run
+
   const scoresDiv = document.getElementById('scores-review');
   if (scoresDiv) scoresDiv.remove();
   gameRef.update({ showScoresReview: false });
@@ -3101,20 +3120,20 @@ function handlePunRejected() {
 // OFFSIDE TRAP MECHANIC
 // ═══════════════════════════════════════════════════════════════════════════
 
-// Track which teams have already had an offside trap opportunity this game
-window._offsideTrapTeamsUsed = window._offsideTrapTeamsUsed || new Set();
+// Track which individual players have already had an offside trap opportunity this game
+window._offsideTrapPlayersUsed = window._offsideTrapPlayersUsed || new Set();
 
 function triggerOffsideTrap() {
   // Random chance (50%)
   if (Math.random() > 0.5) return;
 
-  // Build a list of players whose team hasn't had the trap yet
-  const eligible = Object.entries(players).filter(([pid, player]) => {
-    return player.team && !window._offsideTrapTeamsUsed.has(player.team);
+  // Build a list of players who haven't had the trap yet
+  const eligible = Object.entries(players).filter(([pid]) => {
+    return !window._offsideTrapPlayersUsed.has(pid);
   });
 
   if (eligible.length === 0) {
-    console.log('🚩 Offside Trap: both teams already had their opportunity — skipping');
+    console.log('🚩 Offside Trap: every player already had their opportunity — skipping');
     return;
   }
 
@@ -3123,15 +3142,15 @@ function triggerOffsideTrap() {
   // Pick a random eligible player
   const [luckyPlayerId, luckyPlayer] = eligible[Math.floor(Math.random() * eligible.length)];
 
-  // Mark that team as used
-  window._offsideTrapTeamsUsed.add(luckyPlayer.team);
+  // Mark that player as used
+  window._offsideTrapPlayersUsed.add(luckyPlayerId);
 
   // Send trigger to that specific player
   gameRef.child(`offsideTrapOpportunity/${luckyPlayerId}`).set({
     timestamp: Date.now()
   });
 
-  console.log(`🚩 Offside Trap opportunity sent to ${luckyPlayer.name} (Team ${luckyPlayer.team})`);
+  console.log(`🚩 Offside Trap opportunity sent to ${luckyPlayer.name}`);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -3556,7 +3575,7 @@ function startKaraoke(teamNum, offerDiv) {
 const KARAOKE_LYRICS = [
   { time: 0,  polish: "♪ ♪ ♪",                                            english: "" },
   { time: 8,  polish: "Futbol! Futbol! Yeah!",                              english: "Football! Football! Yeah!" },
-  { time: 15, polish: "Futbol, futbol, przeżyjmy to jeszcze raz",          english: "Football, football, let's live it once again" },
+  { time: 15, polish: "Futbol, futbol, futbol przeżyjmy to jeszcze raz",   english: "Football, football, let's live it once again" },
   { time: 22, polish: "Gdy piłka w grze, gdy idzie na strzał",             english: "When the ball is in play, when it goes for a shot" },
   { time: 26, polish: "Śledzi jej lot cały świat",                         english: "The whole world follows its flight" },
   { time: 28, polish: "Piłka jest okrągła jak ziemski glob",               english: "The ball is round like the Earth's globe" },
@@ -3565,7 +3584,7 @@ const KARAOKE_LYRICS = [
   { time: 41, polish: "Gol! To był strzał!",                               english: "Goal! That was a shot!" },
   { time: 45, polish: "To jest szał!",                                     english: "This is madness!" },
   { time: 49, polish: "To jest sport!",                                    english: "This is sport!" },
-  { time: 55, polish: "Futbol, futbol, w to dzisiaj gra cały świat",       english: "Football, football, today the whole world plays it" }
+  { time: 55, polish: "Futbol, futbol futbol, w to dzisiaj gra cały świat", english: "Football, football, today the whole world plays it" }
 ];
 
 function beginKaraoke(teamNum, teamInfo) {
@@ -4337,15 +4356,48 @@ function startCommentaryRecording(teamNumber, commentatorId, videoFile) {
       <div style="width: 16px; height: 16px; background: #ff0000; border-radius: 50%; animation: pulse 1s infinite;"></div>
       <div style="font-family: 'Bebas Neue', sans-serif; font-size: 36px; color: #ff4444; letter-spacing: 3px;">● RECORDING</div>
     </div>
-    <video id="commentary-video" src="${videoFile}" style="width: 100%; max-width: 900px; max-height: 65vh; border-radius: 8px;" playsinline muted></video>
+    <div style="position: relative; width: 100%; max-width: 900px;">
+      <video id="commentary-video" src="${videoFile}" style="width: 100%; max-height: 65vh; border-radius: 8px; display: block;" playsinline></video>
+      <div id="commentary-waiting-overlay" style="position: absolute; inset: 0; background: rgba(0,0,0,0.75); display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 8px;">
+        <div style="font-size: 48px; margin-bottom: 16px;">🎙️</div>
+        <div style="font-family: 'Bebas Neue', sans-serif; font-size: 36px; color: var(--motd-gold); letter-spacing: 3px;">Waiting for commentator…</div>
+        <div style="font-family: 'Barlow', sans-serif; font-size: 20px; color: rgba(255,255,255,0.6); margin-top: 10px;">Video starts when they press Ready</div>
+        <div class="spinner" style="margin-top: 24px;"></div>
+      </div>
+    </div>
   `;
   document.body.appendChild(recordingDiv);
   gameRef.update({ commentaryPhase: `team${teamNumber}Recording`, [`commentary/team${teamNumber}/commentatorRecording`]: true });
 
   const video = document.getElementById('commentary-video');
-  video.play().catch(e => console.log('Commentary video play failed:', e));
+
+  const startVideo = () => {
+    const overlay = document.getElementById('commentary-waiting-overlay');
+    if (overlay) overlay.remove();
+    video.play().catch(e => console.log('Commentary video play failed:', e));
+  };
+
+  // Flush any stale ready signal, then wait for commentator to press Ready
+  gameRef.child('commentaryCommentatorReady').remove();
+  gameRef.child('commentaryCommentatorReady').on('value', (snap) => {
+    if (snap.val() === true) {
+      gameRef.child('commentaryCommentatorReady').off();
+      gameRef.child('commentaryCommentatorReady').remove();
+      startVideo();
+    }
+  });
+
+  // Fallback — start video after 45 s if player never presses Ready
+  setTimeout(() => {
+    if (document.getElementById('commentary-waiting-overlay')) {
+      console.warn('⚠️ Commentator never pressed Ready — starting video anyway');
+      startVideo();
+    }
+  }, 45000);
+
   video.addEventListener('ended', () => {
     if (document.getElementById('commentary-recording')) {
+      gameRef.child('commentaryCommentatorReady').off();
       recordingDiv.remove();
       gameRef.update({ [`commentary/team${teamNumber}/commentatorRecording`]: false });
       setTimeout(() => { startCommentaryPlayback(teamNumber, commentatorId, videoFile); }, 1500);
@@ -4353,11 +4405,12 @@ function startCommentaryRecording(teamNumber, commentatorId, videoFile) {
   });
   setTimeout(() => {
     if (document.getElementById('commentary-recording')) {
+      gameRef.child('commentaryCommentatorReady').off();
       recordingDiv.remove();
       gameRef.update({ [`commentary/team${teamNumber}/commentatorRecording`]: false });
       startCommentaryPlayback(teamNumber, commentatorId, videoFile);
     }
-  }, 35000);
+  }, 90000); // extended to 90 s to allow for Ready delay
 }
 
 function startCommentaryPlayback(teamNumber, commentatorId, videoFile) {
@@ -4536,6 +4589,11 @@ function continueToToiletPaperRounds() {
   const alertDiv = document.getElementById('toilet-paper-alert');
   if (alertDiv) alertDiv.remove();
   gameRef.update({ toiletPaperAlertActive: false, toiletPaperReady: null });
+
+  // Stop any audio still playing from the toilet paper alert before bog rolling begins
+  window._audioRefs.forEach(a => { try { a.pause(); a.currentTime = 0; } catch(e){} });
+  window._audioRefs = [];
+
   assignSabotageTasks();
   startBogRolling();
 }
@@ -5099,7 +5157,7 @@ function showNextEmotion() {
         const div = document.getElementById('blowball-emotion');
         if (div) div.remove();
         showNextEmotion();
-      }, 2000);
+      }, 5000);
     }
   }, 1000);
 }

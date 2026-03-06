@@ -1428,9 +1428,17 @@ function listenForGameStart() {
     }
   });
 
-  // ── ROUND 2 TIME UP — show "Crack on" button to home team captain only ──
+  // ── ROUND 2 TIME UP — lock pun submission and show "Crack on" to home team captain ──
   gameRef.child('round2TimeUp').on('value', (snapshot) => {
     if (snapshot.val() === true) {
+      // Lock pun submission for ALL players
+      window._punTimeUp = true;
+      const submitBtn = document.getElementById('pun-submit-btn');
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = "⏰ Time's up!";
+      }
+      // Show Crack On button to home team captain only
       const myData = players[playerId];
       if (myData && myData.isCaptain === true && myData.team === 1) {
         const crackOnBtn = document.getElementById('crack-on-btn');
@@ -1438,6 +1446,12 @@ function listenForGameStart() {
       }
     } else {
       // Reset for next round
+      window._punTimeUp = false;
+      const submitBtn = document.getElementById('pun-submit-btn');
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = '✍️ SUBMIT PUN';
+      }
       const crackOnBtn = document.getElementById('crack-on-btn');
       if (crackOnBtn) crackOnBtn.style.display = 'none';
     }
@@ -2679,9 +2693,13 @@ function displayMySubmittedPun(punText) {
 }
 
 function submitPun() {
+  if (window._punTimeUp) {
+    return; // clock has stopped — silently block late submissions
+  }
+
   const punInput = document.getElementById('pun-input');
   const pun = punInput.value.trim();
-  
+
   if (!pun) {
     alert('Please enter a pun!');
     return;
@@ -2870,13 +2888,15 @@ async function startPlayerMicRecording(teamNumber) {
   const div = document.createElement('div');
   div.id = 'player-commentary-recording';
   div.style.cssText = 'position: fixed; inset: 0; background: #0a0a0a; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 30px; text-align: center;';
+  // Show "get ready" state first — mic starts recording immediately but video waits
   div.innerHTML = `
-    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 20px;">
-      <div style="width: 18px; height: 18px; background: #ff0000; border-radius: 50%; animation: pulse 1s infinite;"></div>
-      <div style="font-family: 'Bebas Neue', sans-serif; font-size: 32px; color: #ff4444; letter-spacing: 3px;">LIVE — YOU'RE ON!</div>
-    </div>
     <div style="font-size: 64px; margin-bottom: 20px;">🎙️</div>
-    <div style="font-family: 'Barlow', sans-serif; font-size: 22px; color: rgba(255,255,255,0.8); line-height: 1.6;">Commentate out loud!<br>Watch the screen &amp; keep talking!</div>
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 36px; color: var(--motd-gold, #ffc629); letter-spacing: 3px; margin-bottom: 12px;">GET READY!</div>
+    <div style="font-family: 'Barlow', sans-serif; font-size: 20px; color: rgba(255,255,255,0.7); line-height: 1.6; margin-bottom: 32px;">Hold your phone up to your mouth.<br>Press Ready when you're set — the video will start.</div>
+    <button id="commentary-ready-btn" onclick="signalCommentaryReady()"
+            style="padding: 18px 48px; background: linear-gradient(135deg, #4dd4e8, #00bcd4); color: #0a1628; border: none; border-radius: 14px; font-family: 'Bebas Neue', sans-serif; font-size: 32px; letter-spacing: 2px; cursor: pointer; box-shadow: 0 8px 30px rgba(77,212,232,0.5); -webkit-tap-highlight-color: transparent;">
+      🎙️ I'm Ready!
+    </button>
   `;
   document.body.appendChild(div);
 
@@ -2913,12 +2933,38 @@ async function startPlayerMicRecording(teamNumber) {
     });
   } catch (err) {
     console.error('❌ Mic access denied:', err);
+    // Even without mic, still show the Ready button so host video can start
     div.innerHTML = `
       <div style="font-size: 48px; margin-bottom: 16px;">🚫</div>
-      <div style="font-family: 'Bebas Neue', sans-serif; font-size: 28px; color: #ff4444;">Mic not available</div>
-      <div style="font-family: 'Barlow', sans-serif; font-size: 18px; color: rgba(255,255,255,0.6); margin-top: 12px;">Commentate out loud anyway!</div>
+      <div style="font-family: 'Bebas Neue', sans-serif; font-size: 28px; color: #ff4444; margin-bottom: 8px;">Mic not available</div>
+      <div style="font-family: 'Barlow', sans-serif; font-size: 18px; color: rgba(255,255,255,0.6); margin-bottom: 28px;">Commentate out loud anyway!</div>
+      <button id="commentary-ready-btn" onclick="signalCommentaryReady()"
+              style="padding: 18px 48px; background: linear-gradient(135deg, #4dd4e8, #00bcd4); color: #0a1628; border: none; border-radius: 14px; font-family: 'Bebas Neue', sans-serif; font-size: 32px; letter-spacing: 2px; cursor: pointer; box-shadow: 0 8px 30px rgba(77,212,232,0.5); -webkit-tap-highlight-color: transparent;">
+        🎙️ I'm Ready!
+      </button>
     `;
   }
+}
+
+// Called when the commentator presses "I'm Ready!" — tells the host to start the video
+function signalCommentaryReady() {
+  const btn = document.getElementById('commentary-ready-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Starting…'; }
+
+  // Switch to LIVE screen
+  const div = document.getElementById('player-commentary-recording');
+  if (div) {
+    div.innerHTML = `
+      <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 20px;">
+        <div style="width: 18px; height: 18px; background: #ff0000; border-radius: 50%; animation: pulse 1s infinite;"></div>
+        <div style="font-family: 'Bebas Neue', sans-serif; font-size: 32px; color: #ff4444; letter-spacing: 3px;">LIVE — YOU'RE ON!</div>
+      </div>
+      <div style="font-size: 64px; margin-bottom: 20px;">🎙️</div>
+      <div style="font-family: 'Barlow', sans-serif; font-size: 22px; color: rgba(255,255,255,0.8); line-height: 1.6;">Commentate out loud!<br>Watch the screen &amp; keep talking!</div>
+    `;
+  }
+
+  gameRef.update({ commentaryCommentatorReady: true });
 }
 
 function showCommentaryPlaybackOnPlayer(teamNumber) {
