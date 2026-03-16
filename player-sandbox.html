@@ -1708,6 +1708,11 @@ function startGameAsLead() {
 }
 
 function startPlaying() {
+  // Guard against duplicate calls (two 'started' listeners can fire this:
+  // one in listenForGameStart() and one in showTeamSelectionScreen()).
+  if (window._startPlayingCalled) return;
+  window._startPlayingCalled = true;
+
   // Remove Round 1 explainer if still present (race-condition safety:
   // 'started' can arrive before 'round1Started' is cleared by the host,
   // so the overlay may still be on screen when this fires)
@@ -4487,7 +4492,7 @@ function showPlayerGameComplete() {
 
   const div = document.createElement('div');
   div.id = 'player-game-complete';
-  div.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, #0a1628 0%, #1a2b4a 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 40px; text-align: center;';
+  div.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, #0a1628 0%, #1a2b4a 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 25000; padding: 40px; text-align: center;';
   div.innerHTML = `
     <div style="font-size: 80px; margin-bottom: 24px;">🏆</div>
     <h1 style="font-family: 'Bebas Neue', sans-serif; font-size: 64px; color: #ffc629; margin-bottom: 20px; letter-spacing: 4px; line-height: 1.1;">FULL TIME!</h1>
@@ -4512,7 +4517,7 @@ function showEmailCaptureScreen() {
 
   const emailCaptureDiv = document.createElement('div');
   emailCaptureDiv.id = 'email-capture-screen';
-  emailCaptureDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, #0a1628 0%, #1a2b4a 100%); display: flex; align-items: center; justify-content: center; z-index: 10000; padding: 40px 20px; overflow-y: auto;';
+  emailCaptureDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, #0a1628 0%, #1a2b4a 100%); display: flex; align-items: center; justify-content: center; z-index: 25000; padding: 40px 20px; overflow-y: auto;';
 
   emailCaptureDiv.innerHTML = `
     <div style="max-width: 600px; width: 100%; text-align: center;">
