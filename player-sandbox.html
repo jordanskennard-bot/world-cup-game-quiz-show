@@ -1254,7 +1254,7 @@ function listenForGameStart() {
     if (isFirstPlayer) {
       window._isPlayer1 = true;
       // Show start button for first player
-      document.getElementById('waiting-message').textContent = 'You joined first! Select teams and start when ready.';
+      document.getElementById('waiting-message').textContent = 'You joined first! Select teams when ready.';
       const leadControls = document.getElementById('waiting-lead-controls');
       leadControls.style.display = 'flex';
       leadControls.style.justifyContent = 'center';
@@ -3784,10 +3784,10 @@ function showPlayerRound1Explainer() {
     
     <div id="round1-start-controls" style="display: none; flex-direction: column; gap: 15px; align-items: center;">
       <div style="font-family: 'Barlow', sans-serif; font-size: 16px; color: #4dd4e8; margin-bottom: 10px; font-style: italic;">
-        You joined first! Start when ready.
+        Blow the whistle to begin the game.
       </div>
       <button onclick="startRound1()" style="font-family: 'Oswald', sans-serif; font-size: 24px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; padding: 18px 50px; background: #ffc629; color: #000; border: none; cursor: pointer; box-shadow: 0 6px 0 #d4a317, 0 10px 20px rgba(0,0,0,0.4);">
-        🎮 START ROUND 1
+        📯 BLOW
       </button>
     </div>
     
@@ -4837,7 +4837,6 @@ function startHeartbeat() {
 // Player 1 pause button
 function createPlayerPauseButton() {
   if (document.getElementById('player-pause-btn')) return;
-  let paused = false;
 
   const btn = document.createElement('button');
   btn.id = 'player-pause-btn';
@@ -4859,17 +4858,24 @@ function createPlayerPauseButton() {
     'box-shadow: 0 4px 16px rgba(0,0,0,0.4)',
   ].join(';');
 
+  // Toggle by writing to Firebase; let the Firebase listener update the label
   btn.onclick = () => {
-    paused = !paused;
-    gameRef.child('paused').set(paused);
-    if (paused) {
+    gameRef.child('paused').once('value', (snap) => {
+      gameRef.child('paused').set(!snap.val());
+    });
+  };
+
+  // Keep label in sync with Firebase (so both player and host agree on state)
+  gameRef.child('paused').on('value', (snap) => {
+    const isPaused = snap.val() === true;
+    if (isPaused) {
       btn.innerHTML = '▶️ Resume';
       btn.style.background = 'rgba(46,204,113,0.95)';
     } else {
       btn.innerHTML = '⏸️ Pause';
       btn.style.background = 'rgba(255,198,41,0.92)';
     }
-  };
+  });
 
   document.body.appendChild(btn);
 }

@@ -54,13 +54,19 @@
     height: 100vh;
     display: flex;
     flex-direction: column;
+    padding-top: 80px; /* height of the fixed header */
   }
   
-  /* HEADER */
+  /* HEADER — fixed so it persists above all game overlays */
   .host-header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 20001;
     background: linear-gradient(160deg, var(--motd-dark-navy) 0%, var(--motd-navy) 100%);
     border-bottom: 3px solid var(--motd-cyan);
-    padding: 20px 40px;
+    padding: 12px 32px;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -69,7 +75,7 @@
   
   .game-title {
     font-family: 'Bebas Neue', sans-serif;
-    font-size: 42px;
+    font-size: 32px;
     letter-spacing: 3px;
     color: var(--text);
     text-shadow: 0 0 30px rgba(212,20,90,0.8);
@@ -84,22 +90,22 @@
   .game-code-display {
     background: rgba(0,0,0,0.4);
     border: 2px solid var(--motd-cyan);
-    padding: 12px 24px;
+    padding: 8px 18px;
     border-radius: 8px;
   }
-  
+
   .code-label {
     font-family: 'Barlow Condensed', sans-serif;
-    font-size: 12px;
+    font-size: 11px;
     letter-spacing: 3px;
     text-transform: uppercase;
     color: var(--text-muted);
-    margin-bottom: 3px;
+    margin-bottom: 2px;
   }
-  
+
   .code-value {
     font-family: 'Bebas Neue', sans-serif;
-    font-size: 48px;
+    font-size: 36px;
     letter-spacing: 6px;
     color: var(--motd-cyan);
     text-shadow: 0 0 20px rgba(77,212,232,0.6);
@@ -107,11 +113,12 @@
   
   .round-indicator {
     background: var(--motd-magenta);
-    padding: 8px 20px;
+    padding: 6px 16px;
     border-radius: 6px;
     font-family: 'Bebas Neue', sans-serif;
-    font-size: 24px;
+    font-size: 18px;
     letter-spacing: 2px;
+    white-space: nowrap;
   }
   
   /* MAIN CONTENT */
@@ -806,6 +813,9 @@
     font-weight: 600;
     color: var(--motd-cyan);
     min-width: 120px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
   }
   
   .answer-content {
@@ -853,7 +863,7 @@
     <div class="game-title">Global Soccer Trophy Quiz Cup</div>
     <div class="header-right">
       <div id="header-qr-wrap" style="display: flex; flex-direction: column; align-items: center; gap: 3px; margin-right: 4px;">
-        <img id="header-qr-img" src="" alt="QR" style="width: 56px; height: 56px; border-radius: 4px; border: 2px solid rgba(255,198,41,0.8); background: #fff; display: none;">
+        <img id="header-qr-img" src="" alt="QR" style="width: 48px; height: 48px; border-radius: 4px; border: 2px solid rgba(255,198,41,0.8); background: #fff; display: none;">
         <div style="font-family: 'Bebas Neue', sans-serif; font-size: 9px; color: rgba(255,255,255,0.55); letter-spacing: 1px;">SCAN TO JOIN</div>
       </div>
       <div class="round-indicator" id="round-indicator">Lobby</div>
@@ -895,7 +905,11 @@
       </div>
       
       <a class="join-url" id="join-url" href="#" target="_blank" style="color: inherit; text-decoration: underline; text-underline-offset: 3px; cursor: pointer;">Loading...</a>
-      
+
+      <button id="audio-unlock-btn-inline" onclick="unlockAudio()" style="display:none; margin: 18px auto 0; padding: 14px 36px; background: linear-gradient(135deg, #ffc629, #f39c12); color: #0a1628; border: none; border-radius: 10px; font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 2px; cursor: pointer; box-shadow: 0 4px 16px rgba(255,198,41,0.7);">
+        🔊 Warm Up
+      </button>
+
       <div class="players-waiting">
         <div class="lobby-subtitle" style="text-align: center; margin-bottom: 10px;">
           <span id="player-count">0</span> Players Joined
@@ -1086,15 +1100,11 @@ const ROUND_2_CATEGORIES = [
 // ═══════════════════════════════════════════════════════════════════════════
 // SCORE REACTION CATEGORIES
 // ═══════════════════════════════════════════════════════════════════════════
-function getScoreReactionFile(team1Score, team2Score) {
-  const difference = Math.abs(team1Score - team2Score);
 
-  function pick(files) {
-    return files[Math.floor(Math.random() * files.length)];
-  }
-
-  // Generic scores reactions (2-11) added to every pool for variety
-  const generic = [
+// Generic reaction — plays BEFORE ElevenLabs commentary
+function getGenericReactionFile() {
+  const files = [
+    'scores_reaction_1.mp3',
     'scores_reaction_2.mp3',
     'scores_reaction_3.mp3',
     'scores_reaction_4.mp3',
@@ -1106,19 +1116,25 @@ function getScoreReactionFile(team1Score, team2Score) {
     'scores_reaction_10.mp3',
     'scores_reaction_11.mp3'
   ];
+  return files[Math.floor(Math.random() * files.length)];
+}
 
-  // Check for struggling score first (0-2 points for either team)
+// Contextual reaction — plays AFTER ElevenLabs commentary
+function getContextualReactionFile(team1Score, team2Score) {
+  const difference = Math.abs(team1Score - team2Score);
+  const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+
+  // Struggling (either team has 0-2 points)
   if (team1Score <= 2 || team2Score <= 2) {
     return pick([
       'struggling_reaction_1.mp3',
       'struggling_reaction_3.mp3',
       'struggling_reaction_4mp3.mp3',
       'struggling_reaction_5.mp3',
-      ...generic
     ]);
   }
 
-  // Close score (0-3 difference)
+  // Close score (≤3 difference)
   if (difference <= 3) {
     return pick([
       'close_score_reaction_1.mp3',
@@ -1126,7 +1142,6 @@ function getScoreReactionFile(team1Score, team2Score) {
       'close_score_reaction_3.mp3',
       'close_score_reaction_4.mp3',
       'close_score_reaction_5.mp3',
-      ...generic
     ]);
   }
 
@@ -1139,7 +1154,6 @@ function getScoreReactionFile(team1Score, team2Score) {
       'slight_lead_reaction_4.mp3',
       'slight_lead_reaction_5.mp3',
       'slight_lead_reaction_6.mp3',
-      ...generic
     ]);
   }
 
@@ -1148,12 +1162,16 @@ function getScoreReactionFile(team1Score, team2Score) {
     return pick([
       'comfortable_lead_reaction_1.mp3',
       'comfortable_lead_reaction_2.mp3',
-      ...generic
     ]);
   }
 
   // Dominant lead (16+)
-  return pick(['dominant_lead_reaction_1.mp3', ...generic]);
+  return 'dominant_lead_reaction_1.mp3';
+}
+
+// Legacy alias kept in case anything still calls it
+function getScoreReactionFile(team1Score, team2Score) {
+  return getContextualReactionFile(team1Score, team2Score);
 }
 
 // Round 3 - Interview Questions
@@ -1162,7 +1180,7 @@ const ROUND_3_QUESTIONS = [
     question: "The team looked tired. What did you give them at half time?"
   },
   {
-    question: "What are you most concerned about in the next round?"
+    question: "What are you most concerned about in the next game?"
   },
   {
     question: "What would you say is your biggest strength?"
@@ -1172,7 +1190,7 @@ const ROUND_3_QUESTIONS = [
 const ROUND_3_ANSWER_POOL = [
   "Prime German Sausage",
   "A quick appearance in the Epstein files",
-  "An Irn-Bru stain right there",
+  "An Irn Bru stain in the worst spot possible.",
   "Curtains. Curtains. Curtains.",
   "Sharing a vegan omelette with Timothee Chalamet",
   "The hand of god",
@@ -1279,8 +1297,11 @@ function unlockAudio() {
   if (window._audioUnlocked) return;
   window._audioUnlocked = true;
 
+  // Hide both the inline lobby button and any floating fallback
   const btn = document.getElementById('audio-unlock-btn');
   if (btn) btn.remove();
+  const inlineBtn = document.getElementById('audio-unlock-btn-inline');
+  if (inlineBtn) inlineBtn.style.display = 'none';
 
   const queued = window._audioQueue.splice(0);
   queued.forEach(({ audio, options, release }) => {
@@ -1295,8 +1316,17 @@ function unlockAudio() {
 }
 
 function showAudioUnlockButton() {
-  if (window._audioUnlocked || document.getElementById('audio-unlock-btn')) return;
+  if (window._audioUnlocked) return;
 
+  // Show the inline lobby button (sits under QR code / URL, above players joined)
+  const inlineBtn = document.getElementById('audio-unlock-btn-inline');
+  if (inlineBtn) {
+    inlineBtn.style.display = 'block';
+    return;
+  }
+
+  // Fallback: create a floating button if the inline one isn't in the DOM
+  if (document.getElementById('audio-unlock-btn')) return;
   const btn = document.createElement('button');
   btn.id = 'audio-unlock-btn';
   btn.innerHTML = '🔊 Warm Up';
@@ -1379,7 +1409,7 @@ joinUrlEl.href = playerUrl;
 // Populate mini header QR
 const headerQrImg = document.getElementById('header-qr-img');
 if (headerQrImg) {
-  headerQrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=56x56&data=${encodeURIComponent(playerUrl)}`;
+  headerQrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=48x48&data=${encodeURIComponent(playerUrl)}`;
   headerQrImg.style.display = 'block';
 }
 
@@ -2159,8 +2189,7 @@ function startGamePlay() {
   // Schedule sabotage buttons at random times
   scheduleSabotageButtons();
 
-  // Persistent QR code overlay
-  createPersistentQRCode();
+  // QR code is in the persistent top banner — no floating overlay needed
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -2502,10 +2531,24 @@ function showScoresReview() {
   // AUDIO SEQUENCE — branches on whether this is the final scores review (after Blow Ball)
   let commentaryTriggered = false;
   const triggerCommentary = () => {
-    if (!commentaryTriggered) {
-      commentaryTriggered = true;
+    if (commentaryTriggered) return;
+    commentaryTriggered = true;
+
+    // 1. Play generic scores_reaction file BEFORE ElevenLabs
+    const genericFile = getGenericReactionFile();
+    console.log(`🎵 Playing generic reaction: ${genericFile}`);
+    const genericAudio = new Audio(`${genericFile}?v=2`);
+    genericAudio.volume = 0.6;
+    let genericDone = false;
+    const onGenericDone = () => {
+      if (genericDone) return;
+      genericDone = true;
+      // 2. Now generate + play ElevenLabs commentary
       generateScoresCommentary(leadText, team1Score, team2Score);
-    }
+    };
+    genericAudio.addEventListener('ended', onGenericDone);
+    genericAudio.play().catch(() => onGenericDone());
+    setTimeout(onGenericDone, 8000); // fallback
   };
 
   const isFinalScores = window.scoresReviewSource === 'toiletpaper';
@@ -2573,7 +2616,7 @@ async function generateScoresCommentary(leadText, team1Score, team2Score) {
   
   if (!commentaryDiv) {
     console.error('❌ Commentary div not found, skipping');
-    setTimeout(() => { playScoresReaction(team1Score, team2Score); }, 1000);
+    setTimeout(() => { playContextualReaction(team1Score, team2Score); }, 1000);
     return;
   }
   
@@ -2617,13 +2660,13 @@ async function generateScoresCommentary(leadText, team1Score, team2Score) {
 
     let routeTriggered = false;
 
-    // 3. When commentary finishes, move on
+    // 3. When commentary finishes, play contextual reaction
     window._commentaryAudio.addEventListener('ended', () => {
       window._commentaryAudio = null;
       if (!routeTriggered) {
         routeTriggered = true;
-        console.log('✅ Commentary finished, playing scores reaction');
-        playScoresReaction(team1Score, team2Score);
+        console.log('✅ Commentary finished, playing contextual scores reaction');
+        playContextualReaction(team1Score, team2Score);
       }
     });
 
@@ -2632,8 +2675,8 @@ async function generateScoresCommentary(leadText, team1Score, team2Score) {
     setTimeout(() => {
       if (!routeTriggered && _ca && !_ca.ended && _ca.paused) {
         routeTriggered = true;
-        console.log('⚠️ Commentary audio not playing, playing scores reaction anyway');
-        playScoresReaction(team1Score, team2Score);
+        console.log('⚠️ Commentary audio not playing, playing contextual reaction anyway');
+        playContextualReaction(team1Score, team2Score);
       }
     }, 15000);
 
@@ -2641,11 +2684,42 @@ async function generateScoresCommentary(leadText, team1Score, team2Score) {
     console.error('❌ ElevenLabs error:', error);
     commentaryDiv.textContent = `"Well Clyde, ${leadText}"`;
 
-    // Skip to next round even if commentary fails — still play reaction
+    // Skip to next round even if commentary fails — still play contextual reaction
     setTimeout(() => {
-      playScoresReaction(team1Score, team2Score);
+      playContextualReaction(team1Score, team2Score);
     }, 3000);
   }
+}
+
+function playContextualReaction(team1Score, team2Score) {
+  // Post-ElevenLabs: play a context-aware reaction (struggling/close/slight_lead/etc.)
+  const reactionFile = getContextualReactionFile(team1Score, team2Score);
+  console.log(`🎵 Playing contextual reaction ${reactionFile} (scores: ${team1Score} vs ${team2Score})`);
+
+  const reactionAudio = new Audio(`${reactionFile}?v=2`);
+  reactionAudio.volume = 0.6;
+  reactionAudio.play()
+    .then(() => console.log('🔊 Playing contextual scores reaction'))
+    .catch(err => console.error('contextual_reaction play failed:', err));
+
+  let reactionEnded = false;
+
+  reactionAudio.addEventListener('ended', () => {
+    if (!reactionEnded) {
+      reactionEnded = true;
+      console.log('✅ Contextual reaction finished');
+      routeAfterScoresReview();
+    }
+  });
+
+  // Fallback
+  setTimeout(() => {
+    if (!reactionEnded && (reactionAudio.paused || reactionAudio.currentTime === 0)) {
+      reactionEnded = true;
+      console.log('⚠️ Contextual reaction timeout, routing anyway');
+      routeAfterScoresReview();
+    }
+  }, 12000);
 }
 
 function playScoresReaction(team1Score, team2Score) {
@@ -3470,9 +3544,14 @@ function displaySubmittedAnswers(submissions, questionIndex) {
   
   submissionsDiv.innerHTML = submissionArray.map((sub, index) => {
     const isWinner = index === 0 && sub.votes > 0;
+    const player = players[sub.playerId];
+    const initials = (player?.name || '?').charAt(0).toUpperCase();
+    const photoHtml = player?.photo
+      ? `<img src="${player.photo}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid var(--motd-cyan);flex-shrink:0;">`
+      : `<div style="width:40px;height:40px;border-radius:50%;background:var(--motd-navy);border:2px solid var(--motd-cyan);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:var(--motd-cyan);flex-shrink:0;">${initials}</div>`;
     return `
       <div class="submitted-answer-card ${isWinner ? 'winner' : ''}">
-        <div class="answer-player-name">${sub.playerName}</div>
+        <div class="answer-player-name">${photoHtml}${sub.playerName}</div>
         <div class="answer-content">${sub.answer}</div>
         <div class="answer-votes">${sub.votes}</div>
       </div>
@@ -4470,12 +4549,17 @@ function startCommentaryRound() {
   const explainerAudio = new Audio('commentary_explainer.mp3?v=2');
   explainerAudio.volume = 0.7;
   explainerAudio.play().catch(e => console.log('commentary_explainer not found:', e));
-  explainerAudio.addEventListener('ended', () => {
+
+  let explainerTransitioned = false;
+  const transitionToTeamSelection = () => {
+    if (explainerTransitioned) return;
+    explainerTransitioned = true;
+    explainerAudio.pause(); // stop explainer before next audio starts
     if (document.getElementById('commentary-intro')) { introDiv.remove(); startCommentaryTeamSelection(1); }
-  });
-  setTimeout(() => {
-    if (document.getElementById('commentary-intro')) { introDiv.remove(); startCommentaryTeamSelection(1); }
-  }, 12000);
+  };
+
+  explainerAudio.addEventListener('ended', transitionToTeamSelection);
+  setTimeout(transitionToTeamSelection, 12000);
 }
 
 function startCommentaryTeamSelection(teamNumber) {
@@ -5689,11 +5773,8 @@ function showVictoryScreen() {
     if (waBtn) waBtn.href = `https://wa.me/?text=${encodeURIComponent(shareMsg)}`;
     if (twBtn) twBtn.href = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareMsg)}`;
 
-    // Remove persistent QR from game (no longer needed)
-    const qr = document.getElementById('persistent-qr-code');
-    if (qr) qr.remove();
-    const pauseBtn = document.getElementById('pause-button');
-    if (pauseBtn) pauseBtn.remove();
+    // Clear any lingering pause state at game end
+    gameRef.child('paused').set(false);
 
     // Load photo album after a short delay
     setTimeout(() => loadPhotoAlbum(), 1500);
@@ -5839,6 +5920,25 @@ function setQRSize(size) {
 
 let _gamePaused = false;
 
+// Listen to Firebase 'paused' — reacts to Player 1's pause button on their phone
+(function setupHostPauseListener() {
+  const check = setInterval(() => {
+    if (!gameRef) return;
+    clearInterval(check);
+    gameRef.child('paused').on('value', (snap) => {
+      const shouldBePaused = snap.val() === true;
+      if (shouldBePaused && !_gamePaused) {
+        _gamePaused = true;
+        showPauseOverlay();
+      } else if (!shouldBePaused && _gamePaused) {
+        _gamePaused = false;
+        const overlay = document.getElementById('host-pause-overlay');
+        if (overlay) overlay.remove();
+      }
+    });
+  }, 500);
+})();
+
 function createPauseButton() {
   if (document.getElementById('pause-button')) return;
 
@@ -5851,18 +5951,8 @@ function createPauseButton() {
 }
 
 function togglePause() {
-  _gamePaused = !_gamePaused;
-  gameRef.child('paused').set(_gamePaused);
-
-  const btn = document.getElementById('pause-button');
-  if (_gamePaused) {
-    if (btn) { btn.innerHTML = '▶️ Resume'; btn.style.background = '#2ecc71'; }
-    showPauseOverlay();
-  } else {
-    if (btn) { btn.innerHTML = '⏸️ Pause'; btn.style.background = 'rgba(255,198,41,0.9)'; }
-    const overlay = document.getElementById('host-pause-overlay');
-    if (overlay) overlay.remove();
-  }
+  // Drive everything through Firebase — the listener above handles the UI response
+  gameRef.child('paused').set(!_gamePaused);
 }
 
 function showPauseOverlay() {
@@ -5874,7 +5964,7 @@ function showPauseOverlay() {
 
   const overlay = document.createElement('div');
   overlay.id = 'host-pause-overlay';
-  overlay.style.cssText = 'position: fixed; inset: 0; background: rgba(10,22,40,0.92); display: flex; align-items: center; justify-content: center; z-index: 9997; padding: 40px;';
+  overlay.style.cssText = 'position: fixed; inset: 0; background: rgba(10,22,40,0.92); display: flex; align-items: center; justify-content: center; z-index: 19500; padding: 40px;';
 
   const disconnectedHtml = disconnected.length > 0
     ? `<div style="margin: 24px 0; font-family: 'Barlow', sans-serif; font-size: 18px; color: rgba(255,255,255,0.8);">
