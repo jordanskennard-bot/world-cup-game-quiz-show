@@ -54,7 +54,7 @@
     height: 100vh;
     display: flex;
     flex-direction: column;
-    padding-top: 80px; /* height of the fixed header */
+    padding-top: 108px; /* actual header height: ~12px padding + ~84px content (code-label + code-value) + 12px padding + 3px border */
   }
   
   /* HEADER — fixed so it persists above all game overlays */
@@ -852,6 +852,249 @@
   
   .hidden {
     display: none !important;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     RESPONSIVE: scale everything to fit the viewport without scroll
+     Uses clamp(min, preferred-vh/vw, max) throughout so the layout
+     automatically adapts from small laptops to large TVs.
+  ════════════════════════════════════════════════════════════════ */
+
+  /* Main content: tighter padding, never self-scrolls */
+  .main-content {
+    padding: clamp(8px, 1.2vh, 22px) clamp(14px, 2vw, 34px);
+    overflow: hidden;
+  }
+
+  /* All screens must be able to flex-shrink */
+  .lobby-screen,
+  .game-screen,
+  .round2-screen,
+  .round3-screen,
+  .transition-screen,
+  .team-selection-screen {
+    min-height: 0;
+  }
+
+  /* ── GAME SCREEN (Round 1) ── */
+  .game-screen {
+    gap: clamp(6px, 1vh, 14px);
+    overflow: hidden;
+  }
+  .question-display {
+    padding: clamp(8px, 1.4vh, 22px) clamp(12px, 1.8vw, 26px);
+    min-height: 0;
+    margin-bottom: 0;
+    flex-shrink: 0;
+  }
+  .question-text {
+    font-size: clamp(15px, 2.4vh, 26px);
+    line-height: 1.3;
+  }
+  .answers-display {
+    gap: clamp(5px, 0.8vh, 10px);
+    margin-bottom: 0;
+    flex-shrink: 0;
+  }
+  .answer-option {
+    padding: clamp(8px, 1.2vh, 18px) clamp(10px, 1.3vw, 18px);
+  }
+  .answer-letter {
+    font-size: clamp(22px, 2.8vh, 36px);
+    min-width: 30px;
+  }
+  .answer-text {
+    font-size: clamp(13px, 1.8vh, 20px);
+  }
+  .answer-count {
+    font-size: clamp(18px, 2.2vh, 28px);
+    min-width: 34px;
+  }
+  /* Scoreboard fills remaining flex space */
+  .scoreboard {
+    flex: 1;
+    min-height: 0;
+    max-height: none;
+    padding: clamp(8px, 1.2vh, 18px);
+    overflow-y: auto;
+    margin-top: 0;
+  }
+  .scoreboard-title {
+    font-size: clamp(16px, 2.2vh, 26px);
+    margin-bottom: clamp(5px, 0.7vh, 12px);
+  }
+  .score-list {
+    gap: clamp(5px, 0.7vh, 10px);
+  }
+  .score-item {
+    padding: clamp(5px, 0.8vh, 12px) clamp(8px, 1.2vw, 16px);
+  }
+  .score-rank {
+    font-size: clamp(16px, 2.2vh, 26px);
+    min-width: 30px;
+  }
+  .score-player-name {
+    font-size: clamp(13px, 1.7vh, 20px);
+  }
+  .score-points {
+    font-size: clamp(18px, 2.4vh, 28px);
+  }
+  .host-controls {
+    margin-top: clamp(5px, 0.7vh, 12px);
+    flex-shrink: 0;
+  }
+
+  /* ── LOBBY SCREEN ── */
+  .lobby-title {
+    font-size: clamp(40px, 6.5vh, 66px);
+    margin-bottom: clamp(6px, 0.9vh, 14px);
+  }
+  .lobby-subtitle {
+    font-size: clamp(17px, 2.4vh, 22px);
+    margin-bottom: clamp(10px, 1.5vh, 26px);
+  }
+  .qr-code-container {
+    padding: clamp(12px, 1.8vh, 22px);
+    margin-bottom: clamp(10px, 1.5vh, 22px);
+  }
+  #qr-code {
+    width: clamp(160px, 23vh, 215px);
+    height: clamp(160px, 23vh, 215px);
+  }
+  #qr-code canvas,
+  #qr-code img {
+    max-width: clamp(160px, 23vh, 215px) !important;
+    max-height: clamp(160px, 23vh, 215px) !important;
+  }
+  .join-url {
+    font-size: clamp(17px, 2.5vh, 24px);
+    margin-bottom: clamp(10px, 1.5vh, 22px);
+  }
+  .players-waiting {
+    margin-bottom: clamp(10px, 1.5vh, 22px);
+  }
+
+  /* ── TEAM SELECTION ── */
+  .team-selection-title {
+    font-size: clamp(28px, 4.2vh, 46px);
+    margin-bottom: clamp(5px, 0.7vh, 10px);
+  }
+  .team-selection-subtitle {
+    margin-bottom: clamp(10px, 1.5vh, 24px);
+  }
+  .teams-grid {
+    max-height: clamp(160px, 30vh, 340px);
+  }
+  .team-flag {
+    font-size: clamp(26px, 3.8vh, 42px);
+    margin-bottom: 5px;
+  }
+  .team-name {
+    font-size: clamp(13px, 1.7vh, 18px);
+  }
+  .selected-teams-display {
+    gap: clamp(14px, 2.5vw, 32px);
+    margin-bottom: clamp(12px, 1.8vh, 24px);
+  }
+  .selected-team-card {
+    padding: clamp(12px, 1.8vh, 20px) clamp(18px, 2.5vw, 32px);
+    min-width: 140px;
+  }
+  .selected-team-flag {
+    font-size: clamp(36px, 5.5vh, 56px);
+    margin-bottom: 5px;
+  }
+  .selected-team-name {
+    font-size: clamp(20px, 2.8vh, 28px);
+  }
+  .vs-text {
+    font-size: clamp(28px, 3.8vh, 42px);
+  }
+
+  /* ── ROUND 2 - PUNNED IT ── */
+  .round2-screen {
+    gap: clamp(6px, 1vh, 14px);
+    overflow: hidden;
+  }
+  .pun-category-display {
+    padding: clamp(8px, 1.4vh, 22px) clamp(12px, 1.8vw, 30px);
+    margin-bottom: 0;
+    flex-shrink: 0;
+  }
+  .pun-category-title {
+    font-size: clamp(12px, 1.6vh, 18px);
+    margin-bottom: clamp(5px, 0.7vh, 10px);
+  }
+  .pun-category-text {
+    font-size: clamp(24px, 3.8vh, 46px);
+  }
+  .countdown-display {
+    width: clamp(80px, 12vh, 140px);
+    height: clamp(80px, 12vh, 140px);
+    margin: 0 auto;
+    flex-shrink: 0;
+  }
+  .countdown-time {
+    font-size: clamp(36px, 6vh, 64px);
+  }
+  .puns-submitted-display {
+    flex: 1;
+    min-height: 0;
+    max-height: none;
+    gap: clamp(5px, 0.8vh, 10px);
+    margin-bottom: 0;
+    overflow-y: auto;
+  }
+  .pun-content {
+    font-size: clamp(15px, 2vh, 22px);
+  }
+
+  /* ── ROUND 3 - INTERVIEW ── */
+  .round3-screen {
+    gap: clamp(6px, 1vh, 14px);
+    overflow: hidden;
+  }
+  .interview-question-display {
+    padding: clamp(8px, 1.4vh, 22px);
+    margin-bottom: 0;
+    min-height: 0;
+    flex-shrink: 0;
+  }
+  .interview-question-text {
+    font-size: clamp(15px, 2.4vh, 25px);
+  }
+  .submitted-answers-display {
+    flex: 1;
+    min-height: 0;
+    max-height: none;
+    gap: clamp(5px, 0.8vh, 10px);
+    margin-bottom: 0;
+    overflow-y: auto;
+  }
+  .submitted-answer-card {
+    padding: clamp(8px, 1.2vh, 18px) clamp(10px, 1.6vw, 24px);
+    gap: clamp(7px, 1vw, 16px);
+  }
+  .answer-content {
+    font-size: clamp(14px, 1.9vh, 20px);
+  }
+  .answer-votes {
+    font-size: clamp(20px, 2.8vh, 30px);
+    min-width: 50px;
+  }
+
+  /* ── TRANSITIONS ── */
+  .transition-title {
+    font-size: clamp(36px, 5.5vh, 60px);
+    margin-bottom: clamp(8px, 1.2vh, 16px);
+  }
+  .transition-subtitle {
+    font-size: clamp(14px, 2vh, 20px);
+    margin-bottom: clamp(14px, 2.2vh, 32px);
+  }
+  .transition-icon {
+    font-size: clamp(44px, 6.5vh, 68px);
+    margin-bottom: clamp(10px, 1.5vh, 22px);
   }
 </style>
 </head>
@@ -2449,6 +2692,16 @@ function showScoresReview() {
     if (player.team === 2) team2Score += (player.score || 0);
   });
   
+  // Determine which round this scores review is for, so commentary references the right next round
+  const _src = window.scoresReviewSource || 'round1';
+  const nextRoundName = {
+    'round1':      'round two',
+    'round2':      'round three',
+    'interview':   'the match draw',
+    'matchdraw':   'the final',
+    'toiletpaper': 'full time',
+  }[_src] || 'the next round';
+
   // Determine leader — pick a random comment from a pool for variety
   const pick = arr => arr[Math.floor(Math.random() * arr.length)];
   let leadText = '';
@@ -2456,7 +2709,7 @@ function showScoresReview() {
     leadText = pick([
       `${team1.name} took an early lead there with ${team1Score} points, meanwhile ${team2.name} are trailing with ${team2Score} points`,
       `${team1.name} are out in front with ${team1Score} points! ${team2.name} will need to pull something out of the bag — they're on ${team2Score}`,
-      `It's looking good for ${team1.name}, they're ahead on ${team1Score} points. ${team2.name} on ${team2Score} will have to fight back in round two`,
+      `It's looking good for ${team1.name}, they're ahead on ${team1Score} points. ${team2.name} on ${team2Score} will have to fight back in ${nextRoundName}`,
       `${team1.name} have the edge — ${team1Score} points to ${team2.name}'s ${team2Score}. Can the gap be closed?`,
     ]);
   } else if (team2Score > team1Score) {
@@ -2464,19 +2717,18 @@ function showScoresReview() {
       `${team2.name} took an early lead there with ${team2Score} points, meanwhile ${team1.name} are trailing with ${team1Score} points`,
       `${team2.name} are looking very comfortable up top with ${team2Score} points. ${team1.name} are on ${team1Score} and will need to pick things up`,
       `It's ${team2.name} in the driving seat on ${team2Score} points. ${team1.name} are chasing on ${team1Score}`,
-      `${team2.name} have taken control — ${team2Score} points to ${team1.name}'s ${team1Score}. What a turnaround it would be if ${team1.name} can claw it back`,
+      `${team2.name} have taken control — ${team2Score} points to ${team1.name}'s ${team1Score}. What a turnaround it would be if ${team1.name} can claw it back in ${nextRoundName}`,
     ]);
   } else {
     leadText = pick([
       `It's all square! Both teams on ${team1Score} points. This is going to be close!`,
       `Absolutely level! ${team1Score} points each — everything still to play for`,
-      `You couldn't separate them! Level at ${team1Score} apiece. The second round could decide everything`,
+      `You couldn't separate them! Level at ${team1Score} apiece. ${nextRoundName.charAt(0).toUpperCase() + nextRoundName.slice(1)} could decide everything`,
       `It's a draw! ${team1Score} points each. This one is far from over`,
     ]);
   }
   
-  // Dynamic heading based on which scores review this is
-  const _src = window.scoresReviewSource || 'round1';
+  // Dynamic heading based on which scores review this is (_src already set above)
   const scoresHeading = {
     'round1':     'After Round 1',
     'round2':     'After Round 2',
@@ -2829,7 +3081,7 @@ function showRound2Explainer() {
         Turn footballer names into puns on a given theme!
       </p>
       <p style="font-family: 'Barlow', sans-serif; font-size: 24px; color: var(--text-muted); line-height: 1.6;">
-        You have 30 seconds. Be creative!
+        You have 60 seconds. Be creative!
       </p>
     </div>
     
@@ -3492,15 +3744,23 @@ function startRound3() {
   }, 30000);
 }
 
+// Track whether names are revealed yet for each question, and the latest submissions
+window._round3NamesRevealed = {};
+window._round3LastSubmissions = {};
+
 function loadRound3Question(index) {
   const q = ROUND_3_QUESTIONS[index];
   document.getElementById('round3-question-text').textContent = q.question;
   document.getElementById('submitted-answers').innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-muted);">Waiting for players to submit answers...</div>';
-  
+
+  // Reset reveal state for this question
+  window._round3NamesRevealed[index] = false;
+  window._round3LastSubmissions[index] = {};
+
   // Clear previous Round 3 data
   gameRef.child('round3/' + index).remove();
   gameRef.update({ currentRound3Question: index });
-  
+
   // Give each player 4 random answer options from the pool
   const playerIds = Object.keys(players);
   playerIds.forEach(playerId => {
@@ -3509,10 +3769,11 @@ function loadRound3Question(index) {
     const playerOptions = shuffled.slice(0, 4);
     gameRef.child('round3/' + index + '/playerOptions/' + playerId).set(playerOptions);
   });
-  
-  // Listen for submitted answers
+
+  // Listen for submitted answers — store them but hide names until voting done
   gameRef.child('round3/' + index + '/submissions').on('value', (snapshot) => {
-    displaySubmittedAnswers(snapshot.val() || {}, index);
+    window._round3LastSubmissions[index] = snapshot.val() || {};
+    displaySubmittedAnswers(window._round3LastSubmissions[index], index);
   });
   
   // Listen for votes and award points
@@ -3533,31 +3794,46 @@ function displaySubmittedAnswers(submissions, questionIndex) {
     answer: data.answer,
     votes: data.votes || 0
   }));
-  
+
   if (submissionArray.length === 0) {
     submissionsDiv.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-muted);">Waiting for players to submit answers...</div>';
     return;
   }
-  
-  // Sort by votes
-  submissionArray.sort((a, b) => b.votes - a.votes);
-  
+
+  const namesRevealed = window._round3NamesRevealed && window._round3NamesRevealed[questionIndex];
+
+  // Sort by votes once names are revealed; otherwise keep submission order (random-ish)
+  if (namesRevealed) {
+    submissionArray.sort((a, b) => b.votes - a.votes);
+  }
+
   submissionsDiv.innerHTML = submissionArray.map((sub, index) => {
-    const isWinner = index === 0 && sub.votes > 0;
-    const player = players[sub.playerId];
-    const initials = (player?.name || '?').charAt(0).toUpperCase();
-    const photoHtml = player?.photo
-      ? `<img src="${player.photo}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid var(--motd-cyan);flex-shrink:0;">`
-      : `<div style="width:40px;height:40px;border-radius:50%;background:var(--motd-navy);border:2px solid var(--motd-cyan);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:var(--motd-cyan);flex-shrink:0;">${initials}</div>`;
+    const isWinner = namesRevealed && index === 0 && sub.votes > 0;
+
+    let nameHtml;
+    if (namesRevealed) {
+      // Show real photo + name
+      const player = players[sub.playerId];
+      const initials = (player?.name || '?').charAt(0).toUpperCase();
+      const photoHtml = player?.photo
+        ? `<img src="${player.photo}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid var(--motd-cyan);flex-shrink:0;">`
+        : `<div style="width:40px;height:40px;border-radius:50%;background:var(--motd-navy);border:2px solid var(--motd-cyan);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:var(--motd-cyan);flex-shrink:0;">${initials}</div>`;
+      nameHtml = `${photoHtml}${sub.playerName}`;
+    } else {
+      // Mystery avatar — hide identity until votes are in
+      const mysteryAvatar = `<div style="width:40px;height:40px;border-radius:50%;background:var(--motd-dark-navy);border:2px solid rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">🕵️</div>`;
+      nameHtml = `${mysteryAvatar}<span style="color:rgba(255,255,255,0.3);font-style:italic;">???</span>`;
+    }
+
     return `
       <div class="submitted-answer-card ${isWinner ? 'winner' : ''}">
-        <div class="answer-player-name">${photoHtml}${sub.playerName}</div>
+        <div class="answer-player-name">${nameHtml}</div>
         <div class="answer-content">${sub.answer}</div>
         <div class="answer-votes">${sub.votes}</div>
       </div>
     `;
   }).join('');
-  
+
   // Update scoreboard with Round 3 scores
   updateRound3Scoreboard();
 }
@@ -3636,11 +3912,16 @@ function awardRound3Points(votes, questionIndex) {
     });
   }
 
-  // Play accept audio once all players have voted
+  // Reveal names and re-render once all players have voted
   const totalPlayers = Object.keys(players).length;
   const totalVotes   = Object.keys(votes).length;
   if (totalVotes >= totalPlayers && !_round3AcceptPlayed[questionIndex]) {
     _round3AcceptPlayed[questionIndex] = true;
+
+    // Reveal who gave each answer now that voting is done
+    window._round3NamesRevealed[questionIndex] = true;
+    displaySubmittedAnswers(window._round3LastSubmissions[questionIndex] || {}, questionIndex);
+
     if (window.playPunReactionAudio) {
       window.playPunReactionAudio('accept');
       console.log('🎵 Playing accept audio — all votes in for question', questionIndex);
@@ -4559,7 +4840,7 @@ function startCommentaryRound() {
   };
 
   explainerAudio.addEventListener('ended', transitionToTeamSelection);
-  setTimeout(transitionToTeamSelection, 12000);
+  setTimeout(transitionToTeamSelection, 60000); // safety fallback only — ended event handles normal flow
 }
 
 function startCommentaryTeamSelection(teamNumber) {
@@ -5920,6 +6201,57 @@ function setQRSize(size) {
 
 let _gamePaused = false;
 
+// All named window.* audio variables that might be playing at any point
+const _AUDIO_VAR_NAMES = [
+  'introMusicAudio', 'intro2Audio', 'round1IntroAudio', '_introVoiceAudio',
+  'currentQuestionAudio', 'currentAnswerAudio',
+  'scoresIntroAudio', '_commentaryAudio', 'scoresReactionAudio',
+  'round2IntroAudio', 'round2MusicAudio',
+  '_punReactionAudio', 'reviewIntroAudio', '_punVoiceAudio',
+  'bonusAlertAudio', 'bonusExplainerAudio', 'bonusSetupAudio',
+  'karaokeAudio',
+  'matchDrawExplainerAudio', 'matchDrawMusic',
+  'bogExplainerAudio', 'bogRollingMusic',
+  'goalPostExplainerAudio', 'goalPostsMusic',
+];
+
+function pauseAllAudio() {
+  window._pausedAudioRefs = [];
+
+  const seen = new Set();
+  const maybePause = (a) => {
+    if (!a || typeof a.pause !== 'function' || seen.has(a)) return;
+    seen.add(a);
+    if (!a.paused) {
+      a.pause();
+      window._pausedAudioRefs.push(a);
+    }
+  };
+
+  // 1. Named window audio variables
+  _AUDIO_VAR_NAMES.forEach(name => maybePause(window[name]));
+
+  // 2. Generic audio pool (playAudio() references)
+  (window._audioRefs || []).forEach(maybePause);
+
+  // 3. Any <video> elements currently playing in the DOM
+  document.querySelectorAll('video').forEach(v => {
+    if (!v.paused) { v.pause(); window._pausedAudioRefs.push(v); }
+  });
+
+  console.log(`⏸️ Paused ${window._pausedAudioRefs.length} audio/video source(s)`);
+}
+
+function resumeAllAudio() {
+  (window._pausedAudioRefs || []).forEach(a => {
+    if (a && typeof a.play === 'function' && a.paused) {
+      a.play().catch(() => {});
+    }
+  });
+  console.log(`▶️ Resumed ${(window._pausedAudioRefs || []).length} audio/video source(s)`);
+  window._pausedAudioRefs = [];
+}
+
 // Listen to Firebase 'paused' — reacts to Player 1's pause button on their phone
 (function setupHostPauseListener() {
   const check = setInterval(() => {
@@ -5932,6 +6264,7 @@ let _gamePaused = false;
         showPauseOverlay();
       } else if (!shouldBePaused && _gamePaused) {
         _gamePaused = false;
+        resumeAllAudio();
         const overlay = document.getElementById('host-pause-overlay');
         if (overlay) overlay.remove();
       }
@@ -5957,6 +6290,7 @@ function togglePause() {
 
 function showPauseOverlay() {
   if (document.getElementById('host-pause-overlay')) return;
+  pauseAllAudio();
 
   const now = Date.now();
   const timeout = 60000;

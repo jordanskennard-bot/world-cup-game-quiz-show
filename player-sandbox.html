@@ -1012,10 +1012,10 @@ const ROUND_3_QUESTIONS = [
     question: "The team looked tired. What did you give them at half time?"
   },
   {
-    question: "What are you most concerned about in the next round?"
+    question: "What are you most concerned about in the next game?"
   },
   {
-    question: "Is there anything keeping you up at night?"
+    question: "What would you say is your biggest strength?"
   }
 ];
 
@@ -4823,8 +4823,24 @@ function startHeartbeat() {
         if (!indicator) {
           indicator = document.createElement('div');
           indicator.id = 'player-pause-indicator';
-          indicator.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; z-index: 20000; background: rgba(255,198,41,0.97); padding: 14px 24px; text-align: center;';
-          indicator.innerHTML = `<div style="font-family: 'Bebas Neue', sans-serif; font-size: 22px; color: #0a1628; letter-spacing: 2px;">⏸️ GAME PAUSED — Back soon!</div>`;
+          // Full-screen overlay — pointer-events:all blocks all taps underneath
+          indicator.style.cssText = [
+            'position: fixed',
+            'inset: 0',
+            'z-index: 20000',
+            'background: rgba(10,22,40,0.96)',
+            'display: flex',
+            'flex-direction: column',
+            'align-items: center',
+            'justify-content: center',
+            'pointer-events: all',
+            'touch-action: none',
+          ].join(';');
+          indicator.innerHTML = `
+            <div style="font-size: 64px; margin-bottom: 20px;">⏸️</div>
+            <div style="font-family:'Bebas Neue',sans-serif; font-size:42px; color:#ffc629; letter-spacing:3px; margin-bottom:12px;">GAME PAUSED</div>
+            <div style="font-family:'Barlow',sans-serif; font-size:18px; color:rgba(255,255,255,0.7);">Back soon…</div>
+          `;
           document.body.appendChild(indicator);
         }
       } else {
