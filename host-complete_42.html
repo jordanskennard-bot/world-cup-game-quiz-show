@@ -1380,7 +1380,7 @@ let leadPlayerId = null;
 
 document.getElementById('game-code').textContent = gameCode;
 
-const playerUrl = window.location.origin + window.location.pathname.replace('host-complete_42.html', 'player-complete_27.html') + '?code=' + gameCode;
+const playerUrl = 'https://join.foulplay.games?code=' + encodeURIComponent(gameCode);
 document.getElementById('join-url').textContent = playerUrl;
 
 console.log('Player URL:', playerUrl);
