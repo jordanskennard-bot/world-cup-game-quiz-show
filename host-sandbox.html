@@ -1486,7 +1486,12 @@ const ROUND_3_ANSWER_POOL = [
   "Felching",
   "Dubai Porta Potty Party",
   "Sebastian Vettel having a fettle",
-  "Cheesestrings and aggressive foreign policy"
+  "Cheesestrings and aggressive foreign policy",
+  "A Cosby Sweater",
+  "Schlong and bong",
+  "Changing {player}'s name to {player} Mountbatten",
+  "The Barmy Army having chilli con carne",
+  "Nuclear weapons and saucisson"
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -3803,10 +3808,20 @@ function loadRound3Question(index) {
 
   // Give each player 4 random answer options from the pool
   const playerIds = Object.keys(players);
+  const playerNames = playerIds.map(pid => players[pid]?.name).filter(Boolean);
+
   playerIds.forEach(playerId => {
     // Shuffle and pick 4 random answers
     const shuffled = [...ROUND_3_ANSWER_POOL].sort(() => Math.random() - 0.5);
-    const playerOptions = shuffled.slice(0, 4);
+    const playerOptions = shuffled.slice(0, 4).map(answer => {
+      // Substitute {player} with a random other player's name
+      if (!answer.includes('{player}')) return answer;
+      const others = playerNames.filter(n => n !== players[playerId]?.name);
+      const name = others.length > 0
+        ? others[Math.floor(Math.random() * others.length)]
+        : (playerNames[0] || 'Someone');
+      return answer.split('{player}').join(name);
+    });
     gameRef.child('round3/' + index + '/playerOptions/' + playerId).set(playerOptions);
   });
 
@@ -5295,6 +5310,12 @@ function assignSabotageTasks() {
       name: 'Take a Dive',
       description: 'Convince somebody that you were pushed over. No points if they don\'t believe you, 20 points if you succeed. Tell no one.',
       pointsPerPiece: 20
+    },
+    {
+      id: 'golden_boot',
+      name: 'Golden Boot',
+      description: 'Kick someone.',
+      pointsPerPiece: 1
     }
   ];
 
