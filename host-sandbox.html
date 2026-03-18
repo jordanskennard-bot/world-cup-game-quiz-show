@@ -5701,12 +5701,13 @@ function selectPhotographers() {
 }
 
 function showBlowBallGetReadyHost() {
+  const refereeName = Object.values(players)[0]?.name || 'Player 1';
   const getReadyDiv = document.createElement('div');
   getReadyDiv.id = 'blowball-get-ready-host';
   getReadyDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, #0a1628 0%, #0d2137 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; text-align: center; padding: 40px;';
   getReadyDiv.innerHTML = `
     <div style="font-family: 'Bebas Neue', sans-serif; font-size: 120px; color: var(--motd-gold); letter-spacing: 10px; margin-bottom: 20px; line-height: 1;">GET READY</div>
-    <div style="font-family: 'Barlow', sans-serif; font-size: 30px; color: rgba(255,255,255,0.7); margin-bottom: 50px;">Waiting for Player 1 to start…</div>
+    <div style="font-family: 'Barlow', sans-serif; font-size: 30px; color: rgba(255,255,255,0.7); margin-bottom: 50px;">Waiting for the referee (${refereeName}) to start…</div>
     <div class="spinner"></div>
   `;
   document.body.appendChild(getReadyDiv);
@@ -6153,6 +6154,7 @@ function advanceCaptionToReview(roundIndex) {
 // ─── Review + caption reading ────────────────────────────────────────────────
 
 function showCaptionReviewHost(roundIndex, submissions) {
+  const refereeName = Object.values(players)[0]?.name || 'Player 1';
   const round    = CAPTION_ROUNDS[roundIndex];
   const photoUrl = window._captionPhotos[roundIndex] || window._captionPhotos[0];
 
@@ -6175,7 +6177,7 @@ function showCaptionReviewHost(roundIndex, submissions) {
     <div id="caption-reader-text" style="font-family:'Barlow',sans-serif;font-size:24px;color:#fff;max-width:800px;line-height:1.5;min-height:56px;"></div>
     <div class="spinner" id="caption-reader-spinner" style="margin-top:20px;"></div>
     <div id="caption-waiting-label" style="display:none;margin-top:16px;font-family:'Barlow',sans-serif;font-size:18px;color:rgba(255,255,255,0.4);">
-      Waiting for Player 1…
+      Waiting for the referee (${refereeName})…
     </div>
     <button onclick="captionHostSkip(${roundIndex})"
       style="margin-top:20px;padding:8px 22px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.2);color:rgba(255,255,255,0.35);border-radius:8px;font-family:'Bebas Neue',sans-serif;font-size:16px;cursor:pointer;">
@@ -6481,13 +6483,15 @@ function showCaptionWinner(roundIndex, votes) {
     // 1. "[Name] wins this round!" via ElevenLabs
     await announceCaptionWinner(winner.playerName);
 
-    // 2. Accept fanfare — wait for it to finish (min 3 s so the screen doesn't jump)
+    // 2. Accept fanfare — wait for BOTH the audio to end AND a 2s minimum hold
+    //    (whichever finishes last), so audio never bleeds into the next screen
     const acceptIdx = (roundIndex % 10) + 1;
     await new Promise(resolve => {
-      let done = false;
-      const finish = () => { if (!done) { done = true; resolve(); } };
-      setTimeout(finish, 3000); // minimum hold even if audio errors/missing
-      playAudio(`accept_${acceptIdx}.mp3?v=1`, { volume: 0.8, onEnded: finish });
+      let timerDone = false;
+      let audioDone = false;
+      const tryFinish = () => { if (timerDone && audioDone) resolve(); };
+      setTimeout(() => { timerDone = true; tryFinish(); }, 2000);
+      playAudio(`accept_${acceptIdx}.mp3?v=1`, { volume: 0.8, onEnded: () => { audioDone = true; tryFinish(); } });
     });
 
     // 3. Move on

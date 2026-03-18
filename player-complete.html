@@ -4702,12 +4702,20 @@ function showPhotoCaptureScreen() {
       <h1 style="font-family: 'Bebas Neue', sans-serif; font-size: 48px; color: #ffc629; margin-bottom: 16px; letter-spacing: 3px;">
         TAKE YOUR SELFIE
       </h1>
-      <p style="font-family: 'Barlow', sans-serif; font-size: 18px; color: rgba(255,255,255,0.8); margin-bottom: 24px;">
+      <p style="font-family: 'Barlow', sans-serif; font-size: 18px; color: rgba(255,255,255,0.8); margin-bottom: 6px;">
         Your photo will show on screen during the game
       </p>
-      <video id="photo-video" autoplay playsinline muted
-             style="width: 100%; max-width: 260px; border-radius: 16px; border: 4px solid #4dd4e8; margin-bottom: 20px; display: block; margin-left: auto; margin-right: auto; background: #000;">
-      </video>
+      <p style="font-family: 'Barlow', sans-serif; font-size: 14px; color: rgba(255,255,255,0.4); margin-bottom: 20px;">
+        (we don't keep any photos)
+      </p>
+      <div style="position:relative;width:260px;height:260px;margin:0 auto 20px;flex-shrink:0;">
+        <video id="photo-video" autoplay playsinline muted
+               style="width:260px;height:260px;object-fit:cover;border-radius:50%;border:4px solid #4dd4e8;display:block;background:#000;box-shadow:0 0 32px rgba(77,212,232,0.4);">
+        </video>
+        <!-- circular cutout ring so corners are invisible on all browsers -->
+        <div style="position:absolute;inset:-4px;border-radius:50%;box-shadow:0 0 0 200px #0a1628;pointer-events:none;"></div>
+        <div style="position:absolute;inset:-4px;border-radius:50%;border:4px solid #4dd4e8;pointer-events:none;"></div>
+      </div>
       <canvas id="photo-canvas" style="display: none;"></canvas>
       <button onclick="capturePhoto()"
               style="display: block; width: 100%; max-width: 300px; margin: 0 auto 14px; padding: 18px 40px; background: linear-gradient(135deg, #4dd4e8, #ffc629); color: #0a1628; border: none; border-radius: 12px; font-family: 'Bebas Neue', sans-serif; font-size: 28px; cursor: pointer; letter-spacing: 2px; box-shadow: 0 8px 24px rgba(77,212,232,0.4);">

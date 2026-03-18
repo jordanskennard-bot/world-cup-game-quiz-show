@@ -4870,10 +4870,13 @@ function generateDefaultAvatar(name) {
     gameRef.child('captionContest/phase').on('value', (snap) => {
       const phase = snap.val();
 
-      // Remove the blow ball photo/spectator screen as soon as caption contest starts
+      // Remove all blow ball screens as soon as caption contest starts
       if (phase) {
-        const emotionEl = document.getElementById('player-blowball-emotion');
-        if (emotionEl) emotionEl.remove();
+        ['player-blowball-emotion', 'waiting-blowball-scoring', 'player-blowball-judging',
+         'blowball-full-time-container'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.remove();
+        });
       }
 
       // Always clean up Player 1 reading-ready listener + button when phase changes
