@@ -2473,11 +2473,11 @@ async function generateIntroVoiceDirectly() {
 function startGamePlay() {
   document.getElementById('lobby-screen').classList.add('hidden');
 
-  // ── SANDBOX: skip straight to bog roll alert ──
+  // ── SANDBOX: skip straight to Blow Ball ──
   // Write started:true so player 1's pause button appears
   gameRef.update({ started: true });
-  showToiletPaperAlert();
-  // ─────────────────────────────────────────────
+  startBlowBall();
+  // ─────────────────────────────────────────
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -3078,7 +3078,7 @@ function routeAfterScoresReview() {
     case 'interview':   checkForMatchDraw();       break; // → Match Draw
     case 'matchdraw':   startCommentaryRound();    break;
     case 'commentary':  showToiletPaperAlert();    break;
-    case 'toiletpaper': showCaptionContestIntro(); break; // → Caption Contest → Extra Time → Sabotage Reveals
+    case 'toiletpaper': showExtraTimeScreen(); break; // → Extra Time → Sabotage Reveals
     default:            startRound2();
   }
 }
@@ -5315,7 +5315,9 @@ function assignSabotageTasks() {
       id: 'golden_boot',
       name: 'Golden Boot',
       description: 'Kick someone.',
-      pointsPerPiece: 1
+      pointsPerPiece: 50,
+      pointsDisplay: '??',
+      autoAward: true
     }
   ];
 
@@ -5379,26 +5381,15 @@ function startBogRolling() {
 
   document.body.appendChild(explainerDiv);
 
-  window.bogExplainerAudio = new Audio('bog_rolling_explainer.mp3?v=2');
-  window.bogExplainerAudio.volume = 0.6;
-  window.bogExplainerAudio.play().catch(e => console.log('Bog explainer not found:', e));
-
-  window.bogExplainerAudio.addEventListener('ended', () => {
-    window.bogExplainerAudio = null;
-    if (document.getElementById('bog-explainer')) {
-      explainerDiv.remove();
-      startBogRollingTimer();
+  playAudio('bog_rolling_explainer.mp3?v=2', {
+    volume: 0.6,
+    onEnded: () => {
+      if (document.getElementById('bog-explainer')) {
+        explainerDiv.remove();
+        startBogRollingTimer();
+      }
     }
   });
-
-  // Fallback if audio missing or short
-  setTimeout(() => {
-    window.bogExplainerAudio = null;
-    if (document.getElementById('bog-explainer')) {
-      explainerDiv.remove();
-      startBogRollingTimer();
-    }
-  }, 10000);
 }
 
 function startBogRollingTimer() {
@@ -5475,26 +5466,15 @@ function startGoalPosts() {
 
   document.body.appendChild(explainerDiv);
 
-  window.goalPostExplainerAudio = new Audio('goal_posts_explainer.mp3?v=2');
-  window.goalPostExplainerAudio.volume = 0.6;
-  window.goalPostExplainerAudio.play().catch(e => console.log('Goal posts explainer not found:', e));
-
-  window.goalPostExplainerAudio.addEventListener('ended', () => {
-    window.goalPostExplainerAudio = null;
-    if (document.getElementById('goalpost-explainer')) {
-      explainerDiv.remove();
-      startGoalPostsTimer();
+  playAudio('goal_posts_explainer.mp3?v=2', {
+    volume: 0.6,
+    onEnded: () => {
+      if (document.getElementById('goalpost-explainer')) {
+        explainerDiv.remove();
+        startGoalPostsTimer();
+      }
     }
   });
-
-  // Fallback if audio missing or short
-  setTimeout(() => {
-    window.goalPostExplainerAudio = null;
-    if (document.getElementById('goalpost-explainer')) {
-      explainerDiv.remove();
-      startGoalPostsTimer();
-    }
-  }, 10000);
 }
 
 function startGoalPostsTimer() {
@@ -5747,26 +5727,6 @@ function startBlowBallRound() {
   blowBallCurrentEmotion = 0;
   blowBallPhotoCount = 0;
 
-  // After 20 seconds unlock the "Full Time" button on the referee's device
-  setTimeout(() => {
-    gameRef.update({ blowBallFullTimeAvailable: true });
-    console.log('🏁 Full Time button now available for referee');
-  }, 20000);
-
-  // Listen for the referee pressing Full Time
-  gameRef.child('blowBallFullTime').off();
-  gameRef.child('blowBallFullTime').on('value', (snap) => {
-    if (snap.val() === true) {
-      console.log('🏁 Referee called Full Time — ending Blow Ball');
-      gameRef.child('blowBallFullTime').off();
-      gameRef.child('blowBallFullTime').remove();
-      // Remove whatever emotion screen is showing
-      const emotionDiv = document.getElementById('blowball-emotion');
-      if (emotionDiv) emotionDiv.remove();
-      finishBlowBall();
-    }
-  });
-
   showNextEmotion();
 }
 
@@ -5856,17 +5816,15 @@ function showNextEmotion() {
 }
 
 function finishBlowBall() {
-  console.log('✅ Blow Ball complete — waiting for referee scores');
+  console.log('✅ Blow Ball photos done — launching Caption Contest');
+  gameRef.update({ blowBallActive: false, blowBallComplete: true });
+  showCaptionContestIntro();
+}
 
-  // Clean up Full Time listener and availability flag
-  gameRef.child('blowBallFullTime').off();
-  gameRef.child('blowBallFullTimeAvailable').remove();
+function startBlowBallJudging() {
+  console.log('✅ Caption Contest done — waiting for referee scores');
 
-  gameRef.update({
-    blowBallActive: false,
-    blowBallComplete: true,
-    blowBallJudgingActive: true
-  });
+  gameRef.update({ blowBallJudgingActive: true });
 
   const judgingDiv = document.createElement('div');
   judgingDiv.id = 'blowball-judging';
@@ -5903,7 +5861,7 @@ function finishBlowBall() {
         console.log(`✅ Blow Ball scores: Team 1 = ${scores.team1}, Team 2 = ${scores.team2}`);
         gameRef.update({ blowBallJudgingActive: false });
 
-        // Scores Review → Sabotage Reveals (via 'toiletpaper' case)
+        // Scores Review → Extra Time / Sabotage Reveals (via 'toiletpaper' case)
         setTimeout(() => {
           window.scoresReviewSource = 'toiletpaper';
           showScoresReview();
@@ -6012,7 +5970,7 @@ function showCaptionContestIntro() {
 
     if (!photosData) {
       console.log('📸 No blow ball photos — skipping Caption Contest');
-      showExtraTimeScreen();
+      startBlowBallJudging();
       return;
     }
 
@@ -6029,7 +5987,7 @@ function showCaptionContestIntro() {
     const all = [...teamPhotos[1], ...teamPhotos[2]];
     if (all.length === 0) {
       console.log('📸 No usable photos — skipping Caption Contest');
-      showExtraTimeScreen();
+      startBlowBallJudging();
       return;
     }
 
@@ -6072,7 +6030,7 @@ function showCaptionContestIntro() {
 // ─── Per-round captioning phase ──────────────────────────────────────────────
 
 function startCaptionRound(roundIndex) {
-  if (roundIndex >= CAPTION_ROUNDS.length) { showExtraTimeScreen(); return; }
+  if (roundIndex >= CAPTION_ROUNDS.length) { startBlowBallJudging(); return; }
 
   window._captionReviewStarted = -1;
 
@@ -6100,9 +6058,6 @@ function startCaptionRound(roundIndex) {
   div.id = 'caption-round-screen';
   div.style.cssText = 'position:fixed;top:108px;left:0;right:0;bottom:0;background:linear-gradient(135deg,var(--motd-dark-navy) 0%,var(--motd-navy) 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:10000;padding:40px;text-align:center;';
   div.innerHTML = `
-    <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:rgba(255,255,255,0.3);letter-spacing:3px;margin-bottom:24px;">
-      📸 CAPTION CONTEST &nbsp;—&nbsp; ${roundIndex + 1} / ${CAPTION_ROUNDS.length}
-    </div>
     <div style="margin-bottom:24px;">
       <img src="${photoUrl}" style="width:360px;height:270px;object-fit:cover;border-radius:16px;border:4px solid var(--motd-gold);box-shadow:0 0 40px rgba(255,198,41,0.4);">
     </div>
@@ -6157,9 +6112,9 @@ function startCaptionRound(roundIndex) {
     }
   });
 
-  // Play instruction audio then start timer; 8s fallback in case audio is missing
+  // Play instruction audio, then start timer + music once it finishes
+  // (playAudio calls onEnded on completion *or* error, so no fallback needed)
   playAudio(`${round.audioFile}?v=1`, { volume: 0.8, onEnded: startTimerAndMusic });
-  setTimeout(startTimerAndMusic, 8000);
 }
 
 function advanceCaptionToReview(roundIndex) {
@@ -6172,6 +6127,14 @@ function advanceCaptionToReview(roundIndex) {
     window._captionCurrentAudio = null;
   }
   gameRef.child('captionContest/submissions').off();
+
+  // Clean up any pending player advance listener
+  if (window._captionAdvanceHandler) {
+    gameRef.child('captionContest/playerAdvanced').off('value', window._captionAdvanceHandler);
+    window._captionAdvanceHandler = null;
+  }
+  gameRef.child('captionContest/readingReady').remove();
+  gameRef.child('captionContest/playerAdvanced').remove();
 
   const prev = document.getElementById('caption-round-screen');
   if (prev) prev.remove();
@@ -6201,20 +6164,16 @@ function showCaptionReviewHost(roundIndex, submissions) {
   div.id = 'caption-review-screen';
   div.style.cssText = 'position:fixed;top:108px;left:0;right:0;bottom:0;background:linear-gradient(135deg,#0a0a14 0%,#0a1628 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:10000;padding:40px;text-align:center;overflow-y:auto;';
   div.innerHTML = `
-    <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:rgba(255,255,255,0.3);letter-spacing:3px;margin-bottom:24px;">
-      📸 CAPTION CONTEST &nbsp;—&nbsp; ${roundIndex + 1} / ${CAPTION_ROUNDS.length} &nbsp;— READING CAPTIONS
-    </div>
     <div id="caption-mockup-container" style="margin-bottom:24px;"></div>
     <div id="caption-reader-name" style="font-family:'Bebas Neue',sans-serif;font-size:28px;color:var(--motd-cyan);margin-bottom:6px;min-height:36px;"></div>
     <div id="caption-reader-text" style="font-family:'Barlow',sans-serif;font-size:24px;color:#fff;max-width:800px;line-height:1.5;min-height:56px;"></div>
     <div class="spinner" id="caption-reader-spinner" style="margin-top:20px;"></div>
-    <button id="caption-next-btn" onclick="showNextCaption(${roundIndex})"
-      style="display:none;margin-top:24px;padding:14px 40px;background:linear-gradient(135deg,#4dd4e8,#ffc629);color:#0a1628;border:none;border-radius:14px;font-family:'Bebas Neue',sans-serif;font-size:24px;cursor:pointer;">
-      Next Caption →
-    </button>
-    <button id="caption-vote-btn" onclick="startCaptionVoting(${roundIndex})"
-      style="display:none;margin-top:24px;padding:14px 40px;background:linear-gradient(135deg,#d4145a,#ffc629);color:#fff;border:none;border-radius:14px;font-family:'Bebas Neue',sans-serif;font-size:24px;cursor:pointer;">
-      Start Voting →
+    <div id="caption-waiting-label" style="display:none;margin-top:16px;font-family:'Barlow',sans-serif;font-size:18px;color:rgba(255,255,255,0.4);">
+      Waiting for Player 1…
+    </div>
+    <button onclick="captionHostSkip(${roundIndex})"
+      style="margin-top:20px;padding:8px 22px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.2);color:rgba(255,255,255,0.35);border-radius:8px;font-family:'Bebas Neue',sans-serif;font-size:16px;cursor:pointer;">
+      Skip (Host)
     </button>
   `;
   document.body.appendChild(div);
@@ -6292,14 +6251,11 @@ async function readNextCaption(roundIndex) {
   const entries = window._captionReviewEntries || [];
   const index   = window._captionCurrentEntryIndex;
 
-  const spinner = document.getElementById('caption-reader-spinner');
-  const nextBtn = document.getElementById('caption-next-btn');
-  const voteBtn = document.getElementById('caption-vote-btn');
+  const spinner    = document.getElementById('caption-reader-spinner');
+  const waitingEl  = document.getElementById('caption-waiting-label');
 
   if (index >= entries.length) {
     if (spinner) spinner.style.display = 'none';
-    if (nextBtn) nextBtn.style.display = 'none';
-    if (voteBtn) voteBtn.style.display = 'inline-block';
     return;
   }
 
@@ -6313,10 +6269,10 @@ async function readNextCaption(roundIndex) {
 
   const nameEl = document.getElementById('caption-reader-name');
   const textEl = document.getElementById('caption-reader-text');
-  if (nameEl) nameEl.textContent = entry.playerName;
+  if (nameEl) nameEl.textContent = ''; // name revealed only after voting
   if (textEl) textEl.textContent = round.style === 'draw' ? '✏️ Drawing' : entry.text;
   if (spinner) spinner.style.display = 'block';
-  if (nextBtn) nextBtn.style.display = 'none';
+  if (waitingEl) waitingEl.style.display = 'none';
 
   // Read text captions via ElevenLabs
   if (entry.text && round.style !== 'draw') {
@@ -6326,24 +6282,58 @@ async function readNextCaption(roundIndex) {
   }
 
   if (spinner) spinner.style.display = 'none';
-  if (index < entries.length - 1) {
-    if (nextBtn) nextBtn.style.display = 'inline-block';
-  } else {
-    if (voteBtn) voteBtn.style.display = 'inline-block';
+  if (waitingEl) waitingEl.style.display = 'block';
+
+  // Signal Player 1 to advance
+  const isLast = index >= entries.length - 1;
+  gameRef.child('captionContest/readingReady').set({ canVote: isLast, roundIndex });
+
+  // Clean up any previous advance listener
+  if (window._captionAdvanceHandler) {
+    gameRef.child('captionContest/playerAdvanced').off('value', window._captionAdvanceHandler);
   }
+  window._captionAdvanceHandler = (snap) => {
+    if (!snap.val()) return;
+    gameRef.child('captionContest/playerAdvanced').off('value', window._captionAdvanceHandler);
+    window._captionAdvanceHandler = null;
+    gameRef.child('captionContest/playerAdvanced').remove();
+    gameRef.child('captionContest/readingReady').remove();
+    if (isLast) {
+      startCaptionVoting(roundIndex);
+    } else {
+      showNextCaption(roundIndex);
+    }
+  };
+  gameRef.child('captionContest/playerAdvanced').on('value', window._captionAdvanceHandler);
 }
 
 function showNextCaption(roundIndex) {
   window._captionCurrentEntryIndex++;
-  const nextBtn = document.getElementById('caption-next-btn');
-  if (nextBtn) nextBtn.style.display = 'none';
   readNextCaption(roundIndex);
+}
+
+// Emergency skip button on host if Player 1 is stuck
+function captionHostSkip(roundIndex) {
+  if (window._captionAdvanceHandler) {
+    gameRef.child('captionContest/playerAdvanced').off('value', window._captionAdvanceHandler);
+    window._captionAdvanceHandler = null;
+  }
+  gameRef.child('captionContest/readingReady').once('value', (snap) => {
+    const d = snap.val();
+    gameRef.child('captionContest/readingReady').remove();
+    gameRef.child('captionContest/playerAdvanced').remove();
+    if (d && d.canVote) {
+      startCaptionVoting(roundIndex);
+    } else {
+      showNextCaption(roundIndex);
+    }
+  });
 }
 
 function playCaptionReading(playerName, captionText) {
   const ELEVENLABS_API_KEY = 'sk_eb4900ceb7e4366087590c2b906743504ba8c844524ddcc4';
   const VOICE_ID = 'rfkTsdZrVWEVhDycUYn9';
-  const text = `${playerName} says… "${captionText}"`;
+  const text = `"${captionText}"`;
 
   return new Promise((resolve) => {
     fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`, {
@@ -6355,7 +6345,8 @@ function playCaptionReading(playerName, captionText) {
       .then(blob => {
         const audio = new Audio(URL.createObjectURL(blob));
         audio.volume = 0.85;
-        audio.onended = resolve;
+        window._currentTTSAudio = audio;
+        audio.onended = () => { window._currentTTSAudio = null; resolve(); };
         audio.play().catch(() => resolve());
       })
       .catch(() => setTimeout(resolve, 1500));
@@ -6384,9 +6375,6 @@ function startCaptionVoting(roundIndex) {
   div.id = 'caption-voting-screen';
   div.style.cssText = 'position:fixed;top:108px;left:0;right:0;bottom:0;background:linear-gradient(135deg,var(--motd-dark-navy) 0%,var(--motd-navy) 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:10000;padding:40px;text-align:center;';
   div.innerHTML = `
-    <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:rgba(255,255,255,0.3);letter-spacing:3px;margin-bottom:24px;">
-      📸 CAPTION CONTEST &nbsp;—&nbsp; VOTE!
-    </div>
     <div id="caption-vote-mockup" style="margin-bottom:24px;"></div>
     <div style="font-family:'Bebas Neue',sans-serif;font-size:40px;color:var(--motd-gold);">📱 Players are voting…</div>
     <div id="caption-vote-count" style="font-family:'Barlow',sans-serif;font-size:20px;color:rgba(255,255,255,0.5);margin-top:8px;">
@@ -6458,14 +6446,34 @@ function showCaptionWinner(roundIndex, votes) {
   const acceptIdx = (roundIndex % 10) + 1;
   playAudio(`accept_${acceptIdx}.mp3?v=1`, { volume: 0.8 });
 
-  setTimeout(() => { winDiv.remove(); moveToNextCaptionRound(roundIndex); }, 5000);
+  // Announce winner via ElevenLabs
+  announceCaptionWinner(winner.playerName);
+
+  setTimeout(() => { winDiv.remove(); moveToNextCaptionRound(roundIndex); }, 6000);
+}
+
+function announceCaptionWinner(playerName) {
+  const ELEVENLABS_API_KEY = 'sk_eb4900ceb7e4366087590c2b906743504ba8c844524ddcc4';
+  const VOICE_ID = 'rfkTsdZrVWEVhDycUYn9';
+  const text = `${playerName} wins this round!`;
+  fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`, {
+    method: 'POST',
+    headers: { 'Accept': 'audio/mpeg', 'Content-Type': 'application/json', 'xi-api-key': ELEVENLABS_API_KEY },
+    body: JSON.stringify({ text, model_id: 'eleven_monolingual_v1', voice_settings: { stability: 0.5, similarity_boost: 0.75, style: 0.0, use_speaker_boost: true } })
+  }).then(r => r.blob()).then(blob => {
+    const audio = new Audio(URL.createObjectURL(blob));
+    audio.volume = 0.85;
+    window._currentTTSAudio = audio;
+    audio.onended = () => { window._currentTTSAudio = null; };
+    audio.play().catch(() => {});
+  }).catch(() => {});
 }
 
 function moveToNextCaptionRound(roundIndex) {
   window._captionReviewStarted = -1;
   if (roundIndex + 1 >= CAPTION_ROUNDS.length) {
     gameRef.child('captionContest').remove();
-    showExtraTimeScreen();
+    startBlowBallJudging();
   } else {
     startCaptionRound(roundIndex + 1);
   }
@@ -6517,6 +6525,8 @@ async function playSabotageQuestion(playerName) {
     const blob = await response.blob();
     const audio = new Audio(URL.createObjectURL(blob));
     audio.volume = 0.85;
+    window._currentTTSAudio = audio;
+    audio.onended = () => { window._currentTTSAudio = null; };
     audio.play().catch(e => console.warn('Sabotage question audio blocked:', e));
   } catch (err) {
     console.error('Sabotage question voice failed:', err);
@@ -6606,12 +6616,8 @@ function showSabotagePlayerReveal(index) {
     <div style="font-family:'Bebas Neue',sans-serif;font-size:72px;color:#fff;line-height:1;margin-bottom:10px;">
       ${playerName}
     </div>
-    <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;color:#d4145a;letter-spacing:2px;margin-bottom:28px;">
-      🕵️ ${data.name || data.task || 'Secret Mission'}
-    </div>
-
-    <div style="font-family:'Barlow',sans-serif;font-size:20px;color:rgba(255,255,255,0.8);max-width:760px;line-height:1.7;padding:20px 28px;background:rgba(0,0,0,0.3);border-radius:12px;margin-bottom:40px;">
-      ${data.description || ''}
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;color:#d4145a;letter-spacing:2px;margin-bottom:48px;">
+      🕵️ Secret Mission
     </div>
 
     <div style="font-family:'Barlow',sans-serif;font-size:18px;color:rgba(255,255,255,0.4);">
@@ -6620,6 +6626,27 @@ function showSabotagePlayerReveal(index) {
     <div class="spinner" style="margin-top:20px;"></div>
   `;
   document.body.appendChild(card);
+
+  // Auto-award tasks (e.g. Golden Boot) — skip ref judging entirely
+  if (data.autoAward) {
+    const autoPoints = data.completed ? (data.pointsPerPiece || 50) : 0;
+    const autoStatus = data.completed ? 'completed' : 'notdone';
+    window._sabotageJudgements[pid] = { status: autoStatus, points: autoPoints };
+    console.log(`🥾 Golden Boot auto-award for ${playerName}: ${autoStatus}, ${autoPoints} pts`);
+
+    // Update card to show auto result
+    const waitEl = card.querySelector('[style*="Waiting for referee"]');
+    if (waitEl) waitEl.textContent = data.completed
+      ? `✅ Auto-awarded ${autoPoints} points!`
+      : '❌ Mission not completed';
+    const spinnerEl = card.querySelector('.spinner');
+    if (spinnerEl) spinnerEl.remove();
+
+    // Ask about task via voice, then auto-advance after 5s
+    playSabotageQuestion(playerName);
+    setTimeout(() => showSabotagePlayerReveal(index + 1), 5000);
+    return;
+  }
 
   // Signal player 1's phone with this player's details
   gameRef.child('sabotageReveal').set({
@@ -7059,7 +7086,9 @@ const _AUDIO_VAR_NAMES = [
   'matchDrawExplainerAudio', 'matchDrawMusic',
   'bogExplainerAudio', 'bogRollingMusic',
   'goalPostExplainerAudio', 'goalPostsMusic',
+  '_currentTTSAudio',  // ElevenLabs TTS — caption readings, sabotage questions, winner announcements
 ];
+window._currentTTSAudio = null;
 
 function pauseAllAudio() {
   window._pausedAudioRefs = [];
