@@ -2827,9 +2827,15 @@ function showScoresReview() {
   
   // AUDIO SEQUENCE — branches on whether this is the final scores review (after Blow Ball)
   let commentaryTriggered = false;
-  const triggerCommentary = () => {
+  const triggerCommentary = (skipGenericReaction = false) => {
     if (commentaryTriggered) return;
     commentaryTriggered = true;
+
+    if (skipGenericReaction) {
+      // Final scores — go straight to ElevenLabs (final_scores_intro already played)
+      generateScoresCommentary(leadText, team1Score, team2Score);
+      return;
+    }
 
     // 1. Play generic scores_reaction file BEFORE ElevenLabs
     const genericFile = getGenericReactionFile();
@@ -2865,14 +2871,14 @@ function showScoresReview() {
       finalIntroAudio.volume = 0.6;
       finalIntroAudio.addEventListener('ended', () => {
         console.log('✅ final_scores_intro finished, generating commentary');
-        triggerCommentary();
+        triggerCommentary(true); // skip generic reaction for final scores
       });
       finalIntroAudio.play().catch(() => {
         console.warn('⚠️ final_scores_intro failed, triggering commentary');
-        triggerCommentary();
+        triggerCommentary(true);
       });
       // Fallback if final_scores_intro is silent/missing
-      setTimeout(triggerCommentary, 10000);
+      setTimeout(() => triggerCommentary(true), 10000);
     };
 
     whistleAudio.addEventListener('ended', playFinalIntro);
@@ -5816,13 +5822,13 @@ function showNextEmotion() {
 }
 
 function finishBlowBall() {
-  console.log('✅ Blow Ball photos done — launching Caption Contest');
+  console.log('✅ Blow Ball photos done — starting judging');
   gameRef.update({ blowBallActive: false, blowBallComplete: true });
-  showCaptionContestIntro();
+  startBlowBallJudging();
 }
 
 function startBlowBallJudging() {
-  console.log('✅ Caption Contest done — waiting for referee scores');
+  console.log('⚽ Full Time — waiting for referee scores');
 
   gameRef.update({ blowBallJudgingActive: true });
 
@@ -5861,11 +5867,8 @@ function startBlowBallJudging() {
         console.log(`✅ Blow Ball scores: Team 1 = ${scores.team1}, Team 2 = ${scores.team2}`);
         gameRef.update({ blowBallJudgingActive: false });
 
-        // Scores Review → Extra Time / Sabotage Reveals (via 'toiletpaper' case)
-        setTimeout(() => {
-          window.scoresReviewSource = 'toiletpaper';
-          showScoresReview();
-        }, 2000);
+        // Judging done → now run Caption Contest
+        setTimeout(() => showCaptionContestIntro(), 1500);
       }
     });
   };
@@ -5877,9 +5880,8 @@ function startBlowBallJudging() {
     if (document.getElementById('blowball-judging')) {
       clearInterval(scoreWait);
       judgingDiv.remove();
-      console.log('⚠️ Blow Ball scoring timed out — skipping to Scores Review');
-      window.scoresReviewSource = 'toiletpaper';
-      showScoresReview();
+      console.log('⚠️ Blow Ball scoring timed out — skipping to Caption Contest');
+      showCaptionContestIntro();
     }
   }, 60000);
 }
@@ -5970,7 +5972,8 @@ function showCaptionContestIntro() {
 
     if (!photosData) {
       console.log('📸 No blow ball photos — skipping Caption Contest');
-      startBlowBallJudging();
+      window.scoresReviewSource = 'toiletpaper';
+      showScoresReview();
       return;
     }
 
@@ -5987,7 +5990,8 @@ function showCaptionContestIntro() {
     const all = [...teamPhotos[1], ...teamPhotos[2]];
     if (all.length === 0) {
       console.log('📸 No usable photos — skipping Caption Contest');
-      startBlowBallJudging();
+      window.scoresReviewSource = 'toiletpaper';
+      showScoresReview();
       return;
     }
 
@@ -6030,7 +6034,7 @@ function showCaptionContestIntro() {
 // ─── Per-round captioning phase ──────────────────────────────────────────────
 
 function startCaptionRound(roundIndex) {
-  if (roundIndex >= CAPTION_ROUNDS.length) { startBlowBallJudging(); return; }
+  if (roundIndex >= CAPTION_ROUNDS.length) { window.scoresReviewSource = 'toiletpaper'; showScoresReview(); return; }
 
   window._captionReviewStarted = -1;
 
@@ -6083,14 +6087,16 @@ function startCaptionRound(roundIndex) {
     if (timerStarted) return;
     timerStarted = true;
 
-    let timeLeft = 45;
+    window._captionTimeLeft = 45;
+    window._captionActiveRoundIndex = roundIndex;
     window._captionTimerInterval = setInterval(() => {
-      timeLeft--;
+      window._captionTimeLeft--;
       const el = document.getElementById('caption-timer-display');
-      if (el) el.textContent = `:${String(timeLeft).padStart(2, '0')}`;
-      gameRef.child('captionContest/timeLeft').set(timeLeft);
-      if (timeLeft <= 0) {
+      if (el) el.textContent = `:${String(window._captionTimeLeft).padStart(2, '0')}`;
+      gameRef.child('captionContest/timeLeft').set(window._captionTimeLeft);
+      if (window._captionTimeLeft <= 0) {
         clearInterval(window._captionTimerInterval);
+        window._captionTimerInterval = null;
         advanceCaptionToReview(roundIndex);
       }
     }, 1000);
@@ -6254,6 +6260,11 @@ async function readNextCaption(roundIndex) {
   const spinner    = document.getElementById('caption-reader-spinner');
   const waitingEl  = document.getElementById('caption-waiting-label');
 
+  // Play a short intro before the very first caption
+  if (index === 0) {
+    await playCaptionIntro();
+  }
+
   if (index >= entries.length) {
     if (spinner) spinner.style.display = 'none';
     return;
@@ -6327,6 +6338,29 @@ function captionHostSkip(roundIndex) {
     } else {
       showNextCaption(roundIndex);
     }
+  });
+}
+
+function playCaptionIntro() {
+  const ELEVENLABS_API_KEY = 'sk_eb4900ceb7e4366087590c2b906743504ba8c844524ddcc4';
+  const VOICE_ID = 'rfkTsdZrVWEVhDycUYn9';
+  const text = "That's it! Now let's see what you all came up with.";
+
+  return new Promise((resolve) => {
+    fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`, {
+      method: 'POST',
+      headers: { 'Accept': 'audio/mpeg', 'Content-Type': 'application/json', 'xi-api-key': ELEVENLABS_API_KEY },
+      body: JSON.stringify({ text, model_id: 'eleven_monolingual_v1', voice_settings: { stability: 0.5, similarity_boost: 0.75, style: 0.0, use_speaker_boost: true } })
+    })
+    .then(r => r.arrayBuffer())
+    .then(buf => {
+      const audio = new Audio(URL.createObjectURL(new Blob([buf], { type: 'audio/mpeg' })));
+      window._currentTTSAudio = audio;
+      audio.onended = () => { window._currentTTSAudio = null; resolve(); };
+      audio.onerror = () => { window._currentTTSAudio = null; resolve(); };
+      audio.play().catch(() => resolve());
+    })
+    .catch(() => resolve());
   });
 }
 
@@ -6442,38 +6476,53 @@ function showCaptionWinner(roundIndex, votes) {
 
   renderCaptionMockup('caption-winner-mockup', photoUrl, round.style, mockupCaption);
 
-  // Rotating accept sounds (accept_1 through accept_10)
-  const acceptIdx = (roundIndex % 10) + 1;
-  playAudio(`accept_${acceptIdx}.mp3?v=1`, { volume: 0.8 });
+  // Sequence: TTS announcement → accept audio → next round
+  (async () => {
+    // 1. "[Name] wins this round!" via ElevenLabs
+    await announceCaptionWinner(winner.playerName);
 
-  // Announce winner via ElevenLabs
-  announceCaptionWinner(winner.playerName);
+    // 2. Accept fanfare — wait for it to finish (min 3 s so the screen doesn't jump)
+    const acceptIdx = (roundIndex % 10) + 1;
+    await new Promise(resolve => {
+      let done = false;
+      const finish = () => { if (!done) { done = true; resolve(); } };
+      setTimeout(finish, 3000); // minimum hold even if audio errors/missing
+      playAudio(`accept_${acceptIdx}.mp3?v=1`, { volume: 0.8, onEnded: finish });
+    });
 
-  setTimeout(() => { winDiv.remove(); moveToNextCaptionRound(roundIndex); }, 6000);
+    // 3. Move on
+    winDiv.remove();
+    moveToNextCaptionRound(roundIndex);
+  })();
 }
 
 function announceCaptionWinner(playerName) {
   const ELEVENLABS_API_KEY = 'sk_eb4900ceb7e4366087590c2b906743504ba8c844524ddcc4';
   const VOICE_ID = 'rfkTsdZrVWEVhDycUYn9';
   const text = `${playerName} wins this round!`;
-  fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`, {
-    method: 'POST',
-    headers: { 'Accept': 'audio/mpeg', 'Content-Type': 'application/json', 'xi-api-key': ELEVENLABS_API_KEY },
-    body: JSON.stringify({ text, model_id: 'eleven_monolingual_v1', voice_settings: { stability: 0.5, similarity_boost: 0.75, style: 0.0, use_speaker_boost: true } })
-  }).then(r => r.blob()).then(blob => {
-    const audio = new Audio(URL.createObjectURL(blob));
-    audio.volume = 0.85;
-    window._currentTTSAudio = audio;
-    audio.onended = () => { window._currentTTSAudio = null; };
-    audio.play().catch(() => {});
-  }).catch(() => {});
+  return new Promise((resolve) => {
+    fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`, {
+      method: 'POST',
+      headers: { 'Accept': 'audio/mpeg', 'Content-Type': 'application/json', 'xi-api-key': ELEVENLABS_API_KEY },
+      body: JSON.stringify({ text, model_id: 'eleven_monolingual_v1', voice_settings: { stability: 0.5, similarity_boost: 0.75, style: 0.0, use_speaker_boost: true } })
+    }).then(r => r.blob()).then(blob => {
+      const audio = new Audio(URL.createObjectURL(blob));
+      audio.volume = 0.85;
+      window._currentTTSAudio = audio;
+      audio.onended = () => { window._currentTTSAudio = null; resolve(); };
+      audio.onerror = () => { window._currentTTSAudio = null; resolve(); };
+      audio.play().catch(() => resolve());
+    }).catch(() => resolve());
+  });
 }
 
 function moveToNextCaptionRound(roundIndex) {
   window._captionReviewStarted = -1;
   if (roundIndex + 1 >= CAPTION_ROUNDS.length) {
+    // Caption contest finished → Final Scores Review
     gameRef.child('captionContest').remove();
-    startBlowBallJudging();
+    window.scoresReviewSource = 'toiletpaper';
+    showScoresReview();
   } else {
     startCaptionRound(roundIndex + 1);
   }
@@ -7136,10 +7185,28 @@ function resumeAllAudio() {
       const shouldBePaused = snap.val() === true;
       if (shouldBePaused && !_gamePaused) {
         _gamePaused = true;
+        // Pause caption timer if running
+        clearInterval(window._captionTimerInterval);
+        window._captionTimerInterval = null;
         showPauseOverlay();
       } else if (!shouldBePaused && _gamePaused) {
         _gamePaused = false;
         resumeAllAudio();
+        // Restart caption timer if caption round is still on screen
+        if (window._captionTimeLeft > 0 && document.getElementById('caption-round-screen')) {
+          const ri = window._captionActiveRoundIndex;
+          window._captionTimerInterval = setInterval(() => {
+            window._captionTimeLeft--;
+            const el = document.getElementById('caption-timer-display');
+            if (el) el.textContent = `:${String(window._captionTimeLeft).padStart(2, '0')}`;
+            gameRef.child('captionContest/timeLeft').set(window._captionTimeLeft);
+            if (window._captionTimeLeft <= 0) {
+              clearInterval(window._captionTimerInterval);
+              window._captionTimerInterval = null;
+              advanceCaptionToReview(ri);
+            }
+          }, 1000);
+        }
         const overlay = document.getElementById('host-pause-overlay');
         if (overlay) overlay.remove();
       }

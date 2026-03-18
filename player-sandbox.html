@@ -2176,26 +2176,34 @@ function showPhotographerSnapScreen(roundNumber) {
   }
 
   emotionDiv.innerHTML = `
-    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 32px; color: rgba(255,255,255,0.6); margin-bottom: 10px; letter-spacing: 3px;">
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 32px; color: rgba(255,255,255,0.6); margin-bottom: 6px; letter-spacing: 3px;">
       ROUND ${roundNumber}
     </div>
-    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 40px; color: #fff; margin-bottom: 20px;">
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 36px; color: #fff; margin-bottom: 12px;">
       📸 You're the Photographer!
     </div>
-    <div id="blowball-player-hidden" style="font-family: 'Bebas Neue', sans-serif; font-size: 72px; color: #ffc629; opacity: 0.3; letter-spacing: 12px; margin-bottom: 24px;">
+    <div id="blowball-player-hidden" style="font-family: 'Bebas Neue', sans-serif; font-size: 56px; color: #ffc629; opacity: 0.3; letter-spacing: 10px; margin-bottom: 12px;">
       ? ? ?
     </div>
-    <div id="blowball-player-reveal" style="display: none; font-family: 'Bebas Neue', sans-serif; font-size: 72px; color: #ffc629; text-shadow: 0 0 40px rgba(255,198,41,0.8); margin-bottom: 24px;"></div>
-    <input type="file" accept="image/*" capture="user" id="photo-capture"
-           style="display: none;" onchange="handlePhotoCapture(this)">
-    <button onclick="document.getElementById('photo-capture').click()"
-            style="padding: 20px 50px; background: linear-gradient(135deg, #4dd4e8, #ffc629); color: #0a1628; border: none; border-radius: 15px; font-family: 'Bebas Neue', sans-serif; font-size: 28px; cursor: pointer; box-shadow: 0 10px 30px rgba(255,198,41,0.4); -webkit-tap-highlight-color: transparent;">
+    <div id="blowball-player-reveal" style="display: none; font-family: 'Bebas Neue', sans-serif; font-size: 56px; color: #ffc629; text-shadow: 0 0 40px rgba(255,198,41,0.8); margin-bottom: 12px;"></div>
+    <div id="blowball-viewfinder-wrap" style="position:relative;width:200px;height:200px;margin:0 auto 14px;flex-shrink:0;">
+      <video id="blowball-camera-video" autoplay playsinline muted
+             style="width:200px;height:200px;object-fit:cover;border-radius:50%;border:4px solid #4dd4e8;display:block;background:#000;box-shadow:0 0 28px rgba(77,212,232,0.4);">
+      </video>
+      <div style="position:absolute;inset:-4px;border-radius:50%;box-shadow:0 0 0 300px #0a1628;pointer-events:none;"></div>
+      <div style="position:absolute;inset:-4px;border-radius:50%;border:4px solid #4dd4e8;pointer-events:none;"></div>
+    </div>
+    <canvas id="blowball-camera-canvas" style="display:none;"></canvas>
+    <div id="blowball-photo-preview" style="display:none;margin-bottom:12px;">
+      <img id="blowball-preview-img" style="width:110px;height:110px;object-fit:cover;border-radius:50%;border:3px solid #4dd4e8;box-shadow:0 0 20px rgba(77,212,232,0.4);">
+    </div>
+    <button id="blowball-capture-btn" onclick="captureBlowBallPhoto()"
+            style="padding: 16px 44px; background: linear-gradient(135deg, #4dd4e8, #ffc629); color: #0a1628; border: none; border-radius: 15px; font-family: 'Bebas Neue', sans-serif; font-size: 28px; cursor: pointer; box-shadow: 0 10px 30px rgba(255,198,41,0.4); -webkit-tap-highlight-color: transparent;">
       📸 Take Photo
     </button>
-    <div id="photo-preview" style="margin-top: 30px; display: none;">
-      <img id="preview-img" style="max-width: 280px; border-radius: 12px; border: 3px solid #4dd4e8;">
-    </div>
   `;
+
+  startBlowBallCamera();
 }
 
 // Spectator screen during the hidden snap phase — emotion not shown yet
@@ -2305,6 +2313,75 @@ function convertToBase64(file) {
   });
 }
 
+// ── Blow-ball live-camera helpers ────────────────────────────────────────────
+
+async function startBlowBallCamera() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+    const video = document.getElementById('blowball-camera-video');
+    if (video) video.srcObject = stream;
+  } catch (err) {
+    console.warn('Blow-ball camera not available:', err);
+    // Hide viewfinder and fall back to file-input
+    const wrap = document.getElementById('blowball-viewfinder-wrap');
+    if (wrap) wrap.style.display = 'none';
+    const btn = document.getElementById('blowball-capture-btn');
+    if (btn) {
+      const input = document.createElement('input');
+      input.type = 'file'; input.accept = 'image/*'; input.capture = 'user';
+      input.id = 'photo-capture-fallback'; input.style.display = 'none';
+      input.onchange = () => handlePhotoCapture(input);
+      btn.parentNode.insertBefore(input, btn);
+      btn.textContent = '📂 Choose Photo';
+      btn.onclick = () => input.click();
+    }
+  }
+}
+
+async function captureBlowBallPhoto() {
+  const video  = document.getElementById('blowball-camera-video');
+  const canvas = document.getElementById('blowball-camera-canvas');
+  const btn    = document.getElementById('blowball-capture-btn');
+  if (!video || !canvas || !video.srcObject) return;
+
+  // Freeze the capture
+  canvas.width  = 600;
+  canvas.height = 600;
+  canvas.getContext('2d').drawImage(video, 0, 0, 600, 600);
+  const base64 = canvas.toDataURL('image/jpeg', 0.85);
+
+  // Stop the live stream
+  video.srcObject.getTracks().forEach(t => t.stop());
+
+  // Swap viewfinder for preview
+  const wrap = document.getElementById('blowball-viewfinder-wrap');
+  if (wrap) wrap.style.display = 'none';
+  const previewDiv = document.getElementById('blowball-photo-preview');
+  const previewImg = document.getElementById('blowball-preview-img');
+  if (previewDiv && previewImg) {
+    previewImg.src = base64;
+    previewDiv.style.display = 'block';
+  }
+
+  if (btn) { btn.textContent = '✅ Photo Taken!'; btn.disabled = true; }
+
+  // Upload to Firebase
+  try {
+    const snap = await gameRef.child('blowBallPhotoRound').once('value');
+    const roundNumber = snap.val() || 1;
+    gameRef.child(`blowBall/photos/${playerId}`).push({
+      photo: base64,
+      round: roundNumber,
+      timestamp: Date.now()
+    });
+    console.log('✅ Blow-ball photo uploaded');
+  } catch (err) {
+    console.error('❌ Blow-ball photo upload failed:', err);
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+
 function showPlayerBlowBallJudging() {
   const emotionDiv = document.getElementById('player-blowball-emotion');
   if (emotionDiv) emotionDiv.remove();
@@ -2332,7 +2409,7 @@ function showRefereeBlowBallScoring() {
 
   const btns = (team, fn) => [1,2,3,4,5].map(s => `
     <button onclick="${fn}(${s})"
-            style="width: 64px; height: 64px; background: linear-gradient(135deg, #4dd4e8, #ffc629); color: #0a1628; border: none; border-radius: 50%; font-family: 'Bebas Neue', sans-serif; font-size: 36px; cursor: pointer; -webkit-tap-highlight-color: transparent;">
+            style="width: 48px; height: 48px; background: linear-gradient(135deg, #4dd4e8, #ffc629); color: #0a1628; border: none; border-radius: 50%; font-family: 'Bebas Neue', sans-serif; font-size: 26px; cursor: pointer; -webkit-tap-highlight-color: transparent;">
       ${s}
     </button>
   `).join('');
@@ -2347,13 +2424,13 @@ function showRefereeBlowBallScoring() {
 
     <div style="margin-bottom: 36px; width: 100%; max-width: 480px;">
       <div style="font-family: 'Bebas Neue', sans-serif; font-size: 30px; color: #fff; margin-bottom: 16px;">Team 1 Score</div>
-      <div style="display: flex; gap: 12px; justify-content: center;">${btns(1, 'setBlowBallTeam1Score')}</div>
+      <div style="display: flex; gap: 8px; justify-content: center;">${btns(1, 'setBlowBallTeam1Score')}</div>
       <div id="t1-selected" style="font-family: 'Barlow', sans-serif; font-size: 16px; color: #4dd4e8; margin-top: 8px; min-height: 20px;"></div>
     </div>
 
     <div style="margin-bottom: 36px; width: 100%; max-width: 480px;">
       <div style="font-family: 'Bebas Neue', sans-serif; font-size: 30px; color: #fff; margin-bottom: 16px;">Team 2 Score</div>
-      <div style="display: flex; gap: 12px; justify-content: center;">${btns(2, 'setBlowBallTeam2Score')}</div>
+      <div style="display: flex; gap: 8px; justify-content: center;">${btns(2, 'setBlowBallTeam2Score')}</div>
       <div id="t2-selected" style="font-family: 'Barlow', sans-serif; font-size: 16px; color: #4dd4e8; margin-top: 8px; min-height: 20px;"></div>
     </div>
 
@@ -4669,8 +4746,11 @@ function showPhotoCaptureScreen() {
       <h1 style="font-family: 'Bebas Neue', sans-serif; font-size: 48px; color: #ffc629; margin-bottom: 16px; letter-spacing: 3px;">
         TAKE YOUR SELFIE
       </h1>
-      <p style="font-family: 'Barlow', sans-serif; font-size: 18px; color: rgba(255,255,255,0.8); margin-bottom: 24px;">
+      <p style="font-family: 'Barlow', sans-serif; font-size: 18px; color: rgba(255,255,255,0.8); margin-bottom: 6px;">
         Your photo will show on screen during the game
+      </p>
+      <p style="font-family: 'Barlow', sans-serif; font-size: 14px; color: rgba(255,255,255,0.4); margin-bottom: 20px;">
+        (we don't keep any photos)
       </p>
       <div style="position:relative;width:260px;height:260px;margin:0 auto 20px;flex-shrink:0;">
         <video id="photo-video" autoplay playsinline muted
@@ -4790,6 +4870,12 @@ function generateDefaultAvatar(name) {
     gameRef.child('captionContest/phase').on('value', (snap) => {
       const phase = snap.val();
 
+      // Remove the blow ball photo/spectator screen as soon as caption contest starts
+      if (phase) {
+        const emotionEl = document.getElementById('player-blowball-emotion');
+        if (emotionEl) emotionEl.remove();
+      }
+
       // Always clean up Player 1 reading-ready listener + button when phase changes
       if (window._captionReadingReadyOff) {
         window._captionReadingReadyOff();
@@ -4890,7 +4976,7 @@ function showCaptionInput(d) {
 
     <button id="caption-submit-btn" onclick="submitCaption('${d.style}')"
       style="padding:14px 0;background:linear-gradient(135deg,#4dd4e8,#ffc629);color:#0a1628;border:none;border-radius:14px;font-family:'Bebas Neue',sans-serif;font-size:26px;cursor:pointer;box-shadow:0 8px 24px rgba(255,198,41,0.4);width:100%;max-width:360px;-webkit-tap-highlight-color:transparent;">
-      Submit Caption
+      Submit
     </button>
 
     <div id="caption-submitted-msg" style="display:none;font-family:'Bebas Neue',sans-serif;font-size:26px;color:var(--motd-gold);margin-top:20px;text-align:center;">
@@ -4901,23 +4987,25 @@ function showCaptionInput(d) {
   document.body.appendChild(div);
 
   // Timer — sync with host's Firebase value
-  let timeLeft = 45;
+  window._captionPlayerTimeLeft = 45;
+  window._captionPlayerStyle = d.style;
   window._captionPlayerTimerInterval = setInterval(() => {
-    timeLeft--;
+    window._captionPlayerTimeLeft--;
     const el = document.getElementById('player-caption-timer');
-    if (el) el.textContent = `:${String(timeLeft).padStart(2, '0')}`;
-    if (timeLeft <= 0) {
+    if (el) el.textContent = `:${String(window._captionPlayerTimeLeft).padStart(2, '0')}`;
+    if (window._captionPlayerTimeLeft <= 0) {
       clearInterval(window._captionPlayerTimerInterval);
-      submitCaption(d.style);
+      window._captionPlayerTimerInterval = null;
+      submitCaption(window._captionPlayerStyle);
     }
   }, 1000);
 
   gameRef.child('captionContest/timeLeft').on('value', (snap) => {
     const host = snap.val();
-    if (host !== null && host < timeLeft) {
-      timeLeft = host;
+    if (host !== null && host < window._captionPlayerTimeLeft) {
+      window._captionPlayerTimeLeft = host;
       const el = document.getElementById('player-caption-timer');
-      if (el) el.textContent = `:${String(timeLeft).padStart(2, '0')}`;
+      if (el) el.textContent = `:${String(host).padStart(2, '0')}`;
     }
   });
 
@@ -5013,13 +5101,12 @@ function showCaptionVotingPlayer(d) {
   const isDraw   = d.style === 'draw';
   const photoUrl = d.photoUrl || '';
 
-  // Exclude self — can't vote for your own caption
+  // All captions shown — players may vote for any entry including their own
   const entries = Object.entries(captions)
-    .filter(([pid]) => pid !== playerId)
     .map(([pid, c]) => ({ pid, text: c.text || '', drawing: c.drawing || null }));
 
   if (entries.length === 0) {
-    // Only one player — auto-cast a blank vote
+    // No captions at all — auto-cast a blank vote so the round can proceed
     gameRef.child(`captionContest/votes/${playerId}`).set(playerId);
     return;
   }
@@ -5239,6 +5326,9 @@ function startHeartbeat() {
     gameRef.child('paused').on('value', (snap) => {
       let indicator = document.getElementById('player-pause-indicator');
       if (snap.val() === true) {
+        // Stop caption input timer while paused
+        clearInterval(window._captionPlayerTimerInterval);
+        window._captionPlayerTimerInterval = null;
         if (!indicator) {
           indicator = document.createElement('div');
           indicator.id = 'player-pause-indicator';
@@ -5271,6 +5361,19 @@ function startHeartbeat() {
         }
       } else {
         if (indicator) indicator.remove();
+        // Restart caption input timer if the caption round is still showing
+        if (window._captionPlayerTimeLeft > 0 && document.getElementById('player-caption-timer')) {
+          window._captionPlayerTimerInterval = setInterval(() => {
+            window._captionPlayerTimeLeft--;
+            const el = document.getElementById('player-caption-timer');
+            if (el) el.textContent = `:${String(window._captionPlayerTimeLeft).padStart(2, '0')}`;
+            if (window._captionPlayerTimeLeft <= 0) {
+              clearInterval(window._captionPlayerTimerInterval);
+              window._captionPlayerTimerInterval = null;
+              submitCaption(window._captionPlayerStyle);
+            }
+          }, 1000);
+        }
       }
     });
   }, 500);
