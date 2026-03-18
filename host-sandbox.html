@@ -5277,6 +5277,12 @@ function assignSabotageTasks() {
       name: 'Pitch Invasion',
       description: 'Put as many objects as possible on the pitch. Tell no one. One point for each object still on the pitch at the end of the game.',
       pointsPerPiece: 1
+    },
+    {
+      id: 'take_a_dive',
+      name: 'Take a Dive',
+      description: 'Convince somebody that you were pushed over. No points if they don\'t believe you, 20 points if you succeed. Tell no one.',
+      pointsPerPiece: 20
     }
   ];
 
@@ -5286,8 +5292,8 @@ function assignSabotageTasks() {
   const team1Players = shuffle(Object.keys(players).filter(pid => players[pid].team === 1));
   const team2Players = shuffle(Object.keys(players).filter(pid => players[pid].team === 2));
 
-  // Assign one player per team (or more if teams are larger)
-  const maxPerTeam = Math.max(1, Math.min(3, Math.floor(allTaskDefs.length / 2)));
+  // Assign up to one unique mission per player (8 missions = max 4 per team)
+  const maxPerTeam = Math.floor(shuffledTasks.length / 2);
   const allAssigned = [
     ...team1Players.slice(0, maxPerTeam),
     ...team2Players.slice(0, maxPerTeam),
@@ -5297,7 +5303,7 @@ function assignSabotageTasks() {
   let taskIdx = 0;
   let cumulativeDelay = 0;
   allAssigned.forEach((pid) => {
-    const task = shuffledTasks[taskIdx % shuffledTasks.length];
+    const task = shuffledTasks[taskIdx];
     taskIdx++;
     const delay = cumulativeDelay;
     cumulativeDelay += Math.floor(Math.random() * 10000) + 5000; // 5–15s between each player
