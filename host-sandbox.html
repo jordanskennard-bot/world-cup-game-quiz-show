@@ -2455,16 +2455,12 @@ async function generateIntroVoiceDirectly() {
 
 function startGamePlay() {
   document.getElementById('lobby-screen').classList.add('hidden');
-  document.getElementById('game-screen').classList.add('active');
-  document.getElementById('round-indicator').textContent = 'Round 1';
 
-  gameRef.update({ started: true, round: 1, currentQuestion: 0 });
-  loadQuestion(0);
-
-  // Schedule sabotage buttons at random times
-  scheduleSabotageButtons();
-
-  // QR code is in the persistent top banner — no floating overlay needed
+  // ── SANDBOX: skip straight to bog roll alert ──
+  // Write started:true so player 1's pause button appears
+  gameRef.update({ started: true });
+  showToiletPaperAlert();
+  // ─────────────────────────────────────────────
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -3065,7 +3061,7 @@ function routeAfterScoresReview() {
     case 'interview':   checkForMatchDraw();       break; // → Match Draw
     case 'matchdraw':   startCommentaryRound();    break;
     case 'commentary':  showToiletPaperAlert();    break;
-    case 'toiletpaper': showSabotageReveals();     break; // → Sabotage Reveals
+    case 'toiletpaper': showExtraTimeScreen();      break; // → Extra Time → Sabotage Reveals (one by one)
     default:            startRound2();
   }
 }
@@ -5161,7 +5157,7 @@ function showToiletPaperAlert() {
 
   const alertDiv = document.createElement('div');
   alertDiv.id = 'toilet-paper-alert';
-  alertDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, var(--motd-dark-navy) 0%, var(--motd-navy) 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 40px;';
+  alertDiv.style.cssText = 'position: fixed; top: 108px; left: 0; right: 0; bottom: 0; background: linear-gradient(135deg, var(--motd-dark-navy) 0%, var(--motd-navy) 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 40px;';
   alertDiv.innerHTML = `
     <div style="font-family: 'Bebas Neue', sans-serif; font-size: 80px; color: #ffc629; text-shadow: 0 0 40px rgba(255,198,41,0.8); margin-bottom: 40px; letter-spacing: 6px;">
       ⚠️ IMPORTANT! ⚠️
@@ -5223,7 +5219,9 @@ function continueToToiletPaperRounds() {
   window._audioRefs.forEach(a => { try { a.pause(); a.currentTime = 0; } catch(e){} });
   window._audioRefs = [];
 
-  assignSabotageTasks();
+  // Delay sabotage assignments until after bog rolling has begun,
+  // then stagger each player's mission so they don't all arrive at once
+  setTimeout(assignSabotageTasks, 10000);
   startBogRolling();
 }
 
@@ -5273,6 +5271,12 @@ function assignSabotageTasks() {
       name: 'Hat Trick',
       description: 'Create a wearable hat or head piece out of toilet paper and keep it on your head for as long as possible. Each minute you\'re spotted still wearing it earns you a point. Tell no one.',
       pointsPerPiece: 1
+    },
+    {
+      id: 'pitch_invasion',
+      name: 'Pitch Invasion',
+      description: 'Put as many objects as possible on the pitch. Tell no one. One point for each object still on the pitch at the end of the game.',
+      pointsPerPiece: 1
     }
   ];
 
@@ -5282,28 +5286,35 @@ function assignSabotageTasks() {
   const team1Players = shuffle(Object.keys(players).filter(pid => players[pid].team === 1));
   const team2Players = shuffle(Object.keys(players).filter(pid => players[pid].team === 2));
 
-  // Ensure team1 and team2 get DIFFERENT tasks
-  let taskIdx = 0;
-  const assign = (pid) => {
-    const task = shuffledTasks[taskIdx % shuffledTasks.length];
-    taskIdx++;
-    gameRef.child(`sabotage/${pid}`).set({
-      task: task.id,
-      name: task.name,
-      description: task.description,
-      pointsPerPiece: task.pointsPerPiece,
-      assigned: true,
-      completed: false,
-      piecesCollected: 0,
-      points: 0
-    });
-    console.log(`🕵️ Assigned ${task.name} to ${players[pid].name}`);
-  };
-
   // Assign one player per team (or more if teams are larger)
   const maxPerTeam = Math.max(1, Math.min(3, Math.floor(allTaskDefs.length / 2)));
-  team1Players.slice(0, maxPerTeam).forEach(assign);
-  team2Players.slice(0, maxPerTeam).forEach(assign);
+  const allAssigned = [
+    ...team1Players.slice(0, maxPerTeam),
+    ...team2Players.slice(0, maxPerTeam),
+  ];
+
+  // Stagger missions — each player gets theirs at a different time
+  let taskIdx = 0;
+  let cumulativeDelay = 0;
+  allAssigned.forEach((pid) => {
+    const task = shuffledTasks[taskIdx % shuffledTasks.length];
+    taskIdx++;
+    const delay = cumulativeDelay;
+    cumulativeDelay += Math.floor(Math.random() * 10000) + 5000; // 5–15s between each player
+    setTimeout(() => {
+      gameRef.child(`sabotage/${pid}`).set({
+        task: task.id,
+        name: task.name,
+        description: task.description,
+        pointsPerPiece: task.pointsPerPiece,
+        assigned: true,
+        completed: false,
+        piecesCollected: 0,
+        points: 0
+      });
+      console.log(`🕵️ Assigned ${task.name} to ${players[pid]?.name} (delay: ${delay}ms)`);
+    }, delay);
+  });
 }
 
 function startBogRolling() {
@@ -5904,39 +5915,218 @@ function awardSabotageAndContinue() {
   const btn = document.getElementById('sabot-continue-btn');
   if (btn) { btn.disabled = true; btn.textContent = 'Awarding points…'; }
 
+  // Clean up whichever reveal UI is currently showing
+  ['sabotage-reveals', 'sabotage-reveal-card'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.remove();
+  });
+
   const entries = Object.entries(window._sabotageJudgements);
   let pending = entries.filter(([, j]) => j.status === 'completed').length;
 
   if (pending === 0) {
-    const revealDiv = document.getElementById('sabotage-reveals');
-    if (revealDiv) revealDiv.remove();
     showVictoryScreen();
     return;
   }
 
   entries.forEach(([pid, judgement]) => {
     if (judgement.status !== 'completed') return;
-    const ptsInput = document.getElementById(`sabot-pts-${pid}`);
-    const pts = Math.max(0, parseInt(ptsInput?.value || '0', 10));
+    const pts = Math.max(0, judgement.points || 0);
     if (pts > 0) {
       gameRef.child(`players/${pid}/score`).transaction((current) => (current || 0) + pts, () => {
         pending--;
-        if (pending <= 0) {
-          const revealDiv = document.getElementById('sabotage-reveals');
-          if (revealDiv) revealDiv.remove();
-          showVictoryScreen();
-        }
+        if (pending <= 0) showVictoryScreen();
       });
     } else {
       pending--;
-      if (pending <= 0) {
-        const revealDiv = document.getElementById('sabotage-reveals');
-        if (revealDiv) revealDiv.remove();
-        showVictoryScreen();
-      }
+      if (pending <= 0) showVictoryScreen();
     }
   });
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// EXTRA TIME + SABOTAGE REVEALS (ONE BY ONE)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Pool of question variants — picked in order (cycling) so no immediate repeats
+const SABOTAGE_QUESTION_VARIANTS = [
+  (name) => `${name}! Let's start with you — what was your task and how did you do?`,
+  (name) => `And now it's over to ${name} — what were you up to?`,
+  (name) => `${name}, your turn — what was the mission and how did it go?`,
+  (name) => `Right then ${name}, spill the beans — what were you secretly up to?`,
+  (name) => `Now over to ${name} — what was your task and did you pull it off?`,
+  (name) => `${name}! What was your secret mission and how did you get on?`,
+  (name) => `Eyes on ${name} — what were you doing behind everyone's backs?`,
+  (name) => `It's ${name}'s turn to come clean — what was the task?`,
+  (name) => `And ${name}, what mischief were you getting up to?`,
+  (name) => `Let's hear from ${name} — what was your mission and how many points are you claiming?`,
+  (name) => `${name}, the floor is yours — what was your sabotage and how well did you do?`,
+  (name) => `Right, ${name} — don't hold back. What was the task and how did it go?`,
+];
+let _sabotageQuestionIndex = 0;
+
+async function playSabotageQuestion(playerName) {
+  const variant = SABOTAGE_QUESTION_VARIANTS[_sabotageQuestionIndex % SABOTAGE_QUESTION_VARIANTS.length];
+  _sabotageQuestionIndex++;
+  const text = variant(playerName);
+
+  const ELEVENLABS_API_KEY = 'sk_eb4900ceb7e4366087590c2b906743504ba8c844524ddcc4';
+  const VOICE_ID = 'rfkTsdZrVWEVhDycUYn9';
+  try {
+    const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`, {
+      method: 'POST',
+      headers: {
+        'Accept': 'audio/mpeg',
+        'Content-Type': 'application/json',
+        'xi-api-key': ELEVENLABS_API_KEY
+      },
+      body: JSON.stringify({
+        text,
+        model_id: 'eleven_monolingual_v1',
+        voice_settings: { stability: 0.5, similarity_boost: 0.75, style: 0.0, use_speaker_boost: true }
+      })
+    });
+    if (!response.ok) throw new Error(`ElevenLabs error: ${response.status}`);
+    const blob = await response.blob();
+    const audio = new Audio(URL.createObjectURL(blob));
+    audio.volume = 0.85;
+    audio.play().catch(e => console.warn('Sabotage question audio blocked:', e));
+  } catch (err) {
+    console.error('Sabotage question voice failed:', err);
+  }
+}
+
+function showExtraTimeScreen() {
+  console.log('⏱️ Showing Extra Time screen');
+  document.getElementById('round-indicator').textContent = 'Extra Time';
+
+  const div = document.createElement('div');
+  div.id = 'extra-time-screen';
+  div.style.cssText = 'position: fixed; top: 108px; left: 0; right: 0; bottom: 0; background: linear-gradient(135deg, var(--motd-dark-navy) 0%, var(--motd-navy) 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 40px; text-align: center;';
+  div.innerHTML = `
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:120px;color:var(--motd-gold);letter-spacing:10px;text-shadow:0 0 60px rgba(255,198,41,0.8);margin-bottom:30px;line-height:1;">
+      EXTRA TIME
+    </div>
+    <div style="font-family:'Barlow',sans-serif;font-size:28px;color:rgba(255,255,255,0.6);">
+      There's just time for a little more…
+    </div>
+    <div class="spinner" style="margin-top:50px;"></div>
+  `;
+  document.body.appendChild(div);
+
+  playAudio('extra_time_intro.mp3?v=1', {
+    volume: 0.8,
+    onEnded: () => setTimeout(() => { div.remove(); startSabotageOneByOne(); }, 1500)
+  });
+}
+
+function startSabotageOneByOne() {
+  window._sabotageJudgements = {};
+  gameRef.child('sabotage').once('value', (snapshot) => {
+    const sabotageData = snapshot.val();
+    const assigned = sabotageData
+      ? Object.entries(sabotageData).filter(([, d]) => d.assigned === true)
+      : [];
+
+    if (assigned.length === 0) {
+      showVictoryScreen();
+      return;
+    }
+
+    // Pre-fill judgements from any player self-report
+    assigned.forEach(([pid, data]) => {
+      const initStatus = data.spotted ? 'caught' : data.completed ? 'completed' : 'notdone';
+      window._sabotageJudgements[pid] = { status: initStatus, points: data.piecesCollected || 0 };
+    });
+
+    window._sabotageRevealEntries = assigned;
+    showSabotagePlayerReveal(0);
+  });
+}
+
+function showSabotagePlayerReveal(index) {
+  // Remove previous card
+  const prev = document.getElementById('sabotage-reveal-card');
+  if (prev) prev.remove();
+
+  const entries = window._sabotageRevealEntries || [];
+  if (index >= entries.length) {
+    // All done — clear Firebase signal and tally points
+    gameRef.child('sabotageReveal').remove();
+    awardSabotageAndContinue();
+    return;
+  }
+
+  const [pid, data] = entries[index];
+  const player = players[pid] || {};
+  const playerName = player.name || 'Player';
+  const initial = playerName[0].toUpperCase();
+
+  const photoHtml = player.photo
+    ? `<img src="${player.photo}" style="width:160px;height:160px;border-radius:50%;object-fit:cover;border:5px solid #d4145a;box-shadow:0 0 40px rgba(212,20,90,0.5);">`
+    : `<div style="width:160px;height:160px;border-radius:50%;background:rgba(212,20,90,0.3);border:5px solid #d4145a;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:64px;color:#fff;">${initial}</div>`;
+
+  const card = document.createElement('div');
+  card.id = 'sabotage-reveal-card';
+  card.style.cssText = 'position: fixed; top: 108px; left: 0; right: 0; bottom: 0; background: linear-gradient(135deg, var(--motd-dark-navy) 0%, var(--motd-navy) 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 40px; text-align: center;';
+  card.innerHTML = `
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;color:rgba(255,255,255,0.3);letter-spacing:3px;margin-bottom:32px;">
+      🕵️ SABOTAGE REVEALS &nbsp;—&nbsp; ${index + 1} / ${entries.length}
+    </div>
+
+    <div style="margin-bottom:28px;">${photoHtml}</div>
+
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:72px;color:#fff;line-height:1;margin-bottom:10px;">
+      ${playerName}
+    </div>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;color:#d4145a;letter-spacing:2px;margin-bottom:28px;">
+      🕵️ ${data.name || data.task || 'Secret Mission'}
+    </div>
+
+    <div style="font-family:'Barlow',sans-serif;font-size:20px;color:rgba(255,255,255,0.8);max-width:760px;line-height:1.7;padding:20px 28px;background:rgba(0,0,0,0.3);border-radius:12px;margin-bottom:40px;">
+      ${data.description || ''}
+    </div>
+
+    <div style="font-family:'Barlow',sans-serif;font-size:18px;color:rgba(255,255,255,0.4);">
+      ⏳ Waiting for referee to score…
+    </div>
+    <div class="spinner" style="margin-top:20px;"></div>
+  `;
+  document.body.appendChild(card);
+
+  // Signal player 1's phone with this player's details
+  gameRef.child('sabotageReveal').set({
+    active: true,
+    index,
+    total: entries.length,
+    pid,
+    playerName,
+    taskName: data.name || data.task || 'Secret Mission',
+    description: data.description || '',
+    isLast: index === entries.length - 1,
+  });
+
+  // Listen for referee's judgement coming back from player 1
+  gameRef.child('sabotageReveal/judgement').off();
+  gameRef.child('sabotageReveal/judgement').on('value', (snap) => {
+    const j = snap.val();
+    if (!j) return;
+    gameRef.child('sabotageReveal/judgement').off();
+
+    // Store judgement and advance
+    window._sabotageJudgements[j.pid] = { status: j.status, points: j.points || 0 };
+    console.log(`🕵️ Judgement received for ${j.pid}: ${j.status}, ${j.points} pts`);
+
+    showSabotagePlayerReveal(index + 1);
+  });
+
+  // Ask the player about their task — dynamic ElevenLabs with player name
+  playSabotageQuestion(playerName);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SABOTAGE REVEALS (legacy — all-at-once fallback, kept for reference)
+// ═══════════════════════════════════════════════════════════════════════════
 
 function showSabotageReveals() {
   console.log('🕵️ Showing Sabotage Reveals');

@@ -1543,7 +1543,9 @@ function listenForGameStart() {
 function showPlayerToiletPaperAlert() {
   if (document.getElementById('player-tp-alert')) return;
 
-  const isCaptain = players[playerId]?.isCaptain === true && players[playerId]?.team === 1;
+  // In sandbox, no teams are selected so nobody gets isCaptain — fall back to player 1
+  const isCaptain = (players[playerId]?.isCaptain === true && players[playerId]?.team === 1)
+                    || window._isPlayer1 === true;
 
   const alertDiv = document.createElement('div');
   alertDiv.id = 'player-tp-alert';
@@ -1880,7 +1882,7 @@ function showSabotageTask(sabotageData) {
       understoodBtn.style.opacity = '1';
       understoodBtn.style.cursor = 'pointer';
     }
-  }, 5000);
+  }, 10000);
 }
 
 function createStandaloneSabotageDisplay(sabotageData) {
@@ -1921,7 +1923,7 @@ function createStandaloneSabotageDisplay(sabotageData) {
       understoodBtn.style.opacity = '1';
       understoodBtn.style.cursor = 'pointer';
     }
-  }, 5000);
+  }, 10000);
 }
 
 function acknowledgeSabotage() {
@@ -2109,10 +2111,15 @@ function volunteerAsPhotographer() {
   console.log('📸 Volunteering as photographer');
 
   const playerTeam = players[playerId]?.team;
-  if (!playerTeam) return;
 
-  // Only first volunteer per team wins (Firebase will silently overwrite but that's fine here)
-  gameRef.child(`blowBall/photographers/team${playerTeam}`).set(playerId);
+  if (!playerTeam) {
+    // Sandbox: no teams assigned — fill both slots so the host can proceed
+    gameRef.child('blowBall/photographers/team1').set(playerId);
+    gameRef.child('blowBall/photographers/team2').set(playerId);
+  } else {
+    // Only first volunteer per team wins (Firebase will silently overwrite but that's fine here)
+    gameRef.child(`blowBall/photographers/team${playerTeam}`).set(playerId);
+  }
 
   const selectionDiv = document.getElementById('player-photographer-selection');
   if (selectionDiv) selectionDiv.remove();
@@ -4800,6 +4807,119 @@ function generateDefaultAvatar(name) {
   ctx.textBaseline = 'middle';
   ctx.fillText(name[0].toUpperCase(), 150, 150);
   return canvas.toDataURL('image/png');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SABOTAGE REVEAL — REFEREE SCORING (player 1 only)
+// ═══════════════════════════════════════════════════════════════════════════
+
+(function setupSabotageRevealListener() {
+  const check = setInterval(() => {
+    if (!gameRef) return;
+    clearInterval(check);
+
+    gameRef.child('sabotageReveal/active').on('value', (snap) => {
+      if (snap.val() !== true) {
+        // Host moved on — remove scoring UI if present
+        const el = document.getElementById('sabotage-referee-scoring');
+        if (el) el.remove();
+        return;
+      }
+
+      // Only player 1 gets the scoring UI
+      if (!window._isPlayer1) return;
+      if (document.getElementById('sabotage-referee-scoring')) return;
+
+      // Read the full reveal data
+      gameRef.child('sabotageReveal').once('value', (revealSnap) => {
+        const d = revealSnap.val();
+        if (!d || !d.active) return;
+
+        showRefereeScoring(d);
+      });
+    });
+  }, 500);
+})();
+
+function showRefereeScoring(d) {
+  const existing = document.getElementById('sabotage-referee-scoring');
+  if (existing) existing.remove();
+
+  const div = document.createElement('div');
+  div.id = 'sabotage-referee-scoring';
+  div.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, #0a1628 0%, #1a2b4a 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 28px; text-align: center; overflow-y: auto;';
+
+  let currentStatus = 'notdone';
+  let currentPoints = 0;
+
+  div.innerHTML = `
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:rgba(255,255,255,0.3);letter-spacing:3px;margin-bottom:20px;">
+      🕵️ REFEREE SCORING &nbsp;—&nbsp; ${d.index + 1} / ${d.total}
+    </div>
+
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:48px;color:#fff;line-height:1;margin-bottom:6px;">
+      ${d.playerName}
+    </div>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:#d4145a;letter-spacing:2px;margin-bottom:20px;">
+      🕵️ ${d.taskName}
+    </div>
+
+    <div style="font-family:'Barlow',sans-serif;font-size:15px;color:rgba(255,255,255,0.7);max-width:480px;line-height:1.6;padding:14px 18px;background:rgba(0,0,0,0.3);border-radius:10px;margin-bottom:24px;">
+      ${d.description}
+    </div>
+
+    <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-bottom:20px;">
+      <button id="ref-btn-completed" onclick="setRefStatus('completed')"
+        style="padding:14px 20px;border:none;border-radius:10px;font-family:'Bebas Neue',sans-serif;font-size:20px;cursor:pointer;background:rgba(46,204,113,0.85);color:#fff;opacity:0.3;">
+        ✅ Completed
+      </button>
+      <button id="ref-btn-notdone" onclick="setRefStatus('notdone')"
+        style="padding:14px 20px;border:none;border-radius:10px;font-family:'Bebas Neue',sans-serif;font-size:20px;cursor:pointer;background:rgba(120,120,120,0.7);color:#fff;opacity:1;">
+        ❌ Not Done
+      </button>
+      <button id="ref-btn-caught" onclick="setRefStatus('caught')"
+        style="padding:14px 20px;border:none;border-radius:10px;font-family:'Bebas Neue',sans-serif;font-size:20px;cursor:pointer;background:rgba(212,20,90,0.85);color:#fff;opacity:0.3;">
+        🚨 Caught
+      </button>
+    </div>
+
+    <div id="ref-pts-row" style="display:none;align-items:center;gap:12px;margin-bottom:24px;">
+      <label style="font-family:'Barlow Condensed',sans-serif;font-size:20px;color:rgba(255,255,255,0.8);">Points:</label>
+      <input type="number" id="ref-pts-input" value="0" min="0" max="50"
+        style="width:80px;padding:10px;background:rgba(0,0,0,0.4);border:2px solid #ffc629;border-radius:8px;font-family:'Bebas Neue',sans-serif;font-size:26px;color:#ffc629;text-align:center;">
+    </div>
+
+    <button id="ref-submit-btn" onclick="submitRefereeScore('${d.pid}')"
+      style="padding:16px 44px;background:linear-gradient(135deg,#4dd4e8,#ffc629);color:#0a1628;border:none;border-radius:14px;font-family:'Bebas Neue',sans-serif;font-size:28px;cursor:pointer;box-shadow:0 8px 24px rgba(255,198,41,0.4);-webkit-tap-highlight-color:transparent;">
+      ${d.isLast ? '✅ Submit Final Score' : 'Submit Score →'}
+    </button>
+  `;
+
+  document.body.appendChild(div);
+}
+
+function setRefStatus(status) {
+  ['completed', 'notdone', 'caught'].forEach(s => {
+    const btn = document.getElementById(`ref-btn-${s}`);
+    if (btn) btn.style.opacity = s === status ? '1' : '0.3';
+  });
+  const ptsRow = document.getElementById('ref-pts-row');
+  if (ptsRow) ptsRow.style.display = status === 'completed' ? 'flex' : 'none';
+  window._refCurrentStatus = status;
+}
+
+function submitRefereeScore(pid) {
+  const btn = document.getElementById('ref-submit-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '✅ Sent!'; }
+
+  const status = window._refCurrentStatus || 'notdone';
+  const pts = status === 'completed'
+    ? Math.max(0, parseInt(document.getElementById('ref-pts-input')?.value || '0', 10))
+    : 0;
+
+  gameRef.child('sabotageReveal/judgement').set({ pid, status, points: pts });
+
+  // UI will be removed when host clears sabotageReveal/active
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
