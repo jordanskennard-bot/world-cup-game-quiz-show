@@ -3061,7 +3061,7 @@ function routeAfterScoresReview() {
     case 'interview':   checkForMatchDraw();       break; // → Match Draw
     case 'matchdraw':   startCommentaryRound();    break;
     case 'commentary':  showToiletPaperAlert();    break;
-    case 'toiletpaper': showExtraTimeScreen();      break; // → Extra Time → Sabotage Reveals (one by one)
+    case 'toiletpaper': showCaptionContestIntro(); break; // → Caption Contest → Extra Time → Sabotage Reveals
     default:            startRound2();
   }
 }
@@ -5942,6 +5942,494 @@ function awardSabotageAndContinue() {
       if (pending <= 0) showVictoryScreen();
     }
   });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CAPTION CONTEST
+// ═══════════════════════════════════════════════════════════════════════════
+
+const CAPTION_ROUNDS = [
+  { instruction: 'Write the Sky Sports breaking news ticker',              style: 'sky',       audioFile: 'caption_audio_0.mp3' },
+  { instruction: 'Write the caption they posted on Instagram to this post', style: 'instagram', audioFile: 'caption_audio_1.mp3' },
+  { instruction: 'What did the crowd sing to this player?',                style: 'crowd',     audioFile: 'caption_audio_2.mp3' },
+  { instruction: 'Write the newspaper headline for this photo',            style: 'newspaper', audioFile: 'caption_audio_3.mp3' },
+  { instruction: 'Draw',                                                   style: 'draw',      audioFile: 'caption_audio_4.mp3' },
+];
+
+// Three rotating 45-second music tracks (create these files; falls back gracefully on error)
+const CAPTION_MUSIC_FILES = ['caption_music_1.mp3', 'caption_music_2.mp3', 'caption_music_3.mp3'];
+
+window._captionPhotos        = [];   // [url, url, url, url, url] — one per round
+window._captionCurrentAudio  = null;
+window._captionReviewStarted = -1;
+
+// ─── Intro & photo selection ─────────────────────────────────────────────────
+
+function showCaptionContestIntro() {
+  console.log('📸 Caption Contest — checking for blow ball photos');
+
+  gameRef.child('blowBall/photos').once('value', (snapshot) => {
+    const photosData = snapshot.val();
+
+    if (!photosData) {
+      console.log('📸 No blow ball photos — skipping Caption Contest');
+      showExtraTimeScreen();
+      return;
+    }
+
+    // Group photos by team, sorted oldest-first
+    const teamPhotos = { 1: [], 2: [] };
+    Object.entries(photosData).forEach(([pid, playerPhotos]) => {
+      const team = players[pid]?.team;
+      if (!team || !playerPhotos) return;
+      Object.values(playerPhotos)
+        .sort((a, b) => a.timestamp - b.timestamp)
+        .forEach(p => { if (p.photo) teamPhotos[team].push(p.photo); });
+    });
+
+    const all = [...teamPhotos[1], ...teamPhotos[2]];
+    if (all.length === 0) {
+      console.log('📸 No usable photos — skipping Caption Contest');
+      showExtraTimeScreen();
+      return;
+    }
+
+    // Helper: get photo at index, wrapping around
+    const get = (arr, i) => arr.length > 0 ? arr[i % arr.length] : all[i % all.length];
+
+    // Round sequence: T1[0], T2[1], T1[1], T2[0], any[0]
+    window._captionPhotos = [
+      get(teamPhotos[1], 0),
+      get(teamPhotos[2], 1),
+      get(teamPhotos[1], 1),
+      get(teamPhotos[2], 0),
+      get(all, 0),
+    ];
+
+    console.log('📸 Caption Contest starting');
+    document.getElementById('round-indicator').textContent = 'Caption Contest';
+
+    const div = document.createElement('div');
+    div.id = 'caption-contest-intro';
+    div.style.cssText = 'position:fixed;top:108px;left:0;right:0;bottom:0;background:linear-gradient(135deg,var(--motd-dark-navy) 0%,var(--motd-navy) 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:10000;padding:40px;text-align:center;';
+    div.innerHTML = `
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:100px;color:var(--motd-gold);letter-spacing:8px;text-shadow:0 0 60px rgba(255,198,41,0.8);margin-bottom:20px;line-height:1;">
+        CAPTION<br>CONTEST
+      </div>
+      <div style="font-family:'Barlow',sans-serif;font-size:26px;color:rgba(255,255,255,0.6);">
+        Each player will add a caption to the photos…
+      </div>
+      <div class="spinner" style="margin-top:50px;"></div>
+    `;
+    document.body.appendChild(div);
+
+    playAudio('caption_contest_intro.mp3?v=1', {
+      volume: 0.8,
+      onEnded: () => setTimeout(() => { div.remove(); startCaptionRound(0); }, 1000)
+    });
+  });
+}
+
+// ─── Per-round captioning phase ──────────────────────────────────────────────
+
+function startCaptionRound(roundIndex) {
+  if (roundIndex >= CAPTION_ROUNDS.length) { showExtraTimeScreen(); return; }
+
+  window._captionReviewStarted = -1;
+
+  const round    = CAPTION_ROUNDS[roundIndex];
+  const photoUrl = window._captionPhotos[roundIndex] || window._captionPhotos[0];
+  const musicFile = CAPTION_MUSIC_FILES[roundIndex % CAPTION_MUSIC_FILES.length];
+
+  // Clean up previous round's Firebase state
+  ['submissions','votes','winnerPid','captions'].forEach(k => gameRef.child(`captionContest/${k}`).remove());
+
+  // Signal players
+  gameRef.child('captionContest').update({
+    phase: 'captioning',
+    round: roundIndex,
+    photoUrl,
+    instruction: round.instruction,
+    style: round.style,
+    timeLeft: 45,
+    totalPlayers: Object.keys(players).length,
+  });
+
+  document.getElementById('round-indicator').textContent = `Caption Contest — ${roundIndex + 1}/5`;
+
+  const div = document.createElement('div');
+  div.id = 'caption-round-screen';
+  div.style.cssText = 'position:fixed;top:108px;left:0;right:0;bottom:0;background:linear-gradient(135deg,var(--motd-dark-navy) 0%,var(--motd-navy) 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:10000;padding:40px;text-align:center;';
+  div.innerHTML = `
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:rgba(255,255,255,0.3);letter-spacing:3px;margin-bottom:24px;">
+      📸 CAPTION CONTEST &nbsp;—&nbsp; ${roundIndex + 1} / ${CAPTION_ROUNDS.length}
+    </div>
+    <div style="margin-bottom:24px;">
+      <img src="${photoUrl}" style="width:360px;height:270px;object-fit:cover;border-radius:16px;border:4px solid var(--motd-gold);box-shadow:0 0 40px rgba(255,198,41,0.4);">
+    </div>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:44px;color:var(--motd-gold);letter-spacing:2px;margin-bottom:16px;">
+      ${round.instruction}
+    </div>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:72px;color:#fff;line-height:1;" id="caption-timer-display">
+      :45
+    </div>
+    <div style="font-family:'Barlow',sans-serif;font-size:20px;color:rgba(255,255,255,0.4);margin-top:8px;" id="caption-submission-count">
+      Waiting for players…
+    </div>
+    <button onclick="advanceCaptionToReview(${roundIndex})"
+      style="margin-top:24px;padding:10px 28px;background:rgba(255,255,255,0.08);border:2px solid rgba(255,255,255,0.25);color:rgba(255,255,255,0.5);border-radius:10px;font-family:'Bebas Neue',sans-serif;font-size:18px;cursor:pointer;">
+      Skip to Review
+    </button>
+  `;
+  document.body.appendChild(div);
+
+  let timerStarted = false;
+
+  const startTimerAndMusic = () => {
+    if (timerStarted) return;
+    timerStarted = true;
+
+    let timeLeft = 45;
+    window._captionTimerInterval = setInterval(() => {
+      timeLeft--;
+      const el = document.getElementById('caption-timer-display');
+      if (el) el.textContent = `:${String(timeLeft).padStart(2, '0')}`;
+      gameRef.child('captionContest/timeLeft').set(timeLeft);
+      if (timeLeft <= 0) {
+        clearInterval(window._captionTimerInterval);
+        advanceCaptionToReview(roundIndex);
+      }
+    }, 1000);
+
+    // 45-second backing track (loop=false, falls back silently on missing file)
+    window._captionCurrentAudio = playAudio(`${musicFile}?v=1`, { volume: 0.4 });
+  };
+
+  // Watch submission count
+  const totalPlayers = Object.keys(players).length;
+  gameRef.child('captionContest/submissions').on('value', (snap) => {
+    const count = Object.values(snap.val() || {}).filter(s => s.submitted).length;
+    const el = document.getElementById('caption-submission-count');
+    if (el) el.textContent = `${count} / ${totalPlayers} submitted`;
+    if (count >= totalPlayers && timerStarted) {
+      clearInterval(window._captionTimerInterval);
+      gameRef.child('captionContest/submissions').off();
+      setTimeout(() => advanceCaptionToReview(roundIndex), 800);
+    }
+  });
+
+  // Play instruction audio then start timer; 8s fallback in case audio is missing
+  playAudio(`${round.audioFile}?v=1`, { volume: 0.8, onEnded: startTimerAndMusic });
+  setTimeout(startTimerAndMusic, 8000);
+}
+
+function advanceCaptionToReview(roundIndex) {
+  if (window._captionReviewStarted === roundIndex) return;
+  window._captionReviewStarted = roundIndex;
+
+  clearInterval(window._captionTimerInterval);
+  if (window._captionCurrentAudio) {
+    try { window._captionCurrentAudio.pause(); } catch (e) {}
+    window._captionCurrentAudio = null;
+  }
+  gameRef.child('captionContest/submissions').off();
+
+  const prev = document.getElementById('caption-round-screen');
+  if (prev) prev.remove();
+
+  gameRef.child('captionContest/submissions').once('value', (snap) => {
+    showCaptionReviewHost(roundIndex, snap.val() || {});
+  });
+}
+
+// ─── Review + caption reading ────────────────────────────────────────────────
+
+function showCaptionReviewHost(roundIndex, submissions) {
+  const round    = CAPTION_ROUNDS[roundIndex];
+  const photoUrl = window._captionPhotos[roundIndex] || window._captionPhotos[0];
+
+  const entries = Object.entries(submissions)
+    .filter(([, s]) => s.text || s.drawing)
+    .map(([pid, s]) => ({ pid, text: s.text || '', drawing: s.drawing || null, playerName: players[pid]?.name || 'Player' }))
+    .sort(() => Math.random() - 0.5);
+
+  window._captionReviewEntries     = entries;
+  window._captionCurrentEntryIndex = 0;
+
+  gameRef.child('captionContest').update({ phase: 'reviewing' });
+
+  const div = document.createElement('div');
+  div.id = 'caption-review-screen';
+  div.style.cssText = 'position:fixed;top:108px;left:0;right:0;bottom:0;background:linear-gradient(135deg,#0a0a14 0%,#0a1628 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:10000;padding:40px;text-align:center;overflow-y:auto;';
+  div.innerHTML = `
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:rgba(255,255,255,0.3);letter-spacing:3px;margin-bottom:24px;">
+      📸 CAPTION CONTEST &nbsp;—&nbsp; ${roundIndex + 1} / ${CAPTION_ROUNDS.length} &nbsp;— READING CAPTIONS
+    </div>
+    <div id="caption-mockup-container" style="margin-bottom:24px;"></div>
+    <div id="caption-reader-name" style="font-family:'Bebas Neue',sans-serif;font-size:28px;color:var(--motd-cyan);margin-bottom:6px;min-height:36px;"></div>
+    <div id="caption-reader-text" style="font-family:'Barlow',sans-serif;font-size:24px;color:#fff;max-width:800px;line-height:1.5;min-height:56px;"></div>
+    <div class="spinner" id="caption-reader-spinner" style="margin-top:20px;"></div>
+    <button id="caption-next-btn" onclick="showNextCaption(${roundIndex})"
+      style="display:none;margin-top:24px;padding:14px 40px;background:linear-gradient(135deg,#4dd4e8,#ffc629);color:#0a1628;border:none;border-radius:14px;font-family:'Bebas Neue',sans-serif;font-size:24px;cursor:pointer;">
+      Next Caption →
+    </button>
+    <button id="caption-vote-btn" onclick="startCaptionVoting(${roundIndex})"
+      style="display:none;margin-top:24px;padding:14px 40px;background:linear-gradient(135deg,#d4145a,#ffc629);color:#fff;border:none;border-radius:14px;font-family:'Bebas Neue',sans-serif;font-size:24px;cursor:pointer;">
+      Start Voting →
+    </button>
+  `;
+  document.body.appendChild(div);
+
+  renderCaptionMockup('caption-mockup-container', photoUrl, round.style, '');
+  readNextCaption(roundIndex);
+}
+
+function renderCaptionMockup(containerId, photoUrl, style, captionText) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  const txt = captionText ? captionText : '…';
+  let html = '';
+
+  if (style === 'sky') {
+    html = `
+      <div style="position:relative;width:680px;border-radius:8px;overflow:hidden;box-shadow:0 0 40px rgba(0,0,0,0.8);">
+        <img src="${photoUrl}" style="width:100%;height:380px;object-fit:cover;display:block;">
+        <div style="background:#CC0000;padding:10px 16px;display:flex;align-items:center;gap:12px;">
+          <div style="background:#001C58;color:#fff;font-weight:900;padding:6px 12px;font-size:13px;font-family:'Barlow Condensed',sans-serif;flex-shrink:0;letter-spacing:1px;">BREAKING</div>
+          <div style="font-family:'Barlow Condensed',sans-serif;color:#fff;font-size:20px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${txt}</div>
+        </div>
+        <div style="background:#001C58;padding:4px 16px;display:flex;justify-content:space-between;">
+          <div style="color:#fff;font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;letter-spacing:1px;">SKY SPORTS NEWS</div>
+          <div style="color:#ffcc00;font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;">HD</div>
+        </div>
+      </div>`;
+  } else if (style === 'instagram') {
+    html = `
+      <div style="background:#fff;width:380px;border-radius:4px;overflow:hidden;box-shadow:0 0 40px rgba(0,0,0,0.8);">
+        <div style="padding:12px;display:flex;align-items:center;gap:10px;border-bottom:1px solid #efefef;">
+          <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888);flex-shrink:0;"></div>
+          <div><div style="font-weight:700;font-size:13px;color:#000;font-family:sans-serif;">wcgqs_official</div></div>
+          <div style="margin-left:auto;font-size:18px;color:#000;">···</div>
+        </div>
+        <img src="${photoUrl}" style="width:100%;height:380px;object-fit:cover;display:block;">
+        <div style="padding:14px;">
+          <div style="display:flex;gap:14px;margin-bottom:8px;"><span style="font-size:22px;">❤️</span><span style="font-size:22px;">💬</span><span style="font-size:22px;">↗️</span></div>
+          <div style="font-size:13px;font-weight:700;color:#000;font-family:sans-serif;margin-bottom:4px;">1,204 likes</div>
+          <div style="font-size:13px;color:#000;font-family:sans-serif;"><b>wcgqs_official</b> ${txt}</div>
+        </div>
+      </div>`;
+  } else if (style === 'crowd') {
+    html = `
+      <div style="position:relative;border-radius:12px;overflow:hidden;box-shadow:0 0 40px rgba(0,0,0,0.8);">
+        <img src="${photoUrl}" style="width:680px;height:420px;object-fit:cover;display:block;">
+        <div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,0.65) 0%,transparent 55%);"></div>
+        <div style="position:absolute;bottom:0;left:0;right:0;padding:20px;text-align:center;">
+          <div style="display:inline-block;background:rgba(0,0,0,0.85);border:3px solid #ffd700;border-radius:8px;padding:12px 28px;">
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:34px;color:#ffd700;letter-spacing:3px;">🎵 ${txt} 🎵</div>
+          </div>
+        </div>
+      </div>`;
+  } else if (style === 'newspaper') {
+    html = `
+      <div style="background:#f5f0e8;width:640px;padding:24px;box-shadow:0 0 40px rgba(0,0,0,0.8);">
+        <div style="text-align:center;font-family:Georgia,serif;font-size:11px;color:#555;border-top:3px solid #000;border-bottom:1px solid #000;padding:4px 0;margin-bottom:4px;letter-spacing:2px;">THE WORLD CUP GAME QUIZ SHOW TIMES</div>
+        <div style="text-align:center;font-family:Georgia,serif;font-size:10px;color:#888;padding-bottom:10px;border-bottom:2px solid #000;margin-bottom:12px;">Vol. 1 No. 1 &nbsp;|&nbsp; ${new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})}</div>
+        <div style="font-family:Georgia,serif;font-size:36px;font-weight:900;color:#000;line-height:1.05;margin-bottom:14px;text-align:left;">${txt}</div>
+        <img src="${photoUrl}" style="width:100%;height:280px;object-fit:cover;display:block;filter:grayscale(60%) contrast(1.1);">
+      </div>`;
+  } else if (style === 'draw') {
+    html = `
+      <div style="position:relative;border-radius:12px;overflow:hidden;box-shadow:0 0 40px rgba(0,0,0,0.8);">
+        <img src="${photoUrl}" style="width:480px;height:360px;object-fit:cover;display:block;">
+        ${captionText ? `<img src="${captionText}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;">` : ''}
+        <div style="position:absolute;top:12px;left:12px;background:rgba(0,0,0,0.7);color:var(--motd-gold);font-family:'Bebas Neue',sans-serif;font-size:18px;padding:6px 12px;border-radius:6px;">DRAWING</div>
+      </div>`;
+  }
+
+  container.innerHTML = html;
+}
+
+async function readNextCaption(roundIndex) {
+  const entries = window._captionReviewEntries || [];
+  const index   = window._captionCurrentEntryIndex;
+
+  const spinner = document.getElementById('caption-reader-spinner');
+  const nextBtn = document.getElementById('caption-next-btn');
+  const voteBtn = document.getElementById('caption-vote-btn');
+
+  if (index >= entries.length) {
+    if (spinner) spinner.style.display = 'none';
+    if (nextBtn) nextBtn.style.display = 'none';
+    if (voteBtn) voteBtn.style.display = 'inline-block';
+    return;
+  }
+
+  const entry    = entries[index];
+  const round    = CAPTION_ROUNDS[roundIndex];
+  const photoUrl = window._captionPhotos[roundIndex] || window._captionPhotos[0];
+
+  // For draw round, captionText is the drawing data URL; for others it's the text
+  const mockupCaption = round.style === 'draw' ? (entry.drawing || '') : entry.text;
+  renderCaptionMockup('caption-mockup-container', photoUrl, round.style, mockupCaption);
+
+  const nameEl = document.getElementById('caption-reader-name');
+  const textEl = document.getElementById('caption-reader-text');
+  if (nameEl) nameEl.textContent = entry.playerName;
+  if (textEl) textEl.textContent = round.style === 'draw' ? '✏️ Drawing' : entry.text;
+  if (spinner) spinner.style.display = 'block';
+  if (nextBtn) nextBtn.style.display = 'none';
+
+  // Read text captions via ElevenLabs
+  if (entry.text && round.style !== 'draw') {
+    await playCaptionReading(entry.playerName, entry.text);
+  } else {
+    await new Promise(r => setTimeout(r, 2000));
+  }
+
+  if (spinner) spinner.style.display = 'none';
+  if (index < entries.length - 1) {
+    if (nextBtn) nextBtn.style.display = 'inline-block';
+  } else {
+    if (voteBtn) voteBtn.style.display = 'inline-block';
+  }
+}
+
+function showNextCaption(roundIndex) {
+  window._captionCurrentEntryIndex++;
+  const nextBtn = document.getElementById('caption-next-btn');
+  if (nextBtn) nextBtn.style.display = 'none';
+  readNextCaption(roundIndex);
+}
+
+function playCaptionReading(playerName, captionText) {
+  const ELEVENLABS_API_KEY = 'sk_eb4900ceb7e4366087590c2b906743504ba8c844524ddcc4';
+  const VOICE_ID = 'rfkTsdZrVWEVhDycUYn9';
+  const text = `${playerName} says… "${captionText}"`;
+
+  return new Promise((resolve) => {
+    fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`, {
+      method: 'POST',
+      headers: { 'Accept': 'audio/mpeg', 'Content-Type': 'application/json', 'xi-api-key': ELEVENLABS_API_KEY },
+      body: JSON.stringify({ text, model_id: 'eleven_monolingual_v1', voice_settings: { stability: 0.5, similarity_boost: 0.75, style: 0.0, use_speaker_boost: true } })
+    })
+      .then(r => r.blob())
+      .then(blob => {
+        const audio = new Audio(URL.createObjectURL(blob));
+        audio.volume = 0.85;
+        audio.onended = resolve;
+        audio.play().catch(() => resolve());
+      })
+      .catch(() => setTimeout(resolve, 1500));
+  });
+}
+
+// ─── Voting phase ─────────────────────────────────────────────────────────────
+
+function startCaptionVoting(roundIndex) {
+  const prev = document.getElementById('caption-review-screen');
+  if (prev) prev.remove();
+
+  const entries = window._captionReviewEntries || [];
+  const captionsObj = Object.fromEntries(entries.map(e => [e.pid, { text: e.text, drawing: e.drawing }]));
+
+  gameRef.child('captionContest').update({
+    phase: 'voting',
+    round: roundIndex,
+    captions: captionsObj,
+  });
+
+  const photoUrl = window._captionPhotos[roundIndex] || window._captionPhotos[0];
+  const round    = CAPTION_ROUNDS[roundIndex];
+
+  const div = document.createElement('div');
+  div.id = 'caption-voting-screen';
+  div.style.cssText = 'position:fixed;top:108px;left:0;right:0;bottom:0;background:linear-gradient(135deg,var(--motd-dark-navy) 0%,var(--motd-navy) 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:10000;padding:40px;text-align:center;';
+  div.innerHTML = `
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:rgba(255,255,255,0.3);letter-spacing:3px;margin-bottom:24px;">
+      📸 CAPTION CONTEST &nbsp;—&nbsp; VOTE!
+    </div>
+    <div id="caption-vote-mockup" style="margin-bottom:24px;"></div>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:40px;color:var(--motd-gold);">📱 Players are voting…</div>
+    <div id="caption-vote-count" style="font-family:'Barlow',sans-serif;font-size:20px;color:rgba(255,255,255,0.5);margin-top:8px;">
+      0 / ${Object.keys(players).length} votes
+    </div>
+    <div class="spinner" style="margin-top:30px;"></div>
+    <button onclick="forceAdvanceCaptionWinner(${roundIndex})"
+      style="margin-top:24px;padding:10px 28px;background:rgba(255,255,255,0.08);border:2px solid rgba(255,255,255,0.25);color:rgba(255,255,255,0.5);border-radius:10px;font-family:'Bebas Neue',sans-serif;font-size:18px;cursor:pointer;">
+      Skip Voting
+    </button>
+  `;
+  document.body.appendChild(div);
+
+  renderCaptionMockup('caption-vote-mockup', photoUrl, round.style, '');
+
+  const totalPlayers = Object.keys(players).length;
+  gameRef.child('captionContest/votes').on('value', (snap) => {
+    const votes = snap.val() || {};
+    const count = Object.keys(votes).length;
+    const el = document.getElementById('caption-vote-count');
+    if (el) el.textContent = `${count} / ${totalPlayers} votes`;
+    if (count >= totalPlayers) {
+      gameRef.child('captionContest/votes').off();
+      showCaptionWinner(roundIndex, votes);
+    }
+  });
+}
+
+function forceAdvanceCaptionWinner(roundIndex) {
+  gameRef.child('captionContest/votes').off();
+  gameRef.child('captionContest/votes').once('value', (snap) => {
+    showCaptionWinner(roundIndex, snap.val() || {});
+  });
+}
+
+function showCaptionWinner(roundIndex, votes) {
+  const div = document.getElementById('caption-voting-screen');
+  if (div) div.remove();
+
+  // Tally
+  const tally = {};
+  Object.values(votes).forEach(pid => { tally[pid] = (tally[pid] || 0) + 1; });
+  const winnerPid = Object.entries(tally).sort((a, b) => b[1] - a[1])[0]?.[0];
+  const entries   = window._captionReviewEntries || [];
+  const winner    = entries.find(e => e.pid === winnerPid) || entries[0];
+
+  if (!winner) { moveToNextCaptionRound(roundIndex); return; }
+
+  const photoUrl = window._captionPhotos[roundIndex] || window._captionPhotos[0];
+  const round    = CAPTION_ROUNDS[roundIndex];
+  const mockupCaption = round.style === 'draw' ? (winner.drawing || '') : winner.text;
+
+  gameRef.child('captionContest').update({ phase: 'winner', winnerPid: winner.pid, winnerName: winner.playerName });
+
+  const winDiv = document.createElement('div');
+  winDiv.id = 'caption-winner-screen';
+  winDiv.style.cssText = 'position:fixed;top:108px;left:0;right:0;bottom:0;background:linear-gradient(135deg,#0a0a14 0%,#1a1a2e 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:10000;padding:40px;text-align:center;';
+  winDiv.innerHTML = `
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;color:var(--motd-gold);letter-spacing:4px;margin-bottom:16px;">🏆 THE CROWD VOTES FOR…</div>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:80px;color:#fff;line-height:1;margin-bottom:20px;">${winner.playerName}</div>
+    <div id="caption-winner-mockup" style="margin-bottom:20px;"></div>
+    ${winner.text && round.style !== 'draw' ? `<div style="font-family:'Barlow',sans-serif;font-size:22px;color:var(--motd-cyan);max-width:700px;font-style:italic;">"${winner.text}"</div>` : ''}
+  `;
+  document.body.appendChild(winDiv);
+
+  renderCaptionMockup('caption-winner-mockup', photoUrl, round.style, mockupCaption);
+
+  // Rotating accept sounds (accept_1 through accept_10)
+  const acceptIdx = (roundIndex % 10) + 1;
+  playAudio(`accept_${acceptIdx}.mp3?v=1`, { volume: 0.8 });
+
+  setTimeout(() => { winDiv.remove(); moveToNextCaptionRound(roundIndex); }, 5000);
+}
+
+function moveToNextCaptionRound(roundIndex) {
+  window._captionReviewStarted = -1;
+  if (roundIndex + 1 >= CAPTION_ROUNDS.length) {
+    gameRef.child('captionContest').remove();
+    showExtraTimeScreen();
+  } else {
+    startCaptionRound(roundIndex + 1);
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
