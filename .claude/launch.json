@@ -4,7 +4,7 @@
     {
       "name": "Game Server",
       "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "http.server", "8080"],
+      "runtimeArgs": ["/Users/jordan.kennard/Documents/world-cup-game-quiz-show/serve.py"],
       "port": 8080
     }
   ]

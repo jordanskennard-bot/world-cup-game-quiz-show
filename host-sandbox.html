@@ -6289,7 +6289,7 @@ async function readNextCaption(roundIndex) {
 
   // Read text captions via ElevenLabs
   if (entry.text && round.style !== 'draw') {
-    await playCaptionReading(entry.playerName, entry.text);
+    await playCaptionReading(entry.playerName, entry.text, index);
   } else {
     await new Promise(r => setTimeout(r, 2000));
   }
@@ -6366,10 +6366,23 @@ function playCaptionIntro() {
   });
 }
 
-function playCaptionReading(playerName, captionText) {
+function playCaptionReading(playerName, captionText, index = 0) {
   const ELEVENLABS_API_KEY = 'sk_eb4900ceb7e4366087590c2b906743504ba8c844524ddcc4';
   const VOICE_ID = 'rfkTsdZrVWEVhDycUYn9';
-  const text = `"${captionText}"`;
+
+  const subsequentPrefixes = [
+    'And then...',
+    'Next up, we have...',
+    'Ooh, how about this one...',
+    'This one\'s interesting...',
+    'Moving on...',
+    'And this one...',
+  ];
+  const prefix = index === 0
+    ? 'The first caption we have is...'
+    : subsequentPrefixes[(index - 1) % subsequentPrefixes.length];
+
+  const text = `${prefix} "${captionText}"`;
 
   return new Promise((resolve) => {
     fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`, {
