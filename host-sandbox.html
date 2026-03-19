@@ -2473,10 +2473,10 @@ async function generateIntroVoiceDirectly() {
 function startGamePlay() {
   document.getElementById('lobby-screen').classList.add('hidden');
 
-  // ── SANDBOX: skip straight to Blow Ball ──
+  // ── SANDBOX: start from Toilet Paper Alert ──
   // Write started:true so player 1's pause button appears
   gameRef.update({ started: true });
-  startBlowBall();
+  showToiletPaperAlert();
   // ─────────────────────────────────────────
 }
 
