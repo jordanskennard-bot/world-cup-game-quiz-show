@@ -1856,9 +1856,7 @@ function showSabotageTask(sabotageData) {
       <div style="font-family: 'Barlow', sans-serif; font-size: 17px; color: rgba(255,255,255,0.9); margin-bottom: 18px; line-height: 1.6;">
         ${sabotageData.description}
       </div>
-      <div style="font-family: 'Barlow', sans-serif; font-size: 15px; color: rgba(255,255,255,0.65); margin-bottom: 20px; font-style: italic;">
-        ${sabotageData.pointsDisplay || sabotageData.pointsPerPiece + ' point per piece'} — don't get caught!
-      </div>
+      ${(sabotageData.pointsDisplay || sabotageData.pointsPerPiece) ? `<div style="font-family: 'Barlow', sans-serif; font-size: 15px; color: rgba(255,255,255,0.65); margin-bottom: 20px; font-style: italic;">${sabotageData.pointsDisplay || sabotageData.pointsPerPiece + ' point per piece'} — don't get caught!</div>` : ''}
       <button id="sabotage-understood-btn" onclick="acknowledgeSabotage()"
               style="width: 100%; padding: 15px; background: linear-gradient(135deg, #4dd4e8, #ffc629); color: #0a1628; border: none; border-radius: 12px; font-family: 'Bebas Neue', sans-serif; font-size: 24px; cursor: default; box-shadow: 0 8px 20px rgba(77,212,232,0.4); -webkit-tap-highlight-color: transparent; opacity: 0.4;"
               disabled>
@@ -1897,9 +1895,7 @@ function createStandaloneSabotageDisplay(sabotageData) {
       <div style="font-family: 'Barlow', sans-serif; font-size: 17px; color: rgba(255,255,255,0.9); margin-bottom: 18px; line-height: 1.6;">
         ${sabotageData.description}
       </div>
-      <div style="font-family: 'Barlow', sans-serif; font-size: 15px; color: rgba(255,255,255,0.65); margin-bottom: 24px; font-style: italic;">
-        ${sabotageData.pointsDisplay || sabotageData.pointsPerPiece + ' point per piece'}!
-      </div>
+      ${(sabotageData.pointsDisplay || sabotageData.pointsPerPiece) ? `<div style="font-family: 'Barlow', sans-serif; font-size: 15px; color: rgba(255,255,255,0.65); margin-bottom: 24px; font-style: italic;">${sabotageData.pointsDisplay || sabotageData.pointsPerPiece + ' point per piece'}!</div>` : ''}
       <button id="sabotage-understood-btn" onclick="acknowledgeSabotage()"
               style="width: 100%; padding: 15px; background: linear-gradient(135deg, #4dd4e8, #ffc629); color: #0a1628; border: none; border-radius: 12px; font-family: 'Bebas Neue', sans-serif; font-size: 24px; cursor: default; -webkit-tap-highlight-color: transparent; opacity: 0.4;"
               disabled>

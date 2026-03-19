@@ -2322,7 +2322,9 @@ function updatePlayersList() {
       <div class="player-card ${teamClass}" style="${player.isCaptain ? 'border:2px solid #ffc629;box-shadow:0 0 12px rgba(255,198,41,0.4);' : ''}">
         ${captainBadge}
         ${teamFlag ? `<div class="player-team-badge">${teamFlag}</div>` : ''}
-        <div class="player-avatar">${player.name.charAt(0).toUpperCase()}</div>
+        ${player.photo
+          ? `<img src="${player.photo}" class="player-avatar" style="object-fit:cover;">`
+          : `<div class="player-avatar">${player.name.charAt(0).toUpperCase()}</div>`}
         <div class="player-name">${player.name}</div>
       </div>
     `;
@@ -5314,15 +5316,12 @@ function assignSabotageTasks() {
     {
       id: 'take_a_dive',
       name: 'Take a Dive',
-      description: 'Convince somebody that you were pushed over. No points if they don\'t believe you, 20 points if you succeed. Tell no one.',
-      pointsPerPiece: 20
+      description: 'Convince somebody that you were pushed over. No points if they don\'t believe you, 20 points if you succeed. Tell no one.'
     },
     {
       id: 'golden_boot',
       name: 'Golden Boot',
       description: 'Kick someone.',
-      pointsPerPiece: 50,
-      pointsDisplay: '??',
       autoAward: true
     }
   ];
