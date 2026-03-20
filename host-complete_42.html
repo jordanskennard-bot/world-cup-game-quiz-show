@@ -56,7 +56,7 @@
     flex-direction: column;
     padding-top: 108px; /* actual header height: ~12px padding + ~84px content (code-label + code-value) + 12px padding + 3px border */
   }
-
+  
   /* HEADER — fixed so it persists above all game overlays */
   .host-header {
     position: fixed;
@@ -72,7 +72,7 @@
     align-items: center;
     box-shadow: 0 4px 30px rgba(77,212,232,0.2);
   }
-
+  
   .game-title {
     font-family: 'Bebas Neue', sans-serif;
     font-size: 32px;
@@ -110,7 +110,7 @@
     color: var(--motd-cyan);
     text-shadow: 0 0 20px rgba(77,212,232,0.6);
   }
-
+  
   .round-indicator {
     background: var(--motd-magenta);
     padding: 6px 16px;
@@ -1138,6 +1138,7 @@
       </button>
     </div>
 
+
     <!-- CODE GATE OVERLAY -->
     <div id="code-gate" style="
         position: fixed; inset: 0; z-index: 9999;
@@ -1237,7 +1238,7 @@
       
       <a class="join-url" id="join-url" href="#" target="_blank" style="color: inherit; text-decoration: underline; text-underline-offset: 3px; cursor: pointer;">Loading...</a>
 
-      <button id="audio-unlock-btn-inline" onclick="unlockAudio()" style="display:none; margin: 18px auto 0; padding: 14px 36px; background: linear-gradient(135deg, #ffc629, #f39c12); color: #0a1628; border: none; border-radius: 10px; font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 2px; cursor: pointer; box-shadow: 0 4px 16px rgba(255,198,41,0.7);">
+      <button id="audio-unlock-btn-inline" onclick="unlockAudio()" style="display:block; margin: 18px auto 0; padding: 14px 36px; background: linear-gradient(135deg, #ffc629, #f39c12); color: #0a1628; border: none; border-radius: 10px; font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 2px; cursor: pointer; box-shadow: 0 4px 16px rgba(255,198,41,0.7);">
         🔊 Warm Up
       </button>
 
@@ -1796,10 +1797,6 @@ if (headerQrImg) {
 console.log('Player URL:', playerUrl);
 console.log('Attempting to generate QR code...');
 
-// Create persistent draggable QR overlay
-createPersistentQRCode();
-createPauseButton();
-
 // Generate QR code - wait for library to load
 setTimeout(() => {
   const qrDiv = document.getElementById('qr-code');
@@ -2102,9 +2099,16 @@ function showRound1Explainer() {
   round1Audio.play()
     .then(() => console.log('🔊 Playing round_1_intro'))
     .catch(err => {
-      console.error('round_1_intro play failed:', err);
-      // If audio can't play at all, unblock the start button immediately
-      gameRef.update({ round1IntroReady: true });
+      if (err.name === 'NotAllowedError') {
+        console.log('⚠️ round_1_intro blocked — queued for unlock');
+        window._audioQueue = window._audioQueue || [];
+        window._audioQueue.push({ audio: round1Audio, options: {}, release: () => {} });
+        showAudioUnlockButton();
+      } else {
+        console.error('round_1_intro play failed:', err);
+        // If audio can't play at all, unblock the start button immediately
+        gameRef.update({ round1IntroReady: true });
+      }
     });
 
   // Unlock the start button on players' phones when audio finishes
@@ -2159,6 +2163,8 @@ gameRef.child('players').on('value', (snapshot) => {
   const playerCount = Object.keys(players).length;
   if (playerCount === 1 && !window.introMusicReady) {
     console.log('🎵 First player connected - music ready to play on interaction');
+    // Prompt host to unlock audio now (before team selection triggers any audio)
+    if (!window._audioUnlocked) showAudioUnlockButton();
     // Create intro music but don't play yet
     window.introMusicAudio = new Audio('intro_music.mp3?v=2');
     window.introMusicAudio.loop = true;
@@ -2405,7 +2411,9 @@ function updatePlayersList() {
       <div class="player-card ${teamClass}" style="${player.isCaptain ? 'border:2px solid #ffc629;box-shadow:0 0 12px rgba(255,198,41,0.4);' : ''}">
         ${captainBadge}
         ${teamFlag ? `<div class="player-team-badge">${teamFlag}</div>` : ''}
-        <div class="player-avatar">${player.name.charAt(0).toUpperCase()}</div>
+        ${player.photo
+          ? `<img src="${player.photo}" class="player-avatar" style="object-fit:cover;">`
+          : `<div class="player-avatar">${player.name.charAt(0).toUpperCase()}</div>`}
         <div class="player-name">${player.name}</div>
       </div>
     `;
@@ -2464,7 +2472,7 @@ function updateScoreboard() {
 // ═══════════════════════════════════════════════════════════════════════════
 
 async function generateIntroVoiceDirectly() {
-  const text = `Thanks Clyde... it's looking like an interesting game. We've got ${team1.name} up against ${team2.name}! Certainly one to watch! (given you're already here).`;
+  const text = `Thanks Clyde!... It's looking like an interesting game.. We've got ${team1.name} up against ${team2.name}! Certainly one to watch! (given you're already here).`;
   
   console.log('🎙️ Generating intro voice:', text);
   
@@ -2505,12 +2513,9 @@ async function generateIntroVoiceDirectly() {
     const audioUrl = URL.createObjectURL(audioBlob);
     window._introVoiceAudio = new Audio(audioUrl);
 
-    // Play the generated voice
-    await window._introVoiceAudio.play();
-    console.log('🔊 Playing intro voice');
-
-    // Wait for audio to finish, then show explainer
-    window._introVoiceAudio.addEventListener('ended', () => {
+    // Play the generated voice (may be blocked until host clicks Enable Audio)
+    const voiceAudio = window._introVoiceAudio;
+    voiceAudio.addEventListener('ended', () => {
       window._introVoiceAudio = null;
       if (!explainerShown) {
         console.log('✅ Intro voice finished, showing explainer');
@@ -2518,8 +2523,24 @@ async function generateIntroVoiceDirectly() {
         showRound1Explainer();
       }
     });
-    
-    // Fallback if audio doesn't play
+
+    voiceAudio.play()
+      .then(() => console.log('🔊 Playing intro voice'))
+      .catch(err => {
+        if (err.name === 'NotAllowedError') {
+          console.log('⚠️ Intro voice blocked — queued for unlock');
+          window._audioQueue = window._audioQueue || [];
+          window._audioQueue.push({ audio: voiceAudio, options: {}, release: () => {} });
+          showAudioUnlockButton();
+        } else {
+          console.error('❌ ElevenLabs error:', err);
+          if (!explainerShown) {
+            setTimeout(() => { explainerShown = true; showRound1Explainer(); }, 2000);
+          }
+        }
+      });
+
+    // Fallback if audio doesn't play or unlock never happens
     setTimeout(() => {
       if (!explainerShown && (!window._introVoiceAudio || window._introVoiceAudio.paused)) {
         console.log('⚠️ Audio not playing, showing explainer anyway');
@@ -2542,14 +2563,12 @@ async function generateIntroVoiceDirectly() {
 
 function startGamePlay() {
   document.getElementById('lobby-screen').classList.add('hidden');
-  document.getElementById('game-screen').classList.add('active');
-  document.getElementById('round-indicator').textContent = 'Round 1';
-  
-  gameRef.update({ started: true, round: 1, currentQuestion: 0 });
-  loadQuestion(0);
-  
-  // Schedule sabotage buttons at random times
-  scheduleSabotageButtons();
+
+  // ── SANDBOX: start from Toilet Paper Alert ──
+  // Write started:true so player 1's pause button appears
+  gameRef.update({ started: true });
+  showToiletPaperAlert();
+  // ─────────────────────────────────────────
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -2809,6 +2828,16 @@ function showScoresReview() {
     if (player.team === 2) team2Score += (player.score || 0);
   });
   
+  // Determine which round this scores review is for, so commentary references the right next round
+  const _src = window.scoresReviewSource || 'round1';
+  const nextRoundName = {
+    'round1':      'round two',
+    'round2':      'round three',
+    'interview':   'the match draw',
+    'matchdraw':   'the final',
+    'toiletpaper': 'full time',
+  }[_src] || 'the next round';
+
   // Determine leader — pick a random comment from a pool for variety
   const pick = arr => arr[Math.floor(Math.random() * arr.length)];
   let leadText = '';
@@ -2816,7 +2845,7 @@ function showScoresReview() {
     leadText = pick([
       `${team1.name} took an early lead there with ${team1Score} points, meanwhile ${team2.name} are trailing with ${team2Score} points`,
       `${team1.name} are out in front with ${team1Score} points! ${team2.name} will need to pull something out of the bag — they're on ${team2Score}`,
-      `It's looking good for ${team1.name}, they're ahead on ${team1Score} points. ${team2.name} on ${team2Score} will have to fight back in round two`,
+      `It's looking good for ${team1.name}, they're ahead on ${team1Score} points. ${team2.name} on ${team2Score} will have to fight back in ${nextRoundName}`,
       `${team1.name} have the edge — ${team1Score} points to ${team2.name}'s ${team2Score}. Can the gap be closed?`,
     ]);
   } else if (team2Score > team1Score) {
@@ -2824,19 +2853,18 @@ function showScoresReview() {
       `${team2.name} took an early lead there with ${team2Score} points, meanwhile ${team1.name} are trailing with ${team1Score} points`,
       `${team2.name} are looking very comfortable up top with ${team2Score} points. ${team1.name} are on ${team1Score} and will need to pick things up`,
       `It's ${team2.name} in the driving seat on ${team2Score} points. ${team1.name} are chasing on ${team1Score}`,
-      `${team2.name} have taken control — ${team2Score} points to ${team1.name}'s ${team1Score}. What a turnaround it would be if ${team1.name} can claw it back`,
+      `${team2.name} have taken control — ${team2Score} points to ${team1.name}'s ${team1Score}. What a turnaround it would be if ${team1.name} can claw it back in ${nextRoundName}`,
     ]);
   } else {
     leadText = pick([
       `It's all square! Both teams on ${team1Score} points. This is going to be close!`,
       `Absolutely level! ${team1Score} points each — everything still to play for`,
-      `You couldn't separate them! Level at ${team1Score} apiece. The second round could decide everything`,
+      `You couldn't separate them! Level at ${team1Score} apiece. ${nextRoundName.charAt(0).toUpperCase() + nextRoundName.slice(1)} could decide everything`,
       `It's a draw! ${team1Score} points each. This one is far from over`,
     ]);
   }
   
-  // Dynamic heading based on which scores review this is
-  const _src = window.scoresReviewSource || 'round1';
+  // Dynamic heading based on which scores review this is (_src already set above)
   const scoresHeading = {
     'round1':     'After Round 1',
     'round2':     'After Round 2',
@@ -2890,11 +2918,31 @@ function showScoresReview() {
   
   // AUDIO SEQUENCE — branches on whether this is the final scores review (after Blow Ball)
   let commentaryTriggered = false;
-  const triggerCommentary = () => {
-    if (!commentaryTriggered) {
-      commentaryTriggered = true;
+  const triggerCommentary = (skipGenericReaction = false) => {
+    if (commentaryTriggered) return;
+    commentaryTriggered = true;
+
+    if (skipGenericReaction) {
+      // Final scores — go straight to ElevenLabs (final_scores_intro already played)
       generateScoresCommentary(leadText, team1Score, team2Score);
+      return;
     }
+
+    // 1. Play generic scores_reaction file BEFORE ElevenLabs
+    const genericFile = getGenericReactionFile();
+    console.log(`🎵 Playing generic reaction: ${genericFile}`);
+    const genericAudio = new Audio(`${genericFile}?v=2`);
+    genericAudio.volume = 0.6;
+    let genericDone = false;
+    const onGenericDone = () => {
+      if (genericDone) return;
+      genericDone = true;
+      // 2. Now generate + play ElevenLabs commentary
+      generateScoresCommentary(leadText, team1Score, team2Score);
+    };
+    genericAudio.addEventListener('ended', onGenericDone);
+    genericAudio.play().catch(() => onGenericDone());
+    setTimeout(onGenericDone, 8000); // fallback
   };
 
   const isFinalScores = window.scoresReviewSource === 'toiletpaper';
@@ -2914,14 +2962,14 @@ function showScoresReview() {
       finalIntroAudio.volume = 0.6;
       finalIntroAudio.addEventListener('ended', () => {
         console.log('✅ final_scores_intro finished, generating commentary');
-        triggerCommentary();
+        triggerCommentary(true); // skip generic reaction for final scores
       });
       finalIntroAudio.play().catch(() => {
         console.warn('⚠️ final_scores_intro failed, triggering commentary');
-        triggerCommentary();
+        triggerCommentary(true);
       });
       // Fallback if final_scores_intro is silent/missing
-      setTimeout(triggerCommentary, 10000);
+      setTimeout(() => triggerCommentary(true), 10000);
     };
 
     whistleAudio.addEventListener('ended', playFinalIntro);
@@ -2962,7 +3010,7 @@ async function generateScoresCommentary(leadText, team1Score, team2Score) {
   
   if (!commentaryDiv) {
     console.error('❌ Commentary div not found, skipping');
-    setTimeout(() => { playScoresReaction(team1Score, team2Score); }, 1000);
+    setTimeout(() => { playContextualReaction(team1Score, team2Score); }, 1000);
     return;
   }
   
@@ -3006,13 +3054,13 @@ async function generateScoresCommentary(leadText, team1Score, team2Score) {
 
     let routeTriggered = false;
 
-    // 3. When commentary finishes, move on
+    // 3. When commentary finishes, play contextual reaction
     window._commentaryAudio.addEventListener('ended', () => {
       window._commentaryAudio = null;
       if (!routeTriggered) {
         routeTriggered = true;
-        console.log('✅ Commentary finished, playing scores reaction');
-        playScoresReaction(team1Score, team2Score);
+        console.log('✅ Commentary finished, playing contextual scores reaction');
+        playContextualReaction(team1Score, team2Score);
       }
     });
 
@@ -3021,8 +3069,8 @@ async function generateScoresCommentary(leadText, team1Score, team2Score) {
     setTimeout(() => {
       if (!routeTriggered && _ca && !_ca.ended && _ca.paused) {
         routeTriggered = true;
-        console.log('⚠️ Commentary audio not playing, playing scores reaction anyway');
-        playScoresReaction(team1Score, team2Score);
+        console.log('⚠️ Commentary audio not playing, playing contextual reaction anyway');
+        playContextualReaction(team1Score, team2Score);
       }
     }, 15000);
 
@@ -3030,11 +3078,42 @@ async function generateScoresCommentary(leadText, team1Score, team2Score) {
     console.error('❌ ElevenLabs error:', error);
     commentaryDiv.textContent = `"Well Clyde, ${leadText}"`;
 
-    // Skip to next round even if commentary fails — still play reaction
+    // Skip to next round even if commentary fails — still play contextual reaction
     setTimeout(() => {
-      playScoresReaction(team1Score, team2Score);
+      playContextualReaction(team1Score, team2Score);
     }, 3000);
   }
+}
+
+function playContextualReaction(team1Score, team2Score) {
+  // Post-ElevenLabs: play a context-aware reaction (struggling/close/slight_lead/etc.)
+  const reactionFile = getContextualReactionFile(team1Score, team2Score);
+  console.log(`🎵 Playing contextual reaction ${reactionFile} (scores: ${team1Score} vs ${team2Score})`);
+
+  const reactionAudio = new Audio(`${reactionFile}?v=2`);
+  reactionAudio.volume = 0.6;
+  reactionAudio.play()
+    .then(() => console.log('🔊 Playing contextual scores reaction'))
+    .catch(err => console.error('contextual_reaction play failed:', err));
+
+  let reactionEnded = false;
+
+  reactionAudio.addEventListener('ended', () => {
+    if (!reactionEnded) {
+      reactionEnded = true;
+      console.log('✅ Contextual reaction finished');
+      routeAfterScoresReview();
+    }
+  });
+
+  // Fallback
+  setTimeout(() => {
+    if (!reactionEnded && (reactionAudio.paused || reactionAudio.currentTime === 0)) {
+      reactionEnded = true;
+      console.log('⚠️ Contextual reaction timeout, routing anyway');
+      routeAfterScoresReview();
+    }
+  }, 12000);
 }
 
 function playScoresReaction(team1Score, team2Score) {
@@ -3096,7 +3175,7 @@ function routeAfterScoresReview() {
     case 'interview':   checkForMatchDraw();       break; // → Match Draw
     case 'matchdraw':   startCommentaryRound();    break;
     case 'commentary':  showToiletPaperAlert();    break;
-    case 'toiletpaper': showExtraTimeScreen();      break; // → Extra Time → Sabotage Reveals
+    case 'toiletpaper': showExtraTimeScreen(); break; // → Extra Time → Sabotage Reveals
     default:            startRound2();
   }
 }
@@ -3144,7 +3223,7 @@ function showRound2Explainer() {
         Turn footballer names into puns on a given theme!
       </p>
       <p style="font-family: 'Barlow', sans-serif; font-size: 24px; color: var(--text-muted); line-height: 1.6;">
-        You have 30 seconds. Be creative!
+        You have 60 seconds. Be creative!
       </p>
     </div>
     
@@ -3208,34 +3287,52 @@ function startRound2Gameplay() {
   document.getElementById('round2-screen').classList.add('active');
   document.getElementById('round-indicator').textContent = 'Round 2 - Punned It';
   
-  // Pick random category
-  const category = ROUND_2_CATEGORIES[Math.floor(Math.random() * ROUND_2_CATEGORIES.length)];
-  document.getElementById('pun-category').textContent = category;
-  
+  // Assign each player a unique random category (shuffle categories, cycle if more players than categories)
+  const shuffledCats = [...ROUND_2_CATEGORIES].sort(() => Math.random() - 0.5);
+  const playerIds = Object.keys(players);
+  const playerCategoryUpdates = {};
+  playerIds.forEach((pid, i) => {
+    const cat = shuffledCats[i % shuffledCats.length];
+    playerCategoryUpdates[`players/${pid}/punCategory`] = cat;
+  });
+  gameRef.update(playerCategoryUpdates);
+
+  // Host screen shows "Multiple Categories" (players each have their own)
+  const category = shuffledCats[0]; // fallback for host display / legacy field
+  document.getElementById('pun-category').textContent = 'See your phone!';
+
   // Reset timer
-  round2TimeLeft = 30;
+  round2TimeLeft = 60;
   document.getElementById('countdown-timer').textContent = round2TimeLeft;
-  
+
   // Show submission count instead of actual puns
   document.getElementById('puns-submitted').innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-muted);">Waiting for players to submit puns...</div>';
-  
-  // Play round_2_music during gameplay
+
+  // Play round_2_music during gameplay — play twice (no loop)
   console.log('🎵 Playing round_2_music.mp3');
   const round2Music = new Audio('round_2_music.mp3?v=2');
-  round2Music.loop = true;
+  round2Music.loop = false;
   round2Music.volume = 0.4;
+  let _round2MusicPlays = 0;
+  round2Music.addEventListener('ended', () => {
+    _round2MusicPlays++;
+    if (_round2MusicPlays < 2 && window.round2MusicAudio) {
+      window.round2MusicAudio.currentTime = 0;
+      window.round2MusicAudio.play().catch(() => {});
+    }
+  });
   round2Music.play()
     .then(() => console.log('🔊 Playing round_2_music'))
     .catch(err => console.error('round_2_music play failed:', err));
   window.round2MusicAudio = round2Music;
-  
+
   // Update Firebase
   gameRef.child('round2').remove();
   gameRef.update({
     round: 2,
     round2Category: category,
     round2Active: true,
-    round2TimeLeft: 30,
+    round2TimeLeft: 60,
     round2TimeUp: false,
     crackedOn: false
   });
@@ -3410,23 +3507,26 @@ let currentPunIndex = 0;
 
 function startPunReview() {
   console.log('📝 Starting pun review');
-  
+  window._punAcceptCounts = {}; // reset champion tracking
+
   // Hide Round 2 screen
   document.getElementById('round2-screen').classList.remove('active');
-  
+
   // Collect all puns
   gameRef.child('round2/puns').once('value', (snapshot) => {
     const punsData = snapshot.val() || {};
     allPuns = [];
     
-    // Flatten all puns into array
+    // Flatten all puns into array (include the player's category)
     Object.entries(punsData).forEach(([playerId, playerPuns]) => {
       const player = players[playerId];
+      const playerCategory = player?.punCategory || null;
       Object.values(playerPuns).forEach((pun) => {
         allPuns.push({
           playerId: playerId,
           playerName: player ? player.name : 'Unknown',
-          pun: pun
+          pun: pun,
+          category: playerCategory
         });
       });
     });
@@ -3492,14 +3592,24 @@ function showPunReviewIntro() {
 
 async function reviewNextPun() {
   if (currentPunIndex >= allPuns.length) {
-    // All puns reviewed → show Scores Review #2 before Match Draw
+    // All puns reviewed → show Pun Champion then Scores Review #2
     console.log('✅ All puns reviewed, showing Scores Review #2');
     const reviewScreen = document.getElementById('pun-review-screen');
     if (reviewScreen) reviewScreen.remove();
-    // Tell player screens the pun review is over (removes player-pun-review div)
     gameRef.update({ reviewingPun: false });
-    window.scoresReviewSource = 'round2';
-    showScoresReview();
+
+    // Show champion if anyone scored
+    const acceptCounts = window._punAcceptCounts || {};
+    const championId = Object.keys(acceptCounts).sort((a, b) => acceptCounts[b] - acceptCounts[a])[0];
+    if (championId && acceptCounts[championId] > 0) {
+      showPunChampionScreen(championId, acceptCounts[championId], () => {
+        window.scoresReviewSource = 'round2';
+        showScoresReview();
+      });
+    } else {
+      window.scoresReviewSource = 'round2';
+      showScoresReview();
+    }
     return;
   }
   
@@ -3518,18 +3628,31 @@ function showPunForReview(punData) {
   // so there's never a 1-frame gap where neither screen is showing.
   const existing = document.getElementById('pun-review-screen');
 
+  const player = players[punData.playerId] || {};
+  const teamColor = player.team === 1 ? '#4dd4e8' : '#d4145a';
+  const photoSrc = player.photo || null;
+  const initial = (player.name || punData.playerName || '?')[0].toUpperCase();
+  const avatarHtml = photoSrc
+    ? `<img src="${photoSrc}" style="width:100px;height:100px;border-radius:50%;border:4px solid ${teamColor};object-fit:cover;display:block;margin:0 auto;">`
+    : `<div style="width:100px;height:100px;border-radius:50%;border:4px solid ${teamColor};background:${teamColor};display:flex;align-items:center;justify-content:center;margin:0 auto;font-family:'Bebas Neue',sans-serif;font-size:52px;color:#0a1628;">${initial}</div>`;
+
   const reviewDiv = document.createElement('div');
   reviewDiv.id = 'pun-review-screen';
   reviewDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, var(--motd-dark-navy) 0%, var(--motd-navy) 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 40px;';
   reviewDiv.innerHTML = `
+    <div style="margin-bottom: 24px; text-align: center;">
+      ${avatarHtml}
+      <div style="font-family: 'Bebas Neue', sans-serif; font-size: 28px; color: ${teamColor}; margin-top: 10px; letter-spacing: 2px;">
+        ${player.name || punData.playerName || ''}
+      </div>
+      ${punData.category ? `<div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;color:rgba(255,255,255,0.5);letter-spacing:2px;text-transform:uppercase;margin-top:4px;">Category: ${punData.category}</div>` : ''}
+    </div>
     <div style="font-family: 'Barlow', sans-serif; font-size: 56px; color: var(--text); font-style: italic; margin-bottom: 60px; max-width: 900px; text-align: center; line-height: 1.4;">
       "${punData.pun}"
     </div>
-    
     <div style="font-family: 'Barlow', sans-serif; font-size: 24px; color: var(--text-muted); margin-top: 40px;">
       The referee is reviewing...
     </div>
-    
     <div style="font-family: 'Barlow', sans-serif; font-size: 18px; color: var(--text-muted); margin-top: 20px;">
       Pun ${currentPunIndex + 1} of ${allPuns.length}
     </div>
@@ -3604,6 +3727,9 @@ gameRef.child('punDecision').on('value', (snapshot) => {
   }
 });
 
+// Track accepts per player across the pun round
+window._punAcceptCounts = window._punAcceptCounts || {};
+
 function handlePunAccepted() {
   const punData = allPuns[currentPunIndex];
   console.log('✅ Pun accepted by first player:', punData.pun);
@@ -3615,6 +3741,9 @@ function handlePunAccepted() {
     gameRef.child(`players/${playerId}/score`).set(players[playerId].score);
   }
 
+  // Track accepts for champion reveal
+  window._punAcceptCounts[playerId] = (window._punAcceptCounts[playerId] || 0) + 1;
+
   currentPunIndex++;
   window.playPunReactionAudio('accept', () => reviewNextPun());
 }
@@ -3625,6 +3754,36 @@ function handlePunRejected() {
 
   currentPunIndex++;
   window.playPunReactionAudio('reject', () => reviewNextPun());
+}
+
+function showPunChampionScreen(championId, acceptCount, onDone) {
+  const player = players[championId] || {};
+  const teamColor = player.team === 1 ? '#4dd4e8' : '#d4145a';
+  const initial = (player.name || '?')[0].toUpperCase();
+  const photoContent = player.photo
+    ? `<img src="${player.photo}" style="width:140px;height:140px;border-radius:50%;object-fit:cover;border:5px solid ${teamColor};box-shadow:0 0 40px ${teamColor}88;">`
+    : `<div style="width:140px;height:140px;border-radius:50%;border:5px solid ${teamColor};background:${teamColor};display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:72px;color:#0a1628;">${initial}</div>`;
+
+  // Find their best accepted pun
+  const bestPun = allPuns.filter(p => p.playerId === championId)[0];
+
+  const div = document.createElement('div');
+  div.id = 'pun-champion-screen';
+  div.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, #0a1628, #1a2b4a); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10001; padding: 40px; text-align: center;';
+  div.innerHTML = `
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:52px;color:var(--motd-gold);letter-spacing:4px;margin-bottom:24px;text-shadow:0 0 40px rgba(255,198,41,0.8);">🏅 PUN CHAMPION!</div>
+    <div style="margin-bottom:20px;">${photoContent}</div>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:48px;color:${teamColor};margin-bottom:10px;letter-spacing:2px;">${player.name || 'Unknown'}</div>
+    <div style="font-family:'Barlow',sans-serif;font-size:26px;color:rgba(255,255,255,0.75);font-style:italic;max-width:700px;margin-bottom:18px;">"${bestPun ? bestPun.pun : ''}"</div>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:32px;color:var(--motd-gold);">${acceptCount} pun${acceptCount === 1 ? '' : 's'} accepted ✅</div>
+  `;
+  document.body.appendChild(div);
+
+  window.playPunReactionAudio('accept');
+  setTimeout(() => {
+    div.remove();
+    onDone();
+  }, 5000);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -3727,27 +3886,46 @@ function startRound3() {
   }, 30000);
 }
 
+// Track whether names are revealed yet for each question, and the latest submissions
+window._round3NamesRevealed = {};
+window._round3LastSubmissions = {};
+
 function loadRound3Question(index) {
   const q = ROUND_3_QUESTIONS[index];
   document.getElementById('round3-question-text').textContent = q.question;
   document.getElementById('submitted-answers').innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-muted);">Waiting for players to submit answers...</div>';
-  
+
+  // Reset reveal state for this question
+  window._round3NamesRevealed[index] = false;
+  window._round3LastSubmissions[index] = {};
+
   // Clear previous Round 3 data
   gameRef.child('round3/' + index).remove();
   gameRef.update({ currentRound3Question: index });
-  
+
   // Give each player 4 random answer options from the pool
   const playerIds = Object.keys(players);
+  const playerNames = playerIds.map(pid => players[pid]?.name).filter(Boolean);
+
   playerIds.forEach(playerId => {
     // Shuffle and pick 4 random answers
     const shuffled = [...ROUND_3_ANSWER_POOL].sort(() => Math.random() - 0.5);
-    const playerOptions = shuffled.slice(0, 4);
+    const playerOptions = shuffled.slice(0, 4).map(answer => {
+      // Substitute {player} with a random other player's name
+      if (!answer.includes('{player}')) return answer;
+      const others = playerNames.filter(n => n !== players[playerId]?.name);
+      const name = others.length > 0
+        ? others[Math.floor(Math.random() * others.length)]
+        : (playerNames[0] || 'Someone');
+      return answer.split('{player}').join(name);
+    });
     gameRef.child('round3/' + index + '/playerOptions/' + playerId).set(playerOptions);
   });
-  
-  // Listen for submitted answers
+
+  // Listen for submitted answers — store them but hide names until voting done
   gameRef.child('round3/' + index + '/submissions').on('value', (snapshot) => {
-    displaySubmittedAnswers(snapshot.val() || {}, index);
+    window._round3LastSubmissions[index] = snapshot.val() || {};
+    displaySubmittedAnswers(window._round3LastSubmissions[index], index);
   });
   
   // Listen for votes and award points
@@ -3768,26 +3946,46 @@ function displaySubmittedAnswers(submissions, questionIndex) {
     answer: data.answer,
     votes: data.votes || 0
   }));
-  
+
   if (submissionArray.length === 0) {
     submissionsDiv.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-muted);">Waiting for players to submit answers...</div>';
     return;
   }
-  
-  // Sort by votes
-  submissionArray.sort((a, b) => b.votes - a.votes);
-  
+
+  const namesRevealed = window._round3NamesRevealed && window._round3NamesRevealed[questionIndex];
+
+  // Sort by votes once names are revealed; otherwise keep submission order (random-ish)
+  if (namesRevealed) {
+    submissionArray.sort((a, b) => b.votes - a.votes);
+  }
+
   submissionsDiv.innerHTML = submissionArray.map((sub, index) => {
-    const isWinner = index === 0 && sub.votes > 0;
+    const isWinner = namesRevealed && index === 0 && sub.votes > 0;
+
+    let nameHtml;
+    if (namesRevealed) {
+      // Show real photo + name
+      const player = players[sub.playerId];
+      const initials = (player?.name || '?').charAt(0).toUpperCase();
+      const photoHtml = player?.photo
+        ? `<img src="${player.photo}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid var(--motd-cyan);flex-shrink:0;">`
+        : `<div style="width:40px;height:40px;border-radius:50%;background:var(--motd-navy);border:2px solid var(--motd-cyan);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:var(--motd-cyan);flex-shrink:0;">${initials}</div>`;
+      nameHtml = `${photoHtml}${sub.playerName}`;
+    } else {
+      // Mystery avatar — hide identity until votes are in
+      const mysteryAvatar = `<div style="width:40px;height:40px;border-radius:50%;background:var(--motd-dark-navy);border:2px solid rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">🕵️</div>`;
+      nameHtml = `${mysteryAvatar}<span style="color:rgba(255,255,255,0.3);font-style:italic;">???</span>`;
+    }
+
     return `
       <div class="submitted-answer-card ${isWinner ? 'winner' : ''}">
-        <div class="answer-player-name">${sub.playerName}</div>
+        <div class="answer-player-name">${nameHtml}</div>
         <div class="answer-content">${sub.answer}</div>
         <div class="answer-votes">${sub.votes}</div>
       </div>
     `;
   }).join('');
-  
+
   // Update scoreboard with Round 3 scores
   updateRound3Scoreboard();
 }
@@ -3866,11 +4064,16 @@ function awardRound3Points(votes, questionIndex) {
     });
   }
 
-  // Play accept audio once all players have voted
+  // Reveal names and re-render once all players have voted
   const totalPlayers = Object.keys(players).length;
   const totalVotes   = Object.keys(votes).length;
   if (totalVotes >= totalPlayers && !_round3AcceptPlayed[questionIndex]) {
     _round3AcceptPlayed[questionIndex] = true;
+
+    // Reveal who gave each answer now that voting is done
+    window._round3NamesRevealed[questionIndex] = true;
+    displaySubmittedAnswers(window._round3LastSubmissions[questionIndex] || {}, questionIndex);
+
     if (window.playPunReactionAudio) {
       window.playPunReactionAudio('accept');
       console.log('🎵 Playing accept audio — all votes in for question', questionIndex);
@@ -4212,10 +4415,30 @@ function bonusJudgement(teamNum, passed) {
     }
   });
 
+  // Build singer photos for the team
+  const teamColor = teamNum === 1 ? '#4dd4e8' : '#d4145a';
+  const teamPlayers = Object.entries(players).filter(([, p]) => p.team === teamNum);
+  const photosHtml = teamPlayers.map(([, p]) => {
+    const initials = (p.name || '?').charAt(0).toUpperCase();
+    const photoContent = p.photo
+      ? `<img src="${p.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`
+      : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:44px;color:#fff;">${initials}</div>`;
+    return `<div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
+      <div style="width:100px;height:100px;border-radius:50%;overflow:hidden;border:4px solid ${teamColor};background:rgba(255,255,255,0.1);box-shadow:0 0 24px ${teamColor}88;">
+        ${photoContent}
+      </div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:16px;color:rgba(255,255,255,0.85);letter-spacing:1px;max-width:110px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.name || ''}</div>
+    </div>`;
+  }).join('');
+
   // Show result briefly
   const resultDiv = document.createElement('div');
   resultDiv.style.cssText = 'position: fixed; inset: 0; background: rgba(0,0,0,0.95); display: flex; align-items: center; justify-content: center; z-index: 10001;';
-  resultDiv.innerHTML = `<div style="font-family: 'Bebas Neue', sans-serif; font-size: 80px; color: ${passed ? '#22c55e' : 'var(--motd-magenta)'}; text-align: center; text-shadow: 0 0 60px ${passed ? 'rgba(34,197,94,0.8)' : 'rgba(212,20,90,0.8)'};">${message}</div>`;
+  resultDiv.innerHTML = `
+    <div style="display:flex;flex-direction:column;align-items:center;gap:28px;padding:40px;">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:80px;color:${passed ? '#22c55e' : 'var(--motd-magenta)'};text-align:center;text-shadow:0 0 60px ${passed ? 'rgba(34,197,94,0.8)' : 'rgba(212,20,90,0.8)'};">${message}</div>
+      ${photosHtml ? `<div style="display:flex;justify-content:center;gap:24px;flex-wrap:wrap;">${photosHtml}</div>` : ''}
+    </div>`;
   document.body.appendChild(resultDiv);
 
   // Play accept or reject audio
@@ -4741,6 +4964,7 @@ function applyMatchDrawScores(playerOrder) {
 
 function startCommentaryRound() {
   console.log('🎙️ Starting Commentary Round');
+  _commentaryRoundEnded = false;
   if (usedCommentaryVideos.length >= COMMENTARY_VIDEOS.length) usedCommentaryVideos = [];
 
   const introDiv = document.createElement('div');
@@ -4758,12 +4982,17 @@ function startCommentaryRound() {
   const explainerAudio = new Audio('commentary_explainer.mp3?v=2');
   explainerAudio.volume = 0.7;
   explainerAudio.play().catch(e => console.log('commentary_explainer not found:', e));
-  explainerAudio.addEventListener('ended', () => {
+
+  let explainerTransitioned = false;
+  const transitionToTeamSelection = () => {
+    if (explainerTransitioned) return;
+    explainerTransitioned = true;
+    explainerAudio.pause(); // stop explainer before next audio starts
     if (document.getElementById('commentary-intro')) { introDiv.remove(); startCommentaryTeamSelection(1); }
-  });
-  setTimeout(() => {
-    if (document.getElementById('commentary-intro')) { introDiv.remove(); startCommentaryTeamSelection(1); }
-  }, 12000);
+  };
+
+  explainerAudio.addEventListener('ended', transitionToTeamSelection);
+  setTimeout(transitionToTeamSelection, 60000); // safety fallback only — ended event handles normal flow
 }
 
 function startCommentaryTeamSelection(teamNumber) {
@@ -4859,8 +5088,10 @@ function startCommentaryCountdown(teamNumber, commentatorId, videoFile) {
 
 function startCommentaryRecording(teamNumber, commentatorId, videoFile) {
   console.log(`🎙️ Commentary recording Team ${teamNumber} — ${videoFile}`);
+  const recId = `commentary-recording-${teamNumber}`;
+
   const recordingDiv = document.createElement('div');
-  recordingDiv.id = 'commentary-recording';
+  recordingDiv.id = recId;
   recordingDiv.style.cssText = 'position: fixed; inset: 0; background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 20px;';
   recordingDiv.innerHTML = `
     <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
@@ -4868,8 +5099,8 @@ function startCommentaryRecording(teamNumber, commentatorId, videoFile) {
       <div style="font-family: 'Bebas Neue', sans-serif; font-size: 36px; color: #ff4444; letter-spacing: 3px;">● RECORDING</div>
     </div>
     <div style="position: relative; width: 100%; max-width: 900px;">
-      <video id="commentary-video" src="${videoFile}" style="width: 100%; max-height: 65vh; border-radius: 8px; display: block;" playsinline></video>
-      <div id="commentary-waiting-overlay" style="position: absolute; inset: 0; background: rgba(0,0,0,0.75); display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 8px;">
+      <video id="commentary-video-${teamNumber}" src="${videoFile}" style="width: 100%; max-height: 65vh; border-radius: 8px; display: block;" playsinline></video>
+      <div id="commentary-waiting-overlay-${teamNumber}" style="position: absolute; inset: 0; background: rgba(0,0,0,0.75); display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 8px;">
         <div style="font-size: 48px; margin-bottom: 16px;">🎙️</div>
         <div style="font-family: 'Bebas Neue', sans-serif; font-size: 36px; color: var(--motd-gold); letter-spacing: 3px;">Waiting for commentator…</div>
         <div style="font-family: 'Barlow', sans-serif; font-size: 20px; color: rgba(255,255,255,0.6); margin-top: 10px;">Video starts when they press Ready</div>
@@ -4880,10 +5111,10 @@ function startCommentaryRecording(teamNumber, commentatorId, videoFile) {
   document.body.appendChild(recordingDiv);
   gameRef.update({ commentaryPhase: `team${teamNumber}Recording`, [`commentary/team${teamNumber}/commentatorRecording`]: true });
 
-  const video = document.getElementById('commentary-video');
+  const video = document.getElementById(`commentary-video-${teamNumber}`);
 
   const startVideo = () => {
-    const overlay = document.getElementById('commentary-waiting-overlay');
+    const overlay = document.getElementById(`commentary-waiting-overlay-${teamNumber}`);
     if (overlay) overlay.remove();
     video.play().catch(e => console.log('Commentary video play failed:', e));
   };
@@ -4900,90 +5131,92 @@ function startCommentaryRecording(teamNumber, commentatorId, videoFile) {
 
   // Fallback — start video after 45 s if player never presses Ready
   setTimeout(() => {
-    if (document.getElementById('commentary-waiting-overlay')) {
+    if (document.getElementById(`commentary-waiting-overlay-${teamNumber}`)) {
       console.warn('⚠️ Commentator never pressed Ready — starting video anyway');
       startVideo();
     }
   }, 45000);
 
-  video.addEventListener('ended', () => {
-    if (document.getElementById('commentary-recording')) {
-      gameRef.child('commentaryCommentatorReady').off();
-      recordingDiv.remove();
-      gameRef.update({ [`commentary/team${teamNumber}/commentatorRecording`]: false });
-      setTimeout(() => { startCommentaryPlayback(teamNumber, commentatorId, videoFile); }, 1500);
-    }
-  });
-  setTimeout(() => {
-    if (document.getElementById('commentary-recording')) {
-      gameRef.child('commentaryCommentatorReady').off();
-      recordingDiv.remove();
-      gameRef.update({ [`commentary/team${teamNumber}/commentatorRecording`]: false });
-      startCommentaryPlayback(teamNumber, commentatorId, videoFile);
-    }
-  }, 90000); // extended to 90 s to allow for Ready delay
+  const finishRecording = () => {
+    if (!document.getElementById(recId)) return; // already finished
+    gameRef.child('commentaryCommentatorReady').off();
+    recordingDiv.remove();
+    gameRef.update({ [`commentary/team${teamNumber}/commentatorRecording`]: false });
+    setTimeout(() => { startCommentaryPlayback(teamNumber, commentatorId, videoFile); }, 1500);
+  };
+
+  video.addEventListener('ended', finishRecording);
+  setTimeout(finishRecording, 90000); // extended to 90 s to allow for Ready delay
 }
 
 function startCommentaryPlayback(teamNumber, commentatorId, videoFile) {
   console.log(`🎙️ Commentary playback Team ${teamNumber}`);
+  const pbId = `commentary-playback-${teamNumber}`;
   const commentatorName = players[commentatorId]?.name || 'Player';
+
   const playbackDiv = document.createElement('div');
-  playbackDiv.id = 'commentary-playback';
+  playbackDiv.id = pbId;
   playbackDiv.style.cssText = 'position: fixed; inset: 0; background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 20px; text-align: center;';
   playbackDiv.innerHTML = `
     <div style="font-family: 'Bebas Neue', sans-serif; font-size: 32px; color: var(--motd-cyan); margin-bottom: 16px; letter-spacing: 3px;">🎙️ ${commentatorName}'s Commentary</div>
-    <video id="commentary-playback-video" src="${videoFile}" style="width: 100%; max-width: 900px; max-height: 55vh; border-radius: 8px; margin-bottom: 16px;" playsinline></video>
+    <video id="commentary-playback-video-${teamNumber}" src="${videoFile}" style="width: 100%; max-width: 900px; max-height: 55vh; border-radius: 8px; margin-bottom: 16px;" playsinline muted></video>
     <div style="font-family: 'Barlow', sans-serif; font-size: 22px; color: rgba(255,255,255,0.7);">Listen carefully — the referee is scoring!</div>
   `;
   document.body.appendChild(playbackDiv);
   gameRef.update({ commentaryPhase: `team${teamNumber}Playback` });
 
-  // Play commentary_review.mp3 first, then start the muted video + the player's mic recording
-  const reviewAudio = new Audio('commentary_review.mp3?v=2');
-  reviewAudio.volume = 0.7;
+  // Pre-fetch the recording URL so we can start video + audio in sync
+  gameRef.child(`commentary/team${teamNumber}/recordingURL`).once('value', (snap) => {
+    const recordingURL = snap.val();
 
-  // Shared helper: start muted video + play the player's recorded audio in sync
-  const playCommentaryRecording = () => {
-    const v = document.getElementById('commentary-playback-video');
-    if (!v) return;
-    v.muted = true; // mute video — we play the mic recording instead
-    v.play().catch(e => console.log('Playback video play failed:', e));
-    gameRef.child(`commentary/team${teamNumber}/recordingURL`).once('value', (snap) => {
-      const recordingURL = snap.val();
+    // Shared helper: start muted video + play mic recording in sync
+    const playCommentaryRecording = () => {
+      const v = document.getElementById(`commentary-playback-video-${teamNumber}`);
+      if (!v || !document.getElementById(pbId)) return;
+      v.muted = true;
+      v.play().catch(e => console.log('Playback video play failed:', e));
       if (recordingURL) {
         const recordingAudio = new Audio(recordingURL);
         recordingAudio.play().catch(e => console.log('Commentary recording play failed:', e));
         console.log('🎙️ Playing player mic recording for Team', teamNumber);
       } else {
-        console.warn('⚠️ No recording URL found — video audio only');
-        v.muted = false;
+        console.warn('⚠️ No recording URL found — playing video muted');
       }
-    });
-  };
+    };
 
-  reviewAudio.play().catch(() => { playCommentaryRecording(); });
-  reviewAudio.addEventListener('ended', () => { playCommentaryRecording(); });
+    // Play commentary_review.mp3 first, then start video + mic in sync
+    const reviewAudio = new Audio('commentary_review.mp3?v=2');
+    reviewAudio.volume = 0.7;
+    let reviewPlayed = false;
+    const onReviewDone = () => {
+      if (reviewPlayed) return;
+      reviewPlayed = true;
+      playCommentaryRecording();
+    };
+    reviewAudio.play().catch(() => onReviewDone());
+    reviewAudio.addEventListener('ended', onReviewDone);
 
-  const pbVideo = document.getElementById('commentary-playback-video');
-  pbVideo.addEventListener('ended', () => {
-    if (document.getElementById('commentary-playback')) {
+    const finishPlayback = () => {
+      if (!document.getElementById(pbId)) return;
       playbackDiv.remove();
       showCommentaryRefereeScoring(teamNumber);
+    };
+
+    const pbVideo = document.getElementById(`commentary-playback-video-${teamNumber}`);
+    if (pbVideo) {
+      pbVideo.addEventListener('ended', finishPlayback);
     }
+    setTimeout(finishPlayback, 45000);
   });
-  setTimeout(() => {
-    if (document.getElementById('commentary-playback')) {
-      playbackDiv.remove();
-      showCommentaryRefereeScoring(teamNumber);
-    }
-  }, 45000);
 }
 
 function showCommentaryRefereeScoring(teamNumber) {
   console.log(`⚖️ Commentary referee scoring Team ${teamNumber}`);
+  const scId = `commentary-scoring-${teamNumber}`;
+  if (document.getElementById(scId)) return; // guard against duplicate calls
   const team = teamNumber === 1 ? team1 : team2;
   const scoringDiv = document.createElement('div');
-  scoringDiv.id = 'commentary-scoring';
+  scoringDiv.id = scId;
   scoringDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, var(--motd-dark-navy) 0%, var(--motd-navy) 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 40px; text-align: center;';
   scoringDiv.innerHTML = `
     <div style="font-family: 'Bebas Neue', sans-serif; font-size: 52px; color: var(--motd-gold); margin-bottom: 12px; letter-spacing: 4px;">⚽ Rate the Commentary</div>
@@ -5000,12 +5233,14 @@ function showCommentaryRefereeScoring(teamNumber) {
     if (score === null || score === undefined) return;
     scoreRef.off('value', scoreListener);
     clearTimeout(scoringTimeout);
-    if (document.getElementById('commentary-scoring')) scoringDiv.remove();
+    const el = document.getElementById(scId);
+    if (el) el.remove();
     applyCommentaryScore(teamNumber, score);
   });
   scoringTimeout = setTimeout(() => {
     scoreRef.off('value', scoreListener);
-    if (document.getElementById('commentary-scoring')) scoringDiv.remove();
+    const el = document.getElementById(scId);
+    if (el) el.remove();
     console.log(`⚠️ Referee didn't score Team ${teamNumber} in time — no points`);
     applyCommentaryScore(teamNumber, 0);
   }, 30000);
@@ -5028,7 +5263,10 @@ function applyCommentaryScore(teamNumber, score) {
   }, 1500);
 }
 
+let _commentaryRoundEnded = false;
 function endCommentaryRound() {
+  if (_commentaryRoundEnded) return;
+  _commentaryRoundEnded = true;
   console.log('🎙️ Commentary Round complete → Toilet Paper');
   gameRef.update({ commentaryPhase: null });
   showToiletPaperAlert();
@@ -5043,7 +5281,7 @@ function showToiletPaperAlert() {
 
   const alertDiv = document.createElement('div');
   alertDiv.id = 'toilet-paper-alert';
-  alertDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, var(--motd-dark-navy) 0%, var(--motd-navy) 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 40px;';
+  alertDiv.style.cssText = 'position: fixed; top: 108px; left: 0; right: 0; bottom: 0; background: linear-gradient(135deg, var(--motd-dark-navy) 0%, var(--motd-navy) 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 40px;';
   alertDiv.innerHTML = `
     <div style="font-family: 'Bebas Neue', sans-serif; font-size: 80px; color: #ffc629; text-shadow: 0 0 40px rgba(255,198,41,0.8); margin-bottom: 40px; letter-spacing: 6px;">
       ⚠️ IMPORTANT! ⚠️
@@ -5551,12 +5789,13 @@ function selectPhotographers() {
 }
 
 function showBlowBallGetReadyHost() {
+  const refereeName = Object.values(players)[0]?.name || 'Player 1';
   const getReadyDiv = document.createElement('div');
   getReadyDiv.id = 'blowball-get-ready-host';
   getReadyDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, #0a1628 0%, #0d2137 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; text-align: center; padding: 40px;';
   getReadyDiv.innerHTML = `
     <div style="font-family: 'Bebas Neue', sans-serif; font-size: 120px; color: var(--motd-gold); letter-spacing: 10px; margin-bottom: 20px; line-height: 1;">GET READY</div>
-    <div style="font-family: 'Barlow', sans-serif; font-size: 30px; color: rgba(255,255,255,0.7); margin-bottom: 50px;">Waiting for Player 1 to start…</div>
+    <div style="font-family: 'Barlow', sans-serif; font-size: 30px; color: rgba(255,255,255,0.7); margin-bottom: 50px;">Waiting for the referee (${refereeName}) to start…</div>
     <div class="spinner"></div>
   `;
   document.body.appendChild(getReadyDiv);
@@ -5582,26 +5821,6 @@ function startBlowBallRound() {
   console.log('💨 Starting Blow Ball emotion rounds');
   blowBallCurrentEmotion = 0;
   blowBallPhotoCount = 0;
-
-  // After 20 seconds unlock the "Full Time" button on the referee's device
-  setTimeout(() => {
-    gameRef.update({ blowBallFullTimeAvailable: true });
-    console.log('🏁 Full Time button now available for referee');
-  }, 20000);
-
-  // Listen for the referee pressing Full Time
-  gameRef.child('blowBallFullTime').off();
-  gameRef.child('blowBallFullTime').on('value', (snap) => {
-    if (snap.val() === true) {
-      console.log('🏁 Referee called Full Time — ending Blow Ball');
-      gameRef.child('blowBallFullTime').off();
-      gameRef.child('blowBallFullTime').remove();
-      // Remove whatever emotion screen is showing
-      const emotionDiv = document.getElementById('blowball-emotion');
-      if (emotionDiv) emotionDiv.remove();
-      finishBlowBall();
-    }
-  });
 
   showNextEmotion();
 }
@@ -5757,310 +5976,59 @@ function startBlowBallJudging() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// SABOTAGE REVEALS — old auto-award fallback kept for reference
+// SABOTAGE REVEALS
 // ═══════════════════════════════════════════════════════════════════════════
 
-function showSabotageReveals() {
-  console.log('🕵️ Showing Sabotage Reveals');
-  window._sabotageJudgements = {};
+// Stores the ref's judgements per player: { status: 'completed'|'notdone'|'caught', points: 0 }
+window._sabotageJudgements = {};
 
-  gameRef.child('sabotage').once('value', (snapshot) => {
-    const sabotageData = snapshot.val();
+function setSabotageStatus(pid, status) {
+  if (!window._sabotageJudgements[pid]) window._sabotageJudgements[pid] = { status: 'notdone', points: 0 };
+  window._sabotageJudgements[pid].status = status;
 
-    const taskSabotages = sabotageData
-      ? Object.fromEntries(Object.entries(sabotageData).filter(([, d]) => d.assigned === true))
-      : {};
-
-    if (Object.keys(taskSabotages).length === 0) {
-      console.log('🕵️ No sabotage tasks found, going to victory');
-      showVictoryScreen();
-      return;
-    }
-
-    const revealDiv = document.createElement('div');
-    revealDiv.id = 'sabotage-reveals';
-    revealDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, var(--motd-dark-navy) 0%, var(--motd-navy) 100%); display: flex; flex-direction: column; align-items: center; padding: 40px; overflow-y: auto; z-index: 10000;';
-
-    let cardsHtml = '';
-    Object.entries(taskSabotages).forEach(([pid, data]) => {
-      const player = players[pid] || {};
-      const playerName = player.name || 'Unknown';
-      const initial = playerName[0].toUpperCase();
-      const photoHtml = player.photo
-        ? `<img src="${player.photo}" style="width:56px;height:56px;border-radius:50%;object-fit:cover;border:3px solid #d4145a;flex-shrink:0;">`
-        : `<div style="width:56px;height:56px;border-radius:50%;background:rgba(212,20,90,0.3);border:3px solid #d4145a;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:26px;color:#fff;flex-shrink:0;">${initial}</div>`;
-
-      // Pre-fill judgement from Firebase player self-report as a starting suggestion
-      const initStatus = data.spotted ? 'caught' : data.completed ? 'completed' : 'notdone';
-      const initPts    = data.piecesCollected || 0;
-      window._sabotageJudgements[pid] = { status: initStatus, points: initPts };
-
-      const btnBase = "padding:10px 18px;border:none;border-radius:8px;font-family:'Bebas Neue',sans-serif;font-size:18px;cursor:pointer;letter-spacing:1px;transition:all 0.15s;";
-
-      cardsHtml += `
-        <div style="background:rgba(255,255,255,0.04);border:2px solid rgba(212,20,90,0.5);border-radius:15px;padding:26px 30px;">
-
-          <!-- Player header -->
-          <div style="display:flex;align-items:center;gap:16px;margin-bottom:14px;">
-            ${photoHtml}
-            <div>
-              <div style="font-family:'Bebas Neue',sans-serif;font-size:32px;color:#fff;line-height:1;">${playerName}</div>
-              <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;color:#d4145a;letter-spacing:1px;">🕵️ ${data.name || data.task || 'Secret Mission'}</div>
-            </div>
-          </div>
-
-          <!-- Mission description -->
-          <div style="font-family:'Barlow',sans-serif;font-size:15px;color:rgba(255,255,255,0.7);margin-bottom:18px;line-height:1.5;padding:12px;background:rgba(0,0,0,0.25);border-radius:8px;">
-            ${data.description || ''}
-          </div>
-
-          <!-- Ref status buttons -->
-          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
-            <button id="sabot-btn-completed-${pid}" onclick="setSabotageStatus('${pid}','completed')"
-              style="${btnBase}background:rgba(46,204,113,0.85);color:#fff;opacity:${initStatus==='completed'?'1':'0.3'};">
-              ✅ Completed
-            </button>
-            <button id="sabot-btn-notdone-${pid}" onclick="setSabotageStatus('${pid}','notdone')"
-              style="${btnBase}background:rgba(120,120,120,0.7);color:#fff;opacity:${initStatus==='notdone'?'1':'0.3'};">
-              ❌ Not Done
-            </button>
-            <button id="sabot-btn-caught-${pid}" onclick="setSabotageStatus('${pid}','caught')"
-              style="${btnBase}background:rgba(212,20,90,0.85);color:#fff;opacity:${initStatus==='caught'?'1':'0.3'};">
-              🚨 Caught
-            </button>
-          </div>
-
-          <!-- Points input — only visible when Completed -->
-          <div id="sabot-pts-row-${pid}" style="display:${initStatus==='completed'?'flex':'none'};align-items:center;gap:14px;">
-            <label style="font-family:'Barlow Condensed',sans-serif;font-size:18px;color:rgba(255,255,255,0.8);">Points to award:</label>
-            <input type="number" id="sabot-pts-${pid}" value="${initPts}" min="0" max="50"
-              style="width:80px;padding:8px 12px;background:rgba(0,0,0,0.4);border:2px solid var(--motd-gold);border-radius:8px;font-family:'Bebas Neue',sans-serif;font-size:24px;color:var(--motd-gold);text-align:center;">
-          </div>
-
-        </div>
-      `;
-    });
-
-    revealDiv.innerHTML = `
-      <div style="font-family:'Bebas Neue',sans-serif;font-size:60px;color:var(--motd-gold);text-shadow:0 0 40px rgba(255,198,41,0.8);margin-bottom:12px;letter-spacing:5px;text-align:center;">
-        🕵️ SABOTAGE REVEALS
-      </div>
-      <div style="font-family:'Barlow',sans-serif;font-size:20px;color:rgba(255,255,255,0.7);margin-bottom:36px;text-align:center;">
-        Judge each mission, then award points to continue
-      </div>
-      <div style="display:flex;flex-direction:column;gap:24px;width:100%;max-width:820px;">
-        ${cardsHtml}
-      </div>
-      <button id="sabot-continue-btn" onclick="awardSabotageAndContinue()"
-        style="margin-top:44px;margin-bottom:40px;padding:20px 50px;background:linear-gradient(135deg,#4dd4e8,#ffc629);color:#0a1628;border:none;border-radius:15px;font-family:'Bebas Neue',sans-serif;font-size:32px;cursor:pointer;box-shadow:0 10px 30px rgba(255,198,41,0.4);">
-        ✅ Award Points &amp; Show Results
-      </button>
-    `;
-
-    document.body.appendChild(revealDiv);
+  // Highlight the active button
+  ['completed', 'notdone', 'caught'].forEach(s => {
+    const btn = document.getElementById(`sabot-btn-${s}-${pid}`);
+    if (!btn) return;
+    btn.style.opacity   = s === status ? '1'    : '0.3';
+    btn.style.transform = s === status ? 'scale(1.05)' : 'scale(1)';
   });
+
+  // Show points input only when completed
+  const pointsRow = document.getElementById(`sabot-pts-row-${pid}`);
+  if (pointsRow) pointsRow.style.display = status === 'completed' ? 'flex' : 'none';
 }
 
-function finishSabotageReveals() {
-  const revealDiv = document.getElementById('sabotage-reveals');
-  if (revealDiv) revealDiv.remove();
-  showVictoryScreen();
-}
+function awardSabotageAndContinue() {
+  const btn = document.getElementById('sabot-continue-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Awarding points…'; }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// PHASE 6: FINAL VICTORY SCREEN
-// ═══════════════════════════════════════════════════════════════════════════
-
-function showVictoryScreen() {
-  console.log('🏆 Showing Victory Screen');
-
-  // Stop everything that might still be playing from previous rounds
-  pauseAllAudio();
-  window._pausedAudioRefs = []; // game is over — nothing should ever resume
-
-  document.getElementById('round3-screen').classList.remove('active');
-  document.getElementById('round-indicator').textContent = 'Full Time';
-
-  gameRef.once('value', (snapshot) => {
-    const data = snapshot.val() || {};
-    const playersData = data.players || {};
-
-    let team1Total = 0;
-    let team2Total = 0;
-    let mvp = { name: '—', score: 0, photo: null };
-    const team1Players = [];
-    const team2Players = [];
-
-    Object.values(playersData).forEach(player => {
-      const score = player.score || 0;
-      if (player.team === 1) { team1Total += score; team1Players.push(player); }
-      if (player.team === 2) { team2Total += score; team2Players.push(player); }
-      if (score > mvp.score) { mvp = { name: player.name, score: score, photo: player.photo || null }; }
-    });
-
-    const winnerTeam = team1Total > team2Total ? (team1 || {}) : team2Total > team1Total ? (team2 || {}) : null;
-    const winnerScore = Math.max(team1Total, team2Total);
-    const loserScore = Math.min(team1Total, team2Total);
-
-    const victoryDiv = document.createElement('div');
-    victoryDiv.id = 'victory-screen';
-    victoryDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, var(--motd-dark-navy) 0%, var(--motd-navy) 100%); display: flex; flex-direction: column; align-items: center; justify-content: flex-start; z-index: 10000; padding: 40px; overflow-y: auto;';
-
-    const teamDisplay = winnerTeam
-      ? `${winnerTeam.flag || ''} ${winnerTeam.name || 'Winner'} Wins!`
-      : "It's a Draw!";
-
-    const t1Players = team1Players.sort((a, b) => (b.score || 0) - (a.score || 0));
-    const t2Players = team2Players.sort((a, b) => (b.score || 0) - (a.score || 0));
-
-    victoryDiv.innerHTML = `
-      <div style="font-family: 'Bebas Neue', sans-serif; font-size: 72px; color: var(--motd-gold); text-shadow: 0 0 60px rgba(255,198,41,0.8); margin-bottom: 10px; letter-spacing: 6px; text-align: center;">🏆 FULL TIME! 🏆</div>
-
-      <div style="background: rgba(255,255,255,0.08); border: 3px solid var(--motd-gold); border-radius: 20px; padding: 30px 50px; margin-bottom: 30px; text-align: center;">
-        <div style="font-family: 'Bebas Neue', sans-serif; font-size: 56px; color: var(--text);">${teamDisplay}</div>
-        <div style="font-family: 'Bebas Neue', sans-serif; font-size: 100px; color: var(--motd-cyan); text-shadow: 0 0 40px rgba(77,212,232,0.6); line-height: 1;">${team1Total} — ${team2Total}</div>
-        ${team1 && team2 ? `<div style="font-family: 'Barlow Condensed', sans-serif; font-size: 24px; color: var(--text-muted);">${team1.flag} ${team1.name} vs ${team2.flag} ${team2.name}</div>` : ''}
-      </div>
-
-      <div style="background: rgba(255,198,41,0.15); border: 3px solid var(--motd-gold); border-radius: 16px; padding: 25px 40px; margin-bottom: 30px; text-align: center; width: 100%; max-width: 600px;">
-        <div style="font-family: 'Barlow Condensed', sans-serif; font-size: 18px; color: rgba(255,255,255,0.7); text-transform: uppercase; letter-spacing: 3px; margin-bottom: 14px;">⭐ MVP ⭐</div>
-        ${mvp.photo
-          ? `<img src="${mvp.photo}" style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:4px solid var(--motd-gold);box-shadow:0 0 24px rgba(255,198,41,0.6);margin-bottom:10px;">`
-          : `<div style="width:80px;height:80px;border-radius:50%;background:rgba(255,198,41,0.2);border:4px solid var(--motd-gold);display:inline-flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:40px;color:var(--motd-gold);margin-bottom:10px;">${(mvp.name||'?')[0].toUpperCase()}</div>`
-        }
-        <div style="font-family: 'Bebas Neue', sans-serif; font-size: 52px; color: var(--motd-gold);">${mvp.name}</div>
-        <div style="font-family: 'Bebas Neue', sans-serif; font-size: 36px; color: var(--text);">${mvp.score} points</div>
-      </div>
-
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; width: 100%; max-width: 900px; margin-bottom: 30px;">
-        <div style="background: rgba(77,212,232,0.1); border: 2px solid var(--motd-cyan); border-radius: 12px; padding: 20px;">
-          <div style="font-family: 'Bebas Neue', sans-serif; font-size: 28px; color: var(--motd-cyan); margin-bottom: 15px;">${team1 ? team1.flag + ' ' + team1.name : 'Home Team'}</div>
-          ${t1Players.map((p, i) => {
-            const init = (p.name||'?')[0].toUpperCase();
-            const photo = p.photo
-              ? `<img src="${p.photo}" style="width:34px;height:34px;border-radius:50%;object-fit:cover;border:2px solid var(--motd-cyan);flex-shrink:0;">`
-              : `<div style="width:34px;height:34px;border-radius:50%;background:rgba(77,212,232,0.15);border:2px solid var(--motd-cyan);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:15px;color:var(--motd-cyan);flex-shrink:0;">${init}</div>`;
-            return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.1);">${photo}<span style="font-family:'Barlow Condensed',sans-serif;font-size:20px;flex:1;">${i===0?'⭐ ':''}${p.name}</span><span style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--motd-cyan);">${p.score||0}</span></div>`;
-          }).join('')}
-          <div style="font-family: 'Bebas Neue', sans-serif; font-size: 32px; color: var(--motd-gold); margin-top: 10px; text-align: right;">Total: ${team1Total}</div>
-        </div>
-        <div style="background: rgba(212,20,90,0.1); border: 2px solid var(--motd-magenta); border-radius: 12px; padding: 20px;">
-          <div style="font-family: 'Bebas Neue', sans-serif; font-size: 28px; color: var(--motd-magenta); margin-bottom: 15px;">${team2 ? team2.flag + ' ' + team2.name : 'Away Team'}</div>
-          ${t2Players.map((p, i) => {
-            const init = (p.name||'?')[0].toUpperCase();
-            const photo = p.photo
-              ? `<img src="${p.photo}" style="width:34px;height:34px;border-radius:50%;object-fit:cover;border:2px solid var(--motd-magenta);flex-shrink:0;">`
-              : `<div style="width:34px;height:34px;border-radius:50%;background:rgba(212,20,90,0.15);border:2px solid var(--motd-magenta);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:15px;color:var(--motd-magenta);flex-shrink:0;">${init}</div>`;
-            return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.1);">${photo}<span style="font-family:'Barlow Condensed',sans-serif;font-size:20px;flex:1;">${i===0?'⭐ ':''}${p.name}</span><span style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--motd-magenta);">${p.score||0}</span></div>`;
-          }).join('')}
-          <div style="font-family: 'Bebas Neue', sans-serif; font-size: 32px; color: var(--motd-gold); margin-top: 10px; text-align: right;">Total: ${team2Total}</div>
-        </div>
-      </div>
-
-      <!-- Champions League team photo download -->
-      <button onclick="downloadChampionsPhoto()" style="display: block; margin: 20px auto 0; padding: 16px 40px; background: linear-gradient(135deg, #4dd4e8, #ffc629); color: #0a1628; border: none; border-radius: 12px; font-family: 'Bebas Neue', sans-serif; font-size: 26px; cursor: pointer; letter-spacing: 2px; box-shadow: 0 6px 20px rgba(77,212,232,0.4);">
-        🏆 Download Team Photo
-      </button>
-
-      <!-- Social sharing -->
-      <div style="margin: 30px 0 10px; text-align: center;">
-        <div style="font-family: 'Bebas Neue', sans-serif; font-size: 24px; color: rgba(255,255,255,0.7); margin-bottom: 16px; letter-spacing: 2px;">SHARE YOUR VICTORY</div>
-        <div style="display: flex; gap: 14px; justify-content: center; flex-wrap: wrap;">
-          <a id="whatsapp-share-btn" href="#" target="_blank" style="padding: 14px 28px; background: #25D366; color: #fff; border-radius: 10px; font-family: 'Bebas Neue', sans-serif; font-size: 20px; text-decoration: none; display: inline-block;">📱 WhatsApp</a>
-          <a id="twitter-share-btn" href="#" target="_blank" style="padding: 14px 28px; background: #1DA1F2; color: #fff; border-radius: 10px; font-family: 'Bebas Neue', sans-serif; font-size: 20px; text-decoration: none; display: inline-block;">🐦 Twitter</a>
-          <button onclick="copyGameLink()" style="padding: 14px 28px; background: rgba(255,255,255,0.15); color: #fff; border: 2px solid rgba(255,255,255,0.3); border-radius: 10px; font-family: 'Bebas Neue', sans-serif; font-size: 20px; cursor: pointer;">🔗 Copy Link</button>
-        </div>
-      </div>
-
-      <!-- Email sign-up for the host/ref -->
-      <div id="host-email-section" style="margin: 40px auto 10px; max-width: 640px; width: 100%; background: rgba(255,255,255,0.06); border: 2px solid rgba(77,212,232,0.35); border-radius: 16px; padding: 30px 36px; text-align: center;">
-        <div style="font-family: 'Bebas Neue', sans-serif; font-size: 26px; color: #ffc629; letter-spacing: 2px; margin-bottom: 10px;">⚽ WANT TO KNOW WHEN WE MAKE MORE?</div>
-        <p style="font-family: 'Barlow', sans-serif; font-size: 17px; color: rgba(255,255,255,0.8); margin: 0 0 20px; line-height: 1.5;">Drop your email and we'll let you know when the next game is ready.</p>
-        <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
-          <input type="email" id="host-email-input" placeholder="your@email.com"
-            style="flex: 1; min-width: 220px; max-width: 320px; padding: 14px 18px; font-size: 17px; font-family: 'Barlow', sans-serif; border: 2px solid rgba(77,212,232,0.4); border-radius: 10px; background: rgba(255,255,255,0.1); color: #fff; outline: none;"
-            onkeypress="if(event.key==='Enter') submitHostEmail()"
-            onfocus="this.style.borderColor='#4dd4e8'"
-            onblur="this.style.borderColor='rgba(77,212,232,0.4)'"
-          >
-          <button onclick="submitHostEmail()" id="host-notify-btn"
-            style="padding: 14px 26px; background: linear-gradient(135deg, #4dd4e8, #ffc629); color: #0a1628; border: none; border-radius: 10px; font-family: 'Bebas Neue', sans-serif; font-size: 22px; cursor: pointer; white-space: nowrap;">
-            📧 Notify Me
-          </button>
-        </div>
-        <div id="host-email-thanks" style="display:none; font-family:'Bebas Neue',sans-serif; font-size:22px; color:#4dd4e8; margin-top:14px; letter-spacing:1px;">✅ You're on the list!</div>
-      </div>
-
-      <div id="photo-album" style="width: 100%; max-width: 1200px; margin-top: 60px;">
-        <!-- Blow Ball photos loaded here -->
-      </div>
-    `;
-
-    document.body.appendChild(victoryDiv);
-
-    // Wire up share buttons now that DOM scores are known
-    const shareMsg = `We just played Foul Play! ⚽🏆 Final score: ${team1Total} - ${team2Total}. Play your own game: https://foulplay.games`;
-    const waBtn = document.getElementById('whatsapp-share-btn');
-    const twBtn = document.getElementById('twitter-share-btn');
-    if (waBtn) waBtn.href = `https://wa.me/?text=${encodeURIComponent(shareMsg)}`;
-    if (twBtn) twBtn.href = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareMsg)}`;
-
-    // Clear any lingering pause state at game end
-    gameRef.child('paused').set(false);
-
-    // Load photo album after a short delay
-    setTimeout(() => loadPhotoAlbum(), 1500);
-
-    // Play final whistle → victory fanfare
-    playAudio('final_whistle.mp3?v=2', {
-      volume: 0.7,
-      onEnded: () => playAudio('victory_fanfare.mp3?v=2', { volume: 0.6 })
-    });
-
-    gameRef.update({
-      gameComplete: true,
-      winner: winnerTeam ? winnerTeam.name : 'Draw',
-      finalScore: `${team1Total} - ${team2Total}`,
-      mvp: mvp.name
-    });
+  // Clean up whichever reveal UI is currently showing
+  ['sabotage-reveals', 'sabotage-reveal-card'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.remove();
   });
-}
 
-function loadPhotoAlbum() {
-  gameRef.child('blowBall/photos').once('value', (snapshot) => {
-    const photosData = snapshot.val();
-    const albumEl = document.getElementById('photo-album');
-    if (!albumEl) return;
+  const entries = Object.entries(window._sabotageJudgements);
+  let pending = entries.filter(([, j]) => j.status === 'completed').length;
 
-    if (!photosData) {
-      albumEl.style.display = 'none';
-      return;
-    }
+  if (pending === 0) {
+    showVictoryScreen();
+    return;
+  }
 
-    let photoItems = '';
-    Object.entries(photosData).forEach(([pid, playerPhotos]) => {
-      const playerName = players[pid]?.name || 'Unknown';
-      Object.values(playerPhotos).forEach((photoData) => {
-        photoItems += `
-          <div style="background: rgba(255,255,255,0.08); border-radius: 12px; padding: 10px; text-align: center;">
-            <div style="font-family: 'Barlow', sans-serif; font-size: 15px; color: rgba(255,255,255,0.75); margin-bottom: 8px;">
-              ${playerName}
-            </div>
-            <img src="${photoData.photo}"
-                 style="width: 100%; height: 200px; object-fit: cover; border-radius: 8px;">
-          </div>
-        `;
+  entries.forEach(([pid, judgement]) => {
+    if (judgement.status !== 'completed') return;
+    const pts = Math.max(0, judgement.points || 0);
+    if (pts > 0) {
+      gameRef.child(`players/${pid}/score`).transaction((current) => (current || 0) + pts, () => {
+        pending--;
+        if (pending <= 0) showVictoryScreen();
       });
-    });
-
-    albumEl.innerHTML = `
-      <div style="font-family: 'Bebas Neue', sans-serif; font-size: 48px; color: var(--text); margin-bottom: 30px; text-align: center;">
-        📸 Blow Ball Photo Album 📸
-      </div>
-      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 20px;">
-        ${photoItems}
-      </div>
-    `;
+    } else {
+      pending--;
+      if (pending <= 0) showVictoryScreen();
+    }
   });
 }
 
@@ -6240,6 +6208,7 @@ function startCaptionRound(roundIndex) {
   });
 
   // Play instruction audio, then start timer + music once it finishes
+  // (playAudio calls onEnded on completion *or* error, so no fallback needed)
   playAudio(`${round.audioFile}?v=1`, { volume: 0.8, onEnded: startTimerAndMusic });
 }
 
@@ -6606,7 +6575,6 @@ function showCaptionWinner(roundIndex, votes) {
     <div id="caption-winner-mockup" style="margin-bottom:20px;"></div>
     ${winner.text && round.style !== 'draw' ? `<div style="font-family:'Barlow',sans-serif;font-size:22px;color:var(--motd-cyan);max-width:700px;font-style:italic;">"${winner.text}"</div>` : ''}
   `;
-
   document.body.appendChild(winDiv);
 
   renderCaptionMockup('caption-winner-mockup', photoUrl, round.style, mockupCaption);
@@ -6617,6 +6585,7 @@ function showCaptionWinner(roundIndex, votes) {
     await announceCaptionWinner(winner.playerName);
 
     // 2. Accept fanfare — wait for BOTH the audio to end AND a 2s minimum hold
+    //    (whichever finishes last), so audio never bleeds into the next screen
     const acceptIdx = (roundIndex % 10) + 1;
     await new Promise(resolve => {
       let timerDone = false;
@@ -6864,61 +6833,324 @@ function showSabotagePlayerReveal(index) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// INTERACTIVE SABOTAGE JUDGING (all-at-once fallback, also used from showSabotageReveals)
+// SABOTAGE REVEALS (legacy — all-at-once fallback, kept for reference)
 // ═══════════════════════════════════════════════════════════════════════════
 
-// Stores the ref's judgements per player: { status: 'completed'|'notdone'|'caught', points: 0 }
-window._sabotageJudgements = {};
+function showSabotageReveals() {
+  console.log('🕵️ Showing Sabotage Reveals');
+  window._sabotageJudgements = {};
 
-function setSabotageStatus(pid, status) {
-  if (!window._sabotageJudgements[pid]) window._sabotageJudgements[pid] = { status: 'notdone', points: 0 };
-  window._sabotageJudgements[pid].status = status;
+  gameRef.child('sabotage').once('value', (snapshot) => {
+    const sabotageData = snapshot.val();
 
-  // Highlight the active button
-  ['completed', 'notdone', 'caught'].forEach(s => {
-    const btn = document.getElementById(`sabot-btn-${s}-${pid}`);
-    if (!btn) return;
-    btn.style.opacity   = s === status ? '1'    : '0.3';
-    btn.style.transform = s === status ? 'scale(1.05)' : 'scale(1)';
-  });
+    const taskSabotages = sabotageData
+      ? Object.fromEntries(Object.entries(sabotageData).filter(([, d]) => d.assigned === true))
+      : {};
 
-  // Show points input only when completed
-  const pointsRow = document.getElementById(`sabot-pts-row-${pid}`);
-  if (pointsRow) pointsRow.style.display = status === 'completed' ? 'flex' : 'none';
-}
-
-function awardSabotageAndContinue() {
-  const btn = document.getElementById('sabot-continue-btn');
-  if (btn) { btn.disabled = true; btn.textContent = 'Awarding points…'; }
-
-  // Clean up whichever reveal UI is currently showing
-  ['sabotage-reveals', 'sabotage-reveal-card'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.remove();
-  });
-
-  const entries = Object.entries(window._sabotageJudgements);
-  let pending = entries.filter(([, j]) => j.status === 'completed').length;
-
-  if (pending === 0) {
-    showVictoryScreen();
-    return;
-  }
-
-  entries.forEach(([pid, judgement]) => {
-    if (judgement.status !== 'completed') return;
-    const pts = Math.max(0, judgement.points || 0);
-    if (pts > 0) {
-      gameRef.child(`players/${pid}/score`).transaction((current) => (current || 0) + pts, () => {
-        pending--;
-        if (pending <= 0) showVictoryScreen();
-      });
-    } else {
-      pending--;
-      if (pending <= 0) showVictoryScreen();
+    if (Object.keys(taskSabotages).length === 0) {
+      console.log('🕵️ No sabotage tasks found, going to victory');
+      showVictoryScreen();
+      return;
     }
+
+    const revealDiv = document.createElement('div');
+    revealDiv.id = 'sabotage-reveals';
+    revealDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, var(--motd-dark-navy) 0%, var(--motd-navy) 100%); display: flex; flex-direction: column; align-items: center; padding: 40px; overflow-y: auto; z-index: 10000;';
+
+    let cardsHtml = '';
+    Object.entries(taskSabotages).forEach(([pid, data]) => {
+      const player = players[pid] || {};
+      const playerName = player.name || 'Unknown';
+      const initial = playerName[0].toUpperCase();
+      const photoHtml = player.photo
+        ? `<img src="${player.photo}" style="width:56px;height:56px;border-radius:50%;object-fit:cover;border:3px solid #d4145a;flex-shrink:0;">`
+        : `<div style="width:56px;height:56px;border-radius:50%;background:rgba(212,20,90,0.3);border:3px solid #d4145a;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:26px;color:#fff;flex-shrink:0;">${initial}</div>`;
+
+      // Pre-fill judgement from Firebase player self-report as a starting suggestion
+      const initStatus = data.spotted ? 'caught' : data.completed ? 'completed' : 'notdone';
+      const initPts    = data.piecesCollected || 0;
+      window._sabotageJudgements[pid] = { status: initStatus, points: initPts };
+
+      const btnBase = "padding:10px 18px;border:none;border-radius:8px;font-family:'Bebas Neue',sans-serif;font-size:18px;cursor:pointer;letter-spacing:1px;transition:all 0.15s;";
+
+      cardsHtml += `
+        <div style="background:rgba(255,255,255,0.04);border:2px solid rgba(212,20,90,0.5);border-radius:15px;padding:26px 30px;">
+
+          <!-- Player header -->
+          <div style="display:flex;align-items:center;gap:16px;margin-bottom:14px;">
+            ${photoHtml}
+            <div>
+              <div style="font-family:'Bebas Neue',sans-serif;font-size:32px;color:#fff;line-height:1;">${playerName}</div>
+              <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;color:#d4145a;letter-spacing:1px;">🕵️ ${data.name || data.task || 'Secret Mission'}</div>
+            </div>
+          </div>
+
+          <!-- Mission description -->
+          <div style="font-family:'Barlow',sans-serif;font-size:15px;color:rgba(255,255,255,0.7);margin-bottom:18px;line-height:1.5;padding:12px;background:rgba(0,0,0,0.25);border-radius:8px;">
+            ${data.description || ''}
+          </div>
+
+          <!-- Ref status buttons -->
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
+            <button id="sabot-btn-completed-${pid}" onclick="setSabotageStatus('${pid}','completed')"
+              style="${btnBase}background:rgba(46,204,113,0.85);color:#fff;opacity:${initStatus==='completed'?'1':'0.3'};">
+              ✅ Completed
+            </button>
+            <button id="sabot-btn-notdone-${pid}" onclick="setSabotageStatus('${pid}','notdone')"
+              style="${btnBase}background:rgba(120,120,120,0.7);color:#fff;opacity:${initStatus==='notdone'?'1':'0.3'};">
+              ❌ Not Done
+            </button>
+            <button id="sabot-btn-caught-${pid}" onclick="setSabotageStatus('${pid}','caught')"
+              style="${btnBase}background:rgba(212,20,90,0.85);color:#fff;opacity:${initStatus==='caught'?'1':'0.3'};">
+              🚨 Caught
+            </button>
+          </div>
+
+          <!-- Points input — only visible when Completed -->
+          <div id="sabot-pts-row-${pid}" style="display:${initStatus==='completed'?'flex':'none'};align-items:center;gap:14px;">
+            <label style="font-family:'Barlow Condensed',sans-serif;font-size:18px;color:rgba(255,255,255,0.8);">Points to award:</label>
+            <input type="number" id="sabot-pts-${pid}" value="${initPts}" min="0" max="50"
+              style="width:80px;padding:8px 12px;background:rgba(0,0,0,0.4);border:2px solid var(--motd-gold);border-radius:8px;font-family:'Bebas Neue',sans-serif;font-size:24px;color:var(--motd-gold);text-align:center;">
+          </div>
+
+        </div>
+      `;
+    });
+
+    revealDiv.innerHTML = `
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:60px;color:var(--motd-gold);text-shadow:0 0 40px rgba(255,198,41,0.8);margin-bottom:12px;letter-spacing:5px;text-align:center;">
+        🕵️ SABOTAGE REVEALS
+      </div>
+      <div style="font-family:'Barlow',sans-serif;font-size:20px;color:rgba(255,255,255,0.7);margin-bottom:36px;text-align:center;">
+        Judge each mission, then award points to continue
+      </div>
+      <div style="display:flex;flex-direction:column;gap:24px;width:100%;max-width:820px;">
+        ${cardsHtml}
+      </div>
+      <button id="sabot-continue-btn" onclick="awardSabotageAndContinue()"
+        style="margin-top:44px;margin-bottom:40px;padding:20px 50px;background:linear-gradient(135deg,#4dd4e8,#ffc629);color:#0a1628;border:none;border-radius:15px;font-family:'Bebas Neue',sans-serif;font-size:32px;cursor:pointer;box-shadow:0 10px 30px rgba(255,198,41,0.4);">
+        ✅ Award Points &amp; Show Results
+      </button>
+    `;
+
+    document.body.appendChild(revealDiv);
   });
 }
+
+function finishSabotageReveals() {
+  const revealDiv = document.getElementById('sabotage-reveals');
+  if (revealDiv) revealDiv.remove();
+  showVictoryScreen();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PHASE 6: FINAL VICTORY SCREEN (replaces showFinalScreen)
+// ═══════════════════════════════════════════════════════════════════════════
+
+function showVictoryScreen() {
+  console.log('🏆 Showing Victory Screen');
+
+  // Stop everything that might still be playing from previous rounds
+  pauseAllAudio();
+  window._pausedAudioRefs = []; // game is over — nothing should ever resume
+
+  document.getElementById('round3-screen').classList.remove('active');
+  document.getElementById('round-indicator').textContent = 'Full Time';
+
+  gameRef.once('value', (snapshot) => {
+    const data = snapshot.val() || {};
+    const playersData = data.players || {};
+
+    let team1Total = 0;
+    let team2Total = 0;
+    let mvp = { name: '—', score: 0, photo: null };
+    const team1Players = [];
+    const team2Players = [];
+
+    Object.values(playersData).forEach(player => {
+      const score = player.score || 0;
+      if (player.team === 1) { team1Total += score; team1Players.push(player); }
+      if (player.team === 2) { team2Total += score; team2Players.push(player); }
+      if (score > mvp.score) { mvp = { name: player.name, score: score, photo: player.photo || null }; }
+    });
+
+    const winnerTeam = team1Total > team2Total ? (team1 || {}) : team2Total > team1Total ? (team2 || {}) : null;
+    const winnerScore = Math.max(team1Total, team2Total);
+    const loserScore = Math.min(team1Total, team2Total);
+
+    const victoryDiv = document.createElement('div');
+    victoryDiv.id = 'victory-screen';
+    victoryDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, var(--motd-dark-navy) 0%, var(--motd-navy) 100%); display: flex; flex-direction: column; align-items: center; justify-content: flex-start; z-index: 10000; padding: 40px; overflow-y: auto;';
+
+    const teamDisplay = winnerTeam
+      ? `${winnerTeam.flag || ''} ${winnerTeam.name || 'Winner'} Wins!`
+      : "It's a Draw!";
+
+    const t1Players = team1Players.sort((a, b) => (b.score || 0) - (a.score || 0));
+    const t2Players = team2Players.sort((a, b) => (b.score || 0) - (a.score || 0));
+
+    victoryDiv.innerHTML = `
+      <div style="font-family: 'Bebas Neue', sans-serif; font-size: 72px; color: var(--motd-gold); text-shadow: 0 0 60px rgba(255,198,41,0.8); margin-bottom: 10px; letter-spacing: 6px; text-align: center;">🏆 FULL TIME! 🏆</div>
+
+      <div style="background: rgba(255,255,255,0.08); border: 3px solid var(--motd-gold); border-radius: 20px; padding: 30px 50px; margin-bottom: 30px; text-align: center;">
+        <div style="font-family: 'Bebas Neue', sans-serif; font-size: 56px; color: var(--text);">${teamDisplay}</div>
+        <div style="font-family: 'Bebas Neue', sans-serif; font-size: 100px; color: var(--motd-cyan); text-shadow: 0 0 40px rgba(77,212,232,0.6); line-height: 1;">${team1Total} — ${team2Total}</div>
+        ${team1 && team2 ? `<div style="font-family: 'Barlow Condensed', sans-serif; font-size: 24px; color: var(--text-muted);">${team1.flag} ${team1.name} vs ${team2.flag} ${team2.name}</div>` : ''}
+      </div>
+
+      <div style="background: rgba(255,198,41,0.15); border: 3px solid var(--motd-gold); border-radius: 16px; padding: 25px 40px; margin-bottom: 30px; text-align: center; width: 100%; max-width: 600px;">
+        <div style="font-family: 'Barlow Condensed', sans-serif; font-size: 18px; color: rgba(255,255,255,0.7); text-transform: uppercase; letter-spacing: 3px; margin-bottom: 14px;">⭐ MVP ⭐</div>
+        ${mvp.photo
+          ? `<img src="${mvp.photo}" style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:4px solid var(--motd-gold);box-shadow:0 0 24px rgba(255,198,41,0.6);margin-bottom:10px;">`
+          : `<div style="width:80px;height:80px;border-radius:50%;background:rgba(255,198,41,0.2);border:4px solid var(--motd-gold);display:inline-flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:40px;color:var(--motd-gold);margin-bottom:10px;">${(mvp.name||'?')[0].toUpperCase()}</div>`
+        }
+        <div style="font-family: 'Bebas Neue', sans-serif; font-size: 52px; color: var(--motd-gold);">${mvp.name}</div>
+        <div style="font-family: 'Bebas Neue', sans-serif; font-size: 36px; color: var(--text);">${mvp.score} points</div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; width: 100%; max-width: 900px; margin-bottom: 30px;">
+        <div style="background: rgba(77,212,232,0.1); border: 2px solid var(--motd-cyan); border-radius: 12px; padding: 20px;">
+          <div style="font-family: 'Bebas Neue', sans-serif; font-size: 28px; color: var(--motd-cyan); margin-bottom: 15px;">${team1 ? team1.flag + ' ' + team1.name : 'Home Team'}</div>
+          ${t1Players.map((p, i) => {
+            const init = (p.name||'?')[0].toUpperCase();
+            const photo = p.photo
+              ? `<img src="${p.photo}" style="width:34px;height:34px;border-radius:50%;object-fit:cover;border:2px solid var(--motd-cyan);flex-shrink:0;">`
+              : `<div style="width:34px;height:34px;border-radius:50%;background:rgba(77,212,232,0.15);border:2px solid var(--motd-cyan);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:15px;color:var(--motd-cyan);flex-shrink:0;">${init}</div>`;
+            return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.1);">${photo}<span style="font-family:'Barlow Condensed',sans-serif;font-size:20px;flex:1;">${i===0?'⭐ ':''}${p.name}</span><span style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--motd-cyan);">${p.score||0}</span></div>`;
+          }).join('')}
+          <div style="font-family: 'Bebas Neue', sans-serif; font-size: 32px; color: var(--motd-gold); margin-top: 10px; text-align: right;">Total: ${team1Total}</div>
+        </div>
+        <div style="background: rgba(212,20,90,0.1); border: 2px solid var(--motd-magenta); border-radius: 12px; padding: 20px;">
+          <div style="font-family: 'Bebas Neue', sans-serif; font-size: 28px; color: var(--motd-magenta); margin-bottom: 15px;">${team2 ? team2.flag + ' ' + team2.name : 'Away Team'}</div>
+          ${t2Players.map((p, i) => {
+            const init = (p.name||'?')[0].toUpperCase();
+            const photo = p.photo
+              ? `<img src="${p.photo}" style="width:34px;height:34px;border-radius:50%;object-fit:cover;border:2px solid var(--motd-magenta);flex-shrink:0;">`
+              : `<div style="width:34px;height:34px;border-radius:50%;background:rgba(212,20,90,0.15);border:2px solid var(--motd-magenta);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:15px;color:var(--motd-magenta);flex-shrink:0;">${init}</div>`;
+            return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.1);">${photo}<span style="font-family:'Barlow Condensed',sans-serif;font-size:20px;flex:1;">${i===0?'⭐ ':''}${p.name}</span><span style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--motd-magenta);">${p.score||0}</span></div>`;
+          }).join('')}
+          <div style="font-family: 'Bebas Neue', sans-serif; font-size: 32px; color: var(--motd-gold); margin-top: 10px; text-align: right;">Total: ${team2Total}</div>
+        </div>
+      </div>
+
+      <!-- Champions League team photo download -->
+      <button onclick="downloadChampionsPhoto()" style="display: block; margin: 20px auto 0; padding: 16px 40px; background: linear-gradient(135deg, #4dd4e8, #ffc629); color: #0a1628; border: none; border-radius: 12px; font-family: 'Bebas Neue', sans-serif; font-size: 26px; cursor: pointer; letter-spacing: 2px; box-shadow: 0 6px 20px rgba(77,212,232,0.4);">
+        🏆 Download Team Photo
+      </button>
+
+      <!-- Social sharing -->
+      <div style="margin: 30px 0 10px; text-align: center;">
+        <div style="font-family: 'Bebas Neue', sans-serif; font-size: 24px; color: rgba(255,255,255,0.7); margin-bottom: 16px; letter-spacing: 2px;">SHARE YOUR VICTORY</div>
+        <div style="display: flex; gap: 14px; justify-content: center; flex-wrap: wrap;">
+          <a id="whatsapp-share-btn" href="#" target="_blank" style="padding: 14px 28px; background: #25D366; color: #fff; border-radius: 10px; font-family: 'Bebas Neue', sans-serif; font-size: 20px; text-decoration: none; display: inline-block;">📱 WhatsApp</a>
+          <a id="twitter-share-btn" href="#" target="_blank" style="padding: 14px 28px; background: #1DA1F2; color: #fff; border-radius: 10px; font-family: 'Bebas Neue', sans-serif; font-size: 20px; text-decoration: none; display: inline-block;">🐦 Twitter</a>
+          <button onclick="copyGameLink()" style="padding: 14px 28px; background: rgba(255,255,255,0.15); color: #fff; border: 2px solid rgba(255,255,255,0.3); border-radius: 10px; font-family: 'Bebas Neue', sans-serif; font-size: 20px; cursor: pointer;">🔗 Copy Link</button>
+        </div>
+      </div>
+
+      <!-- Email sign-up for the host/ref -->
+      <div id="host-email-section" style="margin: 40px auto 10px; max-width: 640px; width: 100%; background: rgba(255,255,255,0.06); border: 2px solid rgba(77,212,232,0.35); border-radius: 16px; padding: 30px 36px; text-align: center;">
+        <div style="font-family: 'Bebas Neue', sans-serif; font-size: 26px; color: #ffc629; letter-spacing: 2px; margin-bottom: 10px;">⚽ WANT TO KNOW WHEN WE MAKE MORE?</div>
+        <p style="font-family: 'Barlow', sans-serif; font-size: 17px; color: rgba(255,255,255,0.8); margin: 0 0 20px; line-height: 1.5;">Drop your email and we'll let you know when the next game is ready.</p>
+        <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+          <input type="email" id="host-email-input" placeholder="your@email.com"
+            style="flex: 1; min-width: 220px; max-width: 320px; padding: 14px 18px; font-size: 17px; font-family: 'Barlow', sans-serif; border: 2px solid rgba(77,212,232,0.4); border-radius: 10px; background: rgba(255,255,255,0.1); color: #fff; outline: none;"
+            onkeypress="if(event.key==='Enter') submitHostEmail()"
+            onfocus="this.style.borderColor='#4dd4e8'"
+            onblur="this.style.borderColor='rgba(77,212,232,0.4)'"
+          >
+          <button onclick="submitHostEmail()" id="host-notify-btn"
+            style="padding: 14px 26px; background: linear-gradient(135deg, #4dd4e8, #ffc629); color: #0a1628; border: none; border-radius: 10px; font-family: 'Bebas Neue', sans-serif; font-size: 22px; cursor: pointer; white-space: nowrap;">
+            📧 Notify Me
+          </button>
+        </div>
+        <div id="host-email-thanks" style="display:none; font-family:'Bebas Neue',sans-serif; font-size:22px; color:#4dd4e8; margin-top:14px; letter-spacing:1px;">✅ You're on the list!</div>
+      </div>
+
+      <div id="photo-album" style="width: 100%; max-width: 1200px; margin-top: 60px;">
+        <!-- Blow Ball photos loaded here -->
+      </div>
+    `;
+
+    document.body.appendChild(victoryDiv);
+
+    // Wire up share buttons now that DOM scores are known
+    const shareMsg = `We just played Foul Play! ⚽🏆 Final score: ${team1Total} - ${team2Total}. Play your own game: https://foulplay.games`;
+    const waBtn = document.getElementById('whatsapp-share-btn');
+    const twBtn = document.getElementById('twitter-share-btn');
+    if (waBtn) waBtn.href = `https://wa.me/?text=${encodeURIComponent(shareMsg)}`;
+    if (twBtn) twBtn.href = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareMsg)}`;
+
+    // Clear any lingering pause state at game end
+    gameRef.child('paused').set(false);
+
+    // Load photo album after a short delay
+    setTimeout(() => loadPhotoAlbum(), 1500);
+
+    // Play final whistle → victory fanfare
+    playAudio('final_whistle.mp3?v=2', {
+      volume: 0.7,
+      onEnded: () => playAudio('victory_fanfare.mp3?v=2', { volume: 0.6 })
+    });
+
+    gameRef.update({
+      gameComplete: true,
+      winner: winnerTeam ? winnerTeam.name : 'Draw',
+      finalScore: `${team1Total} - ${team2Total}`,
+      mvp: mvp.name
+    });
+  });
+}
+
+function loadPhotoAlbum() {
+  gameRef.child('blowBall/photos').once('value', (snapshot) => {
+    const photosData = snapshot.val();
+    const albumEl = document.getElementById('photo-album');
+    if (!albumEl) return;
+
+    if (!photosData) {
+      albumEl.style.display = 'none';
+      return;
+    }
+
+    let photoItems = '';
+    Object.entries(photosData).forEach(([pid, playerPhotos]) => {
+      const playerName = players[pid]?.name || 'Unknown';
+      Object.values(playerPhotos).forEach((photoData) => {
+        photoItems += `
+          <div style="background: rgba(255,255,255,0.08); border-radius: 12px; padding: 10px; text-align: center;">
+            <div style="font-family: 'Barlow', sans-serif; font-size: 15px; color: rgba(255,255,255,0.75); margin-bottom: 8px;">
+              ${playerName}
+            </div>
+            <img src="${photoData.photo}"
+                 style="width: 100%; height: 200px; object-fit: cover; border-radius: 8px;">
+          </div>
+        `;
+      });
+    });
+
+    albumEl.innerHTML = `
+      <div style="font-family: 'Bebas Neue', sans-serif; font-size: 48px; color: var(--text); margin-bottom: 30px; text-align: center;">
+        📸 Blow Ball Photo Album 📸
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 20px;">
+        ${photoItems}
+      </div>
+    `;
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// NOTES (UPDATED)
+// ═══════════════════════════════════════════════════════════════════════════
+/*
+  FULL GAME FLOW (v8.0):
+  Round 1 Quiz → Bonus Round (Karaoke) → Scores Review #1
+  → Round 2 Puns (30s) → Pun Review → [Match Draw if 4+ players]
+  → Round 3 Interview → Victory Screen
+
+  Phases 3 (Commentary) and 4 (Toilet Paper) are deferred.
+*/
 
 // ═══════════════════════════════════════════════════════════════════════════
 // PERSISTENT QR CODE (draggable, size S/M/L)
@@ -6932,6 +7164,7 @@ function createPersistentQRCode() {
   const sizes = { small: 80, medium: 110, large: 150 };
   const qrSize = sizes[savedSize];
 
+  const playerUrl = 'https://join.foulplay.games?code=' + encodeURIComponent(gameCode);
   const qrImgUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${qrSize}x${qrSize}&data=${encodeURIComponent(playerUrl)}`;
 
   const qrDiv = document.createElement('div');

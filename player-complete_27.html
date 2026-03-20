@@ -27,21 +27,30 @@
   
   * { margin: 0; padding: 0; box-sizing: border-box; }
   
+  html {
+    height: 100%;
+    overflow: hidden;
+  }
+
   body {
     font-family: 'Barlow', sans-serif;
     background: linear-gradient(135deg, var(--motd-dark-navy) 0%, var(--motd-navy) 100%);
     color: var(--text);
-    min-height: 100vh;
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
     touch-action: manipulation;
     -webkit-user-select: none;
     user-select: none;
   }
-  
+
   .container {
-    min-height: 100vh;
+    height: 100%;
     display: flex;
     flex-direction: column;
-    padding: 20px;
+    padding: clamp(12px, 4vw, 24px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
   
   /* JOIN SCREEN */
@@ -1003,10 +1012,10 @@ const ROUND_3_QUESTIONS = [
     question: "The team looked tired. What did you give them at half time?"
   },
   {
-    question: "What are you most concerned about in the next round?"
+    question: "What are you most concerned about in the next game?"
   },
   {
-    question: "Is there anything keeping you up at night?"
+    question: "What would you say is your biggest strength?"
   }
 ];
 
@@ -1197,10 +1206,11 @@ function joinGame(event) {
     });
   }).then(() => {
     document.getElementById('join-screen').classList.add('hidden');
-    document.getElementById('waiting-screen').classList.add('active');
-    document.getElementById('waiting-name').textContent = playerName;
-    document.getElementById('waiting-code').textContent = gameCode;
-    listenForGameStart();
+    // Save session for potential rejoin
+    localStorage.setItem('foulplay_gameCode', gameCode);
+    localStorage.setItem('foulplay_playerId', playerId);
+    localStorage.setItem('foulplay_playerName', playerName);
+    showPhotoCaptureScreen();
   }).catch((error) => {
     console.error('Join error:', error);
     if (error.message !== 'Game not found') {
@@ -1242,8 +1252,9 @@ function listenForGameStart() {
     console.log('Is first player:', isFirstPlayer);
     
     if (isFirstPlayer) {
+      window._isPlayer1 = true;
       // Show start button for first player
-      document.getElementById('waiting-message').textContent = 'You joined first! Select teams and start when ready.';
+      document.getElementById('waiting-message').textContent = 'You joined first! Select teams when ready.';
       const leadControls = document.getElementById('waiting-lead-controls');
       leadControls.style.display = 'flex';
       leadControls.style.justifyContent = 'center';
@@ -1280,6 +1291,9 @@ function listenForGameStart() {
   gameRef.child('started').on('value', (snapshot) => {
     if (snapshot.val() === true) {
       startPlaying();
+      if (window._isPlayer1) {
+        createPlayerPauseButton();
+      }
     }
   });
   
@@ -1529,7 +1543,9 @@ function listenForGameStart() {
 function showPlayerToiletPaperAlert() {
   if (document.getElementById('player-tp-alert')) return;
 
-  const isCaptain = players[playerId]?.isCaptain === true && players[playerId]?.team === 1;
+  // In sandbox, no teams are selected so nobody gets isCaptain — fall back to player 1
+  const isCaptain = (players[playerId]?.isCaptain === true && players[playerId]?.team === 1)
+                    || window._isPlayer1 === true;
 
   const alertDiv = document.createElement('div');
   alertDiv.id = 'player-tp-alert';
@@ -1694,6 +1710,11 @@ function startGameAsLead() {
 }
 
 function startPlaying() {
+  // Guard against duplicate calls (two 'started' listeners can fire this:
+  // one in listenForGameStart() and one in showTeamSelectionScreen()).
+  if (window._startPlayingCalled) return;
+  window._startPlayingCalled = true;
+
   // Remove Round 1 explainer if still present (race-condition safety:
   // 'started' can arrive before 'round1Started' is cleared by the host,
   // so the overlay may still be on screen when this fires)
@@ -1764,11 +1785,6 @@ function startPlaying() {
     if (snapshot.val() === true) showBlowBallGetReadyScreen();
   });
 
-  // After 20 s, the referee gets a Full Time button
-  gameRef.child('blowBallFullTimeAvailable').on('value', (snapshot) => {
-    if (snapshot.val() === true) showBlowBallFullTimeButton();
-  });
-
   gameRef.child('blowBallJudgingActive').on('value', (snapshot) => {
     if (snapshot.val() === true) {
       showPlayerBlowBallJudging();
@@ -1803,6 +1819,13 @@ function startPlaying() {
       if (questionIndex !== null && questionIndex !== currentQuestionIndex) {
         loadQuestion(questionIndex);
       }
+    }
+  });
+
+  // Game complete — show thanks screen then email capture
+  gameRef.child('gameComplete').on('value', (snapshot) => {
+    if (snapshot.val() === true) {
+      showPlayerGameComplete();
     }
   });
 }
@@ -1844,7 +1867,7 @@ function showSabotageTask(sabotageData) {
 
   alertDiv.innerHTML += sabotageHTML;
 
-  // Delay "Understood" button by 10 s so the player has time to read the task
+  // Delay "Understood" button by 5 s so the player has time to read the task
   setTimeout(() => {
     const understoodBtn = document.getElementById('sabotage-understood-btn');
     if (understoodBtn && understoodBtn.parentNode) {
@@ -1883,7 +1906,7 @@ function createStandaloneSabotageDisplay(sabotageData) {
 
   document.body.appendChild(sabotageDiv);
 
-  // Delay "Understood" button by 10 s so the player has time to read the task
+  // Delay "Understood" button by 5 s so the player has time to read the task
   setTimeout(() => {
     const understoodBtn = document.getElementById('sabotage-understood-btn');
     if (understoodBtn && understoodBtn.parentNode) {
@@ -2079,10 +2102,15 @@ function volunteerAsPhotographer() {
   console.log('📸 Volunteering as photographer');
 
   const playerTeam = players[playerId]?.team;
-  if (!playerTeam) return;
 
-  // Only first volunteer per team wins (Firebase will silently overwrite but that's fine here)
-  gameRef.child(`blowBall/photographers/team${playerTeam}`).set(playerId);
+  if (!playerTeam) {
+    // Sandbox: no teams assigned — fill both slots so the host can proceed
+    gameRef.child('blowBall/photographers/team1').set(playerId);
+    gameRef.child('blowBall/photographers/team2').set(playerId);
+  } else {
+    // Only first volunteer per team wins (Firebase will silently overwrite but that's fine here)
+    gameRef.child(`blowBall/photographers/team${playerTeam}`).set(playerId);
+  }
 
   const selectionDiv = document.getElementById('player-photographer-selection');
   if (selectionDiv) selectionDiv.remove();
@@ -2144,26 +2172,34 @@ function showPhotographerSnapScreen(roundNumber) {
   }
 
   emotionDiv.innerHTML = `
-    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 32px; color: rgba(255,255,255,0.6); margin-bottom: 10px; letter-spacing: 3px;">
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 32px; color: rgba(255,255,255,0.6); margin-bottom: 6px; letter-spacing: 3px;">
       ROUND ${roundNumber}
     </div>
-    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 40px; color: #fff; margin-bottom: 20px;">
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 36px; color: #fff; margin-bottom: 12px;">
       📸 You're the Photographer!
     </div>
-    <div id="blowball-player-hidden" style="font-family: 'Bebas Neue', sans-serif; font-size: 72px; color: #ffc629; opacity: 0.3; letter-spacing: 12px; margin-bottom: 24px;">
+    <div id="blowball-player-hidden" style="font-family: 'Bebas Neue', sans-serif; font-size: 56px; color: #ffc629; opacity: 0.3; letter-spacing: 10px; margin-bottom: 12px;">
       ? ? ?
     </div>
-    <div id="blowball-player-reveal" style="display: none; font-family: 'Bebas Neue', sans-serif; font-size: 72px; color: #ffc629; text-shadow: 0 0 40px rgba(255,198,41,0.8); margin-bottom: 24px;"></div>
-    <input type="file" accept="image/*" capture="user" id="photo-capture"
-           style="display: none;" onchange="handlePhotoCapture(this)">
-    <button onclick="document.getElementById('photo-capture').click()"
-            style="padding: 20px 50px; background: linear-gradient(135deg, #4dd4e8, #ffc629); color: #0a1628; border: none; border-radius: 15px; font-family: 'Bebas Neue', sans-serif; font-size: 28px; cursor: pointer; box-shadow: 0 10px 30px rgba(255,198,41,0.4); -webkit-tap-highlight-color: transparent;">
+    <div id="blowball-player-reveal" style="display: none; font-family: 'Bebas Neue', sans-serif; font-size: 56px; color: #ffc629; text-shadow: 0 0 40px rgba(255,198,41,0.8); margin-bottom: 12px;"></div>
+    <div id="blowball-viewfinder-wrap" style="position:relative;width:200px;height:200px;margin:0 auto 14px;flex-shrink:0;">
+      <video id="blowball-camera-video" autoplay playsinline muted
+             style="width:200px;height:200px;object-fit:cover;border-radius:50%;border:4px solid #4dd4e8;display:block;background:#000;box-shadow:0 0 28px rgba(77,212,232,0.4);">
+      </video>
+      <div style="position:absolute;inset:-4px;border-radius:50%;box-shadow:0 0 0 300px #0a1628;pointer-events:none;"></div>
+      <div style="position:absolute;inset:-4px;border-radius:50%;border:4px solid #4dd4e8;pointer-events:none;"></div>
+    </div>
+    <canvas id="blowball-camera-canvas" style="display:none;"></canvas>
+    <div id="blowball-photo-preview" style="display:none;margin-bottom:12px;">
+      <img id="blowball-preview-img" style="width:110px;height:110px;object-fit:cover;border-radius:50%;border:3px solid #4dd4e8;box-shadow:0 0 20px rgba(77,212,232,0.4);">
+    </div>
+    <button id="blowball-capture-btn" onclick="captureBlowBallPhoto()"
+            style="padding: 16px 44px; background: linear-gradient(135deg, #4dd4e8, #ffc629); color: #0a1628; border: none; border-radius: 15px; font-family: 'Bebas Neue', sans-serif; font-size: 28px; cursor: pointer; box-shadow: 0 10px 30px rgba(255,198,41,0.4); -webkit-tap-highlight-color: transparent;">
       📸 Take Photo
     </button>
-    <div id="photo-preview" style="margin-top: 30px; display: none;">
-      <img id="preview-img" style="max-width: 280px; border-radius: 12px; border: 3px solid #4dd4e8;">
-    </div>
   `;
+
+  startBlowBallCamera();
 }
 
 // Spectator screen during the hidden snap phase — emotion not shown yet
@@ -2190,41 +2226,6 @@ function showSpectatorSnapScreen(roundNumber) {
   `;
 }
 
-// Shows the Full Time button on the referee's screen after 20 s
-function showBlowBallFullTimeButton() {
-  // Only the first player (referee) gets this button
-  const playerIds = Object.keys(players);
-  const refereeId = playerIds[0];
-  if (playerId !== refereeId) return;
-
-  if (document.getElementById('blowball-full-time-container')) return;
-
-  // Container holds button + subtitle
-  const container = document.createElement('div');
-  container.id = 'blowball-full-time-container';
-  container.style.cssText = 'position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 10px; z-index: 11000;';
-
-  const btn = document.createElement('button');
-  btn.id = 'blowball-full-time-btn';
-  btn.textContent = '🏁 Full Time';
-  btn.style.cssText = 'padding: 18px 44px; background: linear-gradient(135deg, #d4145a, #ff4d4d); color: #fff; border: none; border-radius: 14px; font-family: "Bebas Neue", sans-serif; font-size: 30px; letter-spacing: 2px; cursor: pointer; box-shadow: 0 8px 30px rgba(212,20,90,0.5); -webkit-tap-highlight-color: transparent;';
-  btn.onclick = () => {
-    btn.disabled = true;
-    btn.textContent = '⏳ Ending…';
-    gameRef.update({ blowBallFullTime: true });
-    setTimeout(() => { if (container.parentNode) container.remove(); }, 3000);
-  };
-
-  const subtitle = document.createElement('p');
-  subtitle.style.cssText = 'font-family: "Barlow", sans-serif; font-size: 14px; color: rgba(255,255,255,0.7); text-align: center; margin: 0; max-width: 280px; line-height: 1.4;';
-  subtitle.textContent = 'Blow the whistle once both teams have scored (or you\'ve had enough)';
-
-  container.appendChild(btn);
-  container.appendChild(subtitle);
-  document.body.appendChild(container);
-  console.log('🏁 Full Time button shown to referee');
-}
-
 // Shows a "Get Ready" full-screen before the blow ball round starts
 // Player 1 (referee) gets the "Ready" button; everyone else sees a waiting spinner
 function showBlowBallGetReadyScreen() {
@@ -2240,10 +2241,10 @@ function showBlowBallGetReadyScreen() {
   if (isPlayer1) {
     div.innerHTML = `
       <div style="font-family: 'Bebas Neue', sans-serif; font-size: 72px; color: #ffc629; letter-spacing: 6px; margin-bottom: 16px;">GET READY</div>
-      <div style="font-family: 'Barlow', sans-serif; font-size: 20px; color: rgba(255,255,255,0.7); margin-bottom: 40px;">You're the referee! Press Ready when everyone is set.</div>
+      <div style="font-family: 'Barlow', sans-serif; font-size: 20px; color: rgba(255,255,255,0.7); margin-bottom: 40px;">You're the referee! Press Blow Whistle when everyone is set.</div>
       <button id="blowball-ready-btn" onclick="pressBlowBallReady()"
               style="padding: 20px 50px; background: linear-gradient(135deg, #4dd4e8, #00bcd4); color: #0a1628; border: none; border-radius: 16px; font-family: 'Bebas Neue', sans-serif; font-size: 36px; letter-spacing: 2px; cursor: pointer; box-shadow: 0 8px 30px rgba(77,212,232,0.5); -webkit-tap-highlight-color: transparent;">
-        ✅ Ready
+        📣 Blow Whistle
       </button>
     `;
   } else {
@@ -2308,6 +2309,74 @@ function convertToBase64(file) {
   });
 }
 
+// ── Blow-ball live-camera helpers ────────────────────────────────────────────
+
+async function startBlowBallCamera() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+    const video = document.getElementById('blowball-camera-video');
+    if (video) video.srcObject = stream;
+  } catch (err) {
+    console.warn('Blow-ball camera not available:', err);
+    // Hide viewfinder and fall back to file-input
+    const wrap = document.getElementById('blowball-viewfinder-wrap');
+    if (wrap) wrap.style.display = 'none';
+    const btn = document.getElementById('blowball-capture-btn');
+    if (btn) {
+      const input = document.createElement('input');
+      input.type = 'file'; input.accept = 'image/*'; input.capture = 'user';
+      input.id = 'photo-capture-fallback'; input.style.display = 'none';
+      input.onchange = () => handlePhotoCapture(input);
+      btn.parentNode.insertBefore(input, btn);
+      btn.textContent = '📂 Choose Photo';
+      btn.onclick = () => input.click();
+    }
+  }
+}
+
+async function captureBlowBallPhoto() {
+  const video  = document.getElementById('blowball-camera-video');
+  const canvas = document.getElementById('blowball-camera-canvas');
+  const btn    = document.getElementById('blowball-capture-btn');
+  if (!video || !canvas || !video.srcObject) return;
+
+  // Freeze the capture — crop to square to preserve aspect ratio
+  canvas.width  = 600;
+  canvas.height = 600;
+  const ctx = canvas.getContext('2d');
+  const ar = video.videoWidth / video.videoHeight;
+  let sx, sy, sw, sh;
+  if (ar > 1) { sh = video.videoHeight; sw = sh; sx = (video.videoWidth - sw) / 2; sy = 0; }
+  else        { sw = video.videoWidth;  sh = sw; sx = 0; sy = (video.videoHeight - sh) / 2; }
+  ctx.drawImage(video, sx, sy, sw, sh, 0, 0, 600, 600);
+  const base64 = canvas.toDataURL('image/jpeg', 0.85);
+
+  // Stop the live stream
+  video.srcObject.getTracks().forEach(t => t.stop());
+
+  // Hide the viewfinder — don't show the photo back to the player
+  const wrap = document.getElementById('blowball-viewfinder-wrap');
+  if (wrap) wrap.style.display = 'none';
+
+  if (btn) { btn.textContent = '✅ Photo Taken!'; btn.disabled = true; }
+
+  // Upload to Firebase
+  try {
+    const snap = await gameRef.child('blowBallPhotoRound').once('value');
+    const roundNumber = snap.val() || 1;
+    gameRef.child(`blowBall/photos/${playerId}`).push({
+      photo: base64,
+      round: roundNumber,
+      timestamp: Date.now()
+    });
+    console.log('✅ Blow-ball photo uploaded');
+  } catch (err) {
+    console.error('❌ Blow-ball photo upload failed:', err);
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+
 function showPlayerBlowBallJudging() {
   const emotionDiv = document.getElementById('player-blowball-emotion');
   if (emotionDiv) emotionDiv.remove();
@@ -2335,7 +2404,7 @@ function showRefereeBlowBallScoring() {
 
   const btns = (team, fn) => [1,2,3,4,5].map(s => `
     <button onclick="${fn}(${s})"
-            style="width: 64px; height: 64px; background: linear-gradient(135deg, #4dd4e8, #ffc629); color: #0a1628; border: none; border-radius: 50%; font-family: 'Bebas Neue', sans-serif; font-size: 36px; cursor: pointer; -webkit-tap-highlight-color: transparent;">
+            style="width: 48px; height: 48px; background: linear-gradient(135deg, #4dd4e8, #ffc629); color: #0a1628; border: none; border-radius: 50%; font-family: 'Bebas Neue', sans-serif; font-size: 26px; cursor: pointer; -webkit-tap-highlight-color: transparent;">
       ${s}
     </button>
   `).join('');
@@ -2350,13 +2419,13 @@ function showRefereeBlowBallScoring() {
 
     <div style="margin-bottom: 36px; width: 100%; max-width: 480px;">
       <div style="font-family: 'Bebas Neue', sans-serif; font-size: 30px; color: #fff; margin-bottom: 16px;">Team 1 Score</div>
-      <div style="display: flex; gap: 12px; justify-content: center;">${btns(1, 'setBlowBallTeam1Score')}</div>
+      <div style="display: flex; gap: 8px; justify-content: center;">${btns(1, 'setBlowBallTeam1Score')}</div>
       <div id="t1-selected" style="font-family: 'Barlow', sans-serif; font-size: 16px; color: #4dd4e8; margin-top: 8px; min-height: 20px;"></div>
     </div>
 
     <div style="margin-bottom: 36px; width: 100%; max-width: 480px;">
       <div style="font-family: 'Bebas Neue', sans-serif; font-size: 30px; color: #fff; margin-bottom: 16px;">Team 2 Score</div>
-      <div style="display: flex; gap: 12px; justify-content: center;">${btns(2, 'setBlowBallTeam2Score')}</div>
+      <div style="display: flex; gap: 8px; justify-content: center;">${btns(2, 'setBlowBallTeam2Score')}</div>
       <div id="t2-selected" style="font-family: 'Barlow', sans-serif; font-size: 16px; color: #4dd4e8; margin-top: 8px; min-height: 20px;"></div>
     </div>
 
@@ -2648,10 +2717,16 @@ function startPlayerRound2() {
     teamBadge.textContent = players[playerId].team === 1 ? '🏠' : '✈️';
   }
   
-  // Get category from Firebase
-  gameRef.child('round2Category').once('value', (snapshot) => {
-    const category = snapshot.val();
-    document.getElementById('player-pun-category').textContent = category;
+  // Get this player's unique category from Firebase (falls back to global category)
+  gameRef.child(`players/${playerId}/punCategory`).once('value', (snap) => {
+    const myCategory = snap.val();
+    if (myCategory) {
+      document.getElementById('player-pun-category').textContent = myCategory;
+    } else {
+      gameRef.child('round2Category').once('value', (snapshot) => {
+        document.getElementById('player-pun-category').textContent = snapshot.val() || '...';
+      });
+    }
   });
   
   // Reset input
@@ -3039,7 +3114,7 @@ function showGoalPostsJudgingOnPlayer() {
   function render() {
     const canSubmit = score1 !== null && score2 !== null;
     const btnStyle = (selected, n) =>
-      `padding: 14px 20px; margin: 5px; border: 3px solid ${n === selected ? '#ffc629' : 'rgba(255,255,255,0.3)'}; background: ${n === selected ? '#ffc629' : 'transparent'}; color: ${n === selected ? '#0a1628' : '#fff'}; border-radius: 10px; font-family: 'Bebas Neue', sans-serif; font-size: 26px; cursor: pointer;`;
+      `padding: 8px 14px; margin: 4px; border: 3px solid ${n === selected ? '#ffc629' : 'rgba(255,255,255,0.3)'}; background: ${n === selected ? '#ffc629' : 'transparent'}; color: ${n === selected ? '#0a1628' : '#fff'}; border-radius: 10px; font-family: 'Bebas Neue', sans-serif; font-size: 20px; cursor: pointer;`;
 
     div.innerHTML = `
       <div style="font-family: 'Bebas Neue', sans-serif; font-size: 40px; color: #ffc629; margin-bottom: 8px; letter-spacing: 3px;">⚽ Goal Post Glory</div>
@@ -3753,10 +3828,10 @@ function showPlayerRound1Explainer() {
     
     <div id="round1-start-controls" style="display: none; flex-direction: column; gap: 15px; align-items: center;">
       <div style="font-family: 'Barlow', sans-serif; font-size: 16px; color: #4dd4e8; margin-bottom: 10px; font-style: italic;">
-        You joined first! Start when ready.
+        Blow the whistle to begin the game.
       </div>
       <button onclick="startRound1()" style="font-family: 'Oswald', sans-serif; font-size: 24px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; padding: 18px 50px; background: #ffc629; color: #000; border: none; cursor: pointer; box-shadow: 0 6px 0 #d4a317, 0 10px 20px rgba(0,0,0,0.4);">
-        🎮 START ROUND 1
+        📯 BLOW
       </button>
     </div>
     
@@ -4424,13 +4499,13 @@ function scoreMatchDrawPlayer(scoringPlayerId, score) {
 
 function startRound1() {
   console.log('🎮 Player 1 starting Round 1');
-
+  
   // Hide start button
   document.getElementById('round1-start-controls').style.display = 'none';
   document.getElementById('round1-wait-message').style.display = 'block';
   document.getElementById('round1-wait-message').textContent = 'Starting game...';
   document.getElementById('round1-wait-spinner').style.display = 'block';
-
+  
   // Trigger host to start Round 1
   gameRef.update({
     round1Started: true
@@ -4442,7 +4517,344 @@ function startRound1() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// CAPTION CONTEST — PLAYER
+// EMAIL CAPTURE FLOW
+// ═══════════════════════════════════════════════════════════════════════════
+
+function showPlayerGameComplete() {
+  // Remove any end-of-game waiting screens
+  ['waiting-blowball-scoring', 'player-blowball-judging'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.remove();
+  });
+
+  if (document.getElementById('player-game-complete')) return;
+
+  const div = document.createElement('div');
+  div.id = 'player-game-complete';
+  div.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, #0a1628 0%, #1a2b4a 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 25000; padding: 40px; text-align: center;';
+  div.innerHTML = `
+    <div style="font-size: 80px; margin-bottom: 24px;">🏆</div>
+    <h1 style="font-family: 'Bebas Neue', sans-serif; font-size: 64px; color: #ffc629; margin-bottom: 20px; letter-spacing: 4px; line-height: 1.1;">FULL TIME!</h1>
+    <p style="font-family: 'Barlow', sans-serif; font-size: 22px; color: rgba(255,255,255,0.85); margin-bottom: 50px; line-height: 1.6;">
+      Thanks for playing Foul Play!<br>Check the host screen for the final scores.
+    </p>
+    <button
+      onclick="showEmailCaptureScreen()"
+      style="padding: 20px 48px; background: linear-gradient(135deg, #4dd4e8, #ffc629); color: #0a1628; border: none; border-radius: 12px; font-family: 'Bebas Neue', sans-serif; font-size: 32px; cursor: pointer; letter-spacing: 2px; box-shadow: 0 8px 24px rgba(77,212,232,0.4);"
+      onmouseover="this.style.transform='scale(1.05)'"
+      onmouseout="this.style.transform='scale(1)'"
+    >
+      Continue
+    </button>
+  `;
+  document.body.appendChild(div);
+}
+
+function showEmailCaptureScreen() {
+  const prev = document.getElementById('player-game-complete');
+  if (prev) prev.remove();
+
+  const emailCaptureDiv = document.createElement('div');
+  emailCaptureDiv.id = 'email-capture-screen';
+  emailCaptureDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, #0a1628 0%, #1a2b4a 100%); display: flex; align-items: center; justify-content: center; z-index: 25000; padding: 40px 20px; overflow-y: auto;';
+
+  emailCaptureDiv.innerHTML = `
+    <div style="max-width: 600px; width: 100%; text-align: center;">
+
+      <div style="font-size: 80px; margin-bottom: 30px;">⚽</div>
+
+      <h1 style="font-family: 'Bebas Neue', sans-serif; font-size: 56px; color: #ffc629; margin-bottom: 30px; letter-spacing: 3px; line-height: 1.2;">
+        THANKS FOR PLAYING<br>FOUL PLAY!
+      </h1>
+
+      <p style="font-family: 'Barlow', sans-serif; font-size: 24px; color: rgba(255,255,255,0.9); margin-bottom: 20px; line-height: 1.6;">
+        We're thinking about making more games like this.
+      </p>
+
+      <p style="font-family: 'Barlow', sans-serif; font-size: 24px; color: rgba(255,255,255,0.9); margin-bottom: 50px; line-height: 1.6;">
+        Would you like us to tell you when they're ready?
+      </p>
+
+      <div style="margin-bottom: 30px;">
+        <input
+          type="email"
+          id="email-input"
+          placeholder="your@email.com"
+          style="width: 100%; max-width: 500px; padding: 20px 24px; font-size: 20px; font-family: 'Barlow', sans-serif; border: 3px solid rgba(77,212,232,0.5); border-radius: 12px; background: rgba(255,255,255,0.1); color: #fff; text-align: center; outline: none; box-sizing: border-box;"
+          onkeypress="if(event.key==='Enter') submitEmail()"
+          onfocus="this.style.borderColor='#4dd4e8'; this.style.background='rgba(255,255,255,0.15)'"
+          onblur="this.style.borderColor='rgba(77,212,232,0.5)'; this.style.background='rgba(255,255,255,0.1)'"
+        >
+      </div>
+
+      <button
+        id="notify-btn"
+        onclick="submitEmail(this)"
+        style="display: block; width: 100%; max-width: 400px; margin: 0 auto 20px; padding: 20px 48px; background: linear-gradient(135deg, #4dd4e8, #ffc629); color: #0a1628; border: none; border-radius: 12px; font-family: 'Bebas Neue', sans-serif; font-size: 32px; cursor: pointer; letter-spacing: 2px; box-shadow: 0 8px 24px rgba(77,212,232,0.4);"
+        onmouseover="this.style.transform='scale(1.05)'"
+        onmouseout="this.style.transform='scale(1)'"
+      >
+        📧 Notify Me
+      </button>
+
+      <button
+        onclick="skipEmailCapture()"
+        style="display: block; width: 100%; max-width: 300px; margin: 0 auto 50px; padding: 12px 24px; background: transparent; color: rgba(255,255,255,0.6); border: 2px solid rgba(255,255,255,0.2); border-radius: 12px; font-family: 'Barlow', sans-serif; font-size: 18px; cursor: pointer;"
+        onmouseover="this.style.borderColor='rgba(255,255,255,0.4)'; this.style.color='rgba(255,255,255,0.8)'"
+        onmouseout="this.style.borderColor='rgba(255,255,255,0.2)'; this.style.color='rgba(255,255,255,0.6)'"
+      >
+        No thanks
+      </button>
+
+      <p style="font-family: 'Barlow', sans-serif; font-size: 14px; color: rgba(255,255,255,0.5); line-height: 1.6; max-width: 500px; margin: 0 auto;">
+        We won't use your email for anything else. Unsubscribe anytime.
+      </p>
+
+    </div>
+  `;
+
+  document.body.appendChild(emailCaptureDiv);
+}
+
+async function submitEmail(btn) {
+  const emailInput = document.getElementById('email-input');
+  const email = emailInput ? emailInput.value.trim() : '';
+
+  if (!email) {
+    alert('Please enter your email address');
+    if (emailInput) emailInput.focus();
+    return;
+  }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    alert('Please enter a valid email address');
+    if (emailInput) emailInput.focus();
+    return;
+  }
+
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '⏳ Saving...';
+  }
+
+  try {
+    await database.ref('emailSignups').push({
+      email: email,
+      timestamp: firebase.database.ServerValue.TIMESTAMP,
+      gameCode: gameCode,
+      source: 'post_game_capture'
+    });
+
+    console.log('✅ Email saved');
+    showEmailSuccessMessage(email);
+
+  } catch (error) {
+    console.error('❌ Error saving email:', error);
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '📧 Notify Me';
+    }
+    alert('Sorry, something went wrong. Please try again.');
+  }
+}
+
+function showEmailSuccessMessage(email) {
+  const emailCaptureDiv = document.getElementById('email-capture-screen');
+  if (!emailCaptureDiv) return;
+
+  emailCaptureDiv.innerHTML = `
+    <div style="max-width: 600px; width: 100%; text-align: center;">
+
+      <div style="font-size: 100px; margin-bottom: 30px;">✅</div>
+
+      <h1 style="font-family: 'Bebas Neue', sans-serif; font-size: 56px; color: #ffc629; margin-bottom: 30px; letter-spacing: 3px;">
+        YOU'RE ON THE LIST!
+      </h1>
+
+      <p style="font-family: 'Barlow', sans-serif; font-size: 24px; color: rgba(255,255,255,0.9); margin-bottom: 20px; line-height: 1.6;">
+        We'll email you at:
+      </p>
+
+      <p style="font-family: 'Bebas Neue', sans-serif; font-size: 28px; color: #4dd4e8; margin-bottom: 50px; letter-spacing: 1px;">
+        ${email}
+      </p>
+
+      <p style="font-family: 'Barlow', sans-serif; font-size: 20px; color: rgba(255,255,255,0.8); margin-bottom: 50px; line-height: 1.6;">
+        when our next game is ready!
+      </p>
+
+      <button
+        onclick="finishGame()"
+        style="padding: 20px 48px; background: linear-gradient(135deg, #4dd4e8, #ffc629); color: #0a1628; border: none; border-radius: 12px; font-family: 'Bebas Neue', sans-serif; font-size: 32px; cursor: pointer; letter-spacing: 2px; box-shadow: 0 8px 24px rgba(77,212,232,0.4);"
+      >
+        Done
+      </button>
+
+    </div>
+  `;
+
+  setTimeout(() => { finishGame(); }, 5000);
+}
+
+function skipEmailCapture() {
+  finishGame();
+}
+
+function finishGame() {
+  const emailCaptureDiv = document.getElementById('email-capture-screen');
+  if (emailCaptureDiv) emailCaptureDiv.remove();
+  showGameOverScreen();
+}
+
+function showGameOverScreen() {
+  if (document.getElementById('game-over-screen')) return;
+
+  const div = document.createElement('div');
+  div.id = 'game-over-screen';
+  div.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, #0a1628 0%, #1a2b4a 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 40px 20px; text-align: center;';
+
+  div.innerHTML = `
+    <div style="font-size: 80px; margin-bottom: 20px;">🏆</div>
+    <h1 style="font-family: 'Bebas Neue', sans-serif; font-size: 72px; color: #ffc629; margin-bottom: 20px; letter-spacing: 4px;">
+      FULL TIME!
+    </h1>
+    <p style="font-family: 'Barlow', sans-serif; font-size: 22px; color: rgba(255,255,255,0.7);">
+      Thanks for playing!
+    </p>
+  `;
+
+  document.body.appendChild(div);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PLAYER PHOTO CAPTURE
+// ═══════════════════════════════════════════════════════════════════════════
+
+function showPhotoCaptureScreen() {
+  const photoDiv = document.createElement('div');
+  photoDiv.id = 'photo-capture-screen';
+  photoDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, #0a1628, #1a2b4a); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 40px 20px;';
+
+  photoDiv.innerHTML = `
+    <div style="text-align: center; max-width: 500px; width: 100%;">
+      <h1 style="font-family: 'Bebas Neue', sans-serif; font-size: 48px; color: #ffc629; margin-bottom: 16px; letter-spacing: 3px;">
+        TAKE YOUR SELFIE
+      </h1>
+      <p style="font-family: 'Barlow', sans-serif; font-size: 18px; color: rgba(255,255,255,0.8); margin-bottom: 6px;">
+        Your photo will show on screen during the game
+      </p>
+      <p style="font-family: 'Barlow', sans-serif; font-size: 14px; color: rgba(255,255,255,0.4); margin-bottom: 20px;">
+        (we don't keep any photos)
+      </p>
+      <div style="position:relative;width:260px;height:260px;margin:0 auto 20px;flex-shrink:0;">
+        <video id="photo-video" autoplay playsinline muted
+               style="width:260px;height:260px;object-fit:cover;border-radius:50%;border:4px solid #4dd4e8;display:block;background:#000;box-shadow:0 0 32px rgba(77,212,232,0.4);">
+        </video>
+        <!-- circular cutout ring so corners are invisible on all browsers -->
+        <div style="position:absolute;inset:-4px;border-radius:50%;box-shadow:0 0 0 200px #0a1628;pointer-events:none;"></div>
+        <div style="position:absolute;inset:-4px;border-radius:50%;border:4px solid #4dd4e8;pointer-events:none;"></div>
+      </div>
+      <canvas id="photo-canvas" style="display: none;"></canvas>
+      <button onclick="capturePhoto()"
+              style="position: relative; display: block; width: 100%; max-width: 300px; margin: 0 auto 14px; padding: 18px 40px; background: linear-gradient(135deg, #4dd4e8, #ffc629); color: #0a1628; border: none; border-radius: 12px; font-family: 'Bebas Neue', sans-serif; font-size: 28px; cursor: pointer; letter-spacing: 2px; box-shadow: 0 8px 24px rgba(77,212,232,0.4);">
+        📸 Take Photo
+      </button>
+      <button onclick="skipPhoto()"
+              style="position: relative; display: block; width: 100%; max-width: 300px; margin: 0 auto; padding: 12px 24px; background: transparent; color: rgba(255,255,255,0.6); border: 2px solid rgba(255,255,255,0.2); border-radius: 12px; font-family: 'Barlow', sans-serif; font-size: 18px; cursor: pointer;">
+        Skip (use default avatar)
+      </button>
+    </div>
+  `;
+
+  document.body.appendChild(photoDiv);
+  startCamera();
+}
+
+async function startCamera() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+    const video = document.getElementById('photo-video');
+    if (video) video.srcObject = stream;
+  } catch (error) {
+    console.warn('Camera not available:', error);
+    // Show skip prompt instead of alert
+    const video = document.getElementById('photo-video');
+    if (video) {
+      video.style.display = 'none';
+      const msg = document.createElement('p');
+      msg.style.cssText = 'font-family: Barlow, sans-serif; color: rgba(255,255,255,0.7); font-size: 16px; margin-bottom: 20px;';
+      msg.textContent = 'Camera not available — a default avatar will be used.';
+      video.parentNode.insertBefore(msg, video.nextSibling);
+    }
+  }
+}
+
+function capturePhoto() {
+  const video = document.getElementById('photo-video');
+  const canvas = document.getElementById('photo-canvas');
+  if (!video || !canvas || !video.srcObject) {
+    skipPhoto();
+    return;
+  }
+
+  canvas.width = 300;
+  canvas.height = 300;
+  const ctx = canvas.getContext('2d');
+
+  const ar = video.videoWidth / video.videoHeight;
+  let sx, sy, sw, sh;
+  if (ar > 1) { sh = video.videoHeight; sw = sh; sx = (video.videoWidth - sw) / 2; sy = 0; }
+  else         { sw = video.videoWidth;  sh = sw; sx = 0; sy = (video.videoHeight - sh) / 2; }
+  ctx.drawImage(video, sx, sy, sw, sh, 0, 0, 300, 300);
+
+  const photoData = canvas.toDataURL('image/jpeg', 0.8);
+  const stream = video.srcObject;
+  if (stream) stream.getTracks().forEach(t => t.stop());
+  savePlayerPhoto(photoData);
+}
+
+function skipPhoto() {
+  const video = document.getElementById('photo-video');
+  if (video && video.srcObject) video.srcObject.getTracks().forEach(t => t.stop());
+  savePlayerPhoto(generateDefaultAvatar(playerName || 'P'));
+}
+
+function savePlayerPhoto(photoData) {
+  gameRef.child(`players/${playerId}/photo`).set(photoData).catch(e => console.warn('Photo save error:', e));
+
+  const photoDiv = document.getElementById('photo-capture-screen');
+  if (photoDiv) photoDiv.remove();
+
+  document.getElementById('waiting-screen').classList.add('active');
+  document.getElementById('waiting-name').textContent = playerName;
+  document.getElementById('waiting-code').textContent = gameCode;
+  listenForGameStart();
+  startHeartbeat();
+}
+
+function generateDefaultAvatar(name) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 300;
+  canvas.height = 300;
+  const ctx = canvas.getContext('2d');
+  const colors = ['#4dd4e8', '#d4145a', '#ffc629', '#2ecc71', '#e74c3c'];
+  ctx.fillStyle = colors[name.charCodeAt(0) % colors.length];
+  ctx.fillRect(0, 0, 300, 300);
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 120px Arial';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(name[0].toUpperCase(), 150, 150);
+  return canvas.toDataURL('image/png');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SABOTAGE REVEAL — REFEREE SCORING (player 1 only)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CAPTION CONTEST — PLAYER SIDE
 // ═══════════════════════════════════════════════════════════════════════════
 
 (function setupCaptionContestListener() {
@@ -4778,8 +5190,6 @@ function showCaptionNextPlayerButton(canVote) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// SABOTAGE REFEREE SCORING (Player 1 only)
-// ═══════════════════════════════════════════════════════════════════════════
 
 (function setupSabotageRevealListener() {
   const check = setInterval(() => {
@@ -4817,6 +5227,9 @@ function showRefereeScoring(d) {
   div.id = 'sabotage-referee-scoring';
   div.dataset.index = d.index; // used by listener to detect player changes
   div.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, #0a1628 0%, #1a2b4a 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 28px; text-align: center; overflow-y: auto;';
+
+  let currentStatus = 'notdone';
+  let currentPoints = 0;
 
   div.innerHTML = `
     <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:rgba(255,255,255,0.3);letter-spacing:3px;margin-bottom:20px;">
@@ -5010,6 +5423,98 @@ function createPlayerPauseButton() {
   });
 
   document.body.appendChild(btn);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SESSION REJOIN
+// ═══════════════════════════════════════════════════════════════════════════
+
+window.addEventListener('load', () => {
+  const savedCode   = localStorage.getItem('foulplay_gameCode');
+  const savedPid    = localStorage.getItem('foulplay_playerId');
+  const savedName   = localStorage.getItem('foulplay_playerName');
+
+  if (savedCode && savedPid && savedName) {
+    const testRef = database.ref(`games/${savedCode}`);
+    testRef.once('value', (snap) => {
+      const data = snap.val();
+      if (!data || data.gameComplete) {
+        localStorage.removeItem('foulplay_gameCode');
+        localStorage.removeItem('foulplay_playerId');
+        localStorage.removeItem('foulplay_playerName');
+        return;
+      }
+      const playerData = data.players && data.players[savedPid];
+      if (!playerData) return;
+
+      showRejoinScreen(savedCode, savedPid, savedName, playerData);
+    });
+  }
+});
+
+function showRejoinScreen(savedCode, savedPid, savedName, playerData) {
+  const rejoinDiv = document.createElement('div');
+  rejoinDiv.id = 'rejoin-screen';
+  rejoinDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, #0a1628, #1a2b4a); display: flex; align-items: center; justify-content: center; z-index: 20000; padding: 40px 20px;';
+
+  const photoHtml = playerData.photo
+    ? `<img src="${playerData.photo}" style="width:90px;height:90px;border-radius:50%;border:4px solid #4dd4e8;object-fit:cover;margin-bottom:12px;">`
+    : '';
+
+  rejoinDiv.innerHTML = `
+    <div style="text-align: center; max-width: 500px; width: 100%;">
+      <div style="font-size: 80px; margin-bottom: 20px;">👋</div>
+      <h1 style="font-family: 'Bebas Neue', sans-serif; font-size: 52px; color: #ffc629; margin-bottom: 24px; letter-spacing: 3px;">WELCOME BACK!</h1>
+      ${photoHtml}
+      <div style="font-family: 'Bebas Neue', sans-serif; font-size: 32px; color: #fff; margin-bottom: 8px;">${playerData.name}</div>
+      <div style="font-family: 'Barlow', sans-serif; font-size: 18px; color: #4dd4e8; margin-bottom: 40px;">
+        ${playerData.score || 0} points · Game ${savedCode}
+      </div>
+      <button onclick="rejoinGame('${savedCode}','${savedPid}','${savedName}')"
+              style="display:block;width:100%;max-width:380px;margin:0 auto 16px;padding:18px 40px;background:linear-gradient(135deg,#4dd4e8,#ffc629);color:#0a1628;border:none;border-radius:12px;font-family:'Bebas Neue',sans-serif;font-size:28px;cursor:pointer;letter-spacing:2px;">
+        ↩️ Rejoin Game
+      </button>
+      <button onclick="startNewSession()"
+              style="display:block;width:100%;max-width:300px;margin:0 auto;padding:12px 24px;background:transparent;color:rgba(255,255,255,0.6);border:2px solid rgba(255,255,255,0.2);border-radius:12px;font-family:'Barlow',sans-serif;font-size:18px;cursor:pointer;">
+        Start a new game instead
+      </button>
+    </div>
+  `;
+
+  document.body.appendChild(rejoinDiv);
+}
+
+function rejoinGame(savedCode, savedPid, savedName) {
+  gameCode   = savedCode;
+  playerId   = savedPid;
+  playerName = savedName;
+  gameRef    = database.ref(`games/${gameCode}`);
+
+  const rejoinScreen = document.getElementById('rejoin-screen');
+  if (rejoinScreen) rejoinScreen.remove();
+
+  // Show reconnected toast
+  const toast = document.createElement('div');
+  toast.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:11000;background:linear-gradient(135deg,#2ecc71,#27ae60);padding:14px 32px;border-radius:12px;';
+  toast.innerHTML = `<div style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:#fff;letter-spacing:1px;">✅ RECONNECTED!</div>`;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 3000);
+
+  document.getElementById('join-screen').classList.add('hidden');
+  document.getElementById('waiting-screen').classList.add('active');
+  document.getElementById('waiting-name').textContent = playerName;
+  document.getElementById('waiting-code').textContent = gameCode;
+
+  listenForGameStart();
+  startHeartbeat();
+}
+
+function startNewSession() {
+  localStorage.removeItem('foulplay_gameCode');
+  localStorage.removeItem('foulplay_playerId');
+  localStorage.removeItem('foulplay_playerName');
+  const rejoinScreen = document.getElementById('rejoin-screen');
+  if (rejoinScreen) rejoinScreen.remove();
 }
 </script>
 
