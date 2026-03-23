@@ -3205,7 +3205,7 @@ function routeAfterScoresReview() {
 
   switch (source) {
     case 'round1':      startRound2();            break;
-    case 'round2':      startRound3();            break; // → Interview Round
+    case 'round2':      showTeamTalkIntro();       break; // → Team Talk → Interview Round
     case 'interview':   checkForMatchDraw();       break; // → Match Draw
     case 'matchdraw':   startCommentaryRound();    break;
     case 'commentary':  showToiletPaperAlert();    break;
@@ -7911,10 +7911,11 @@ async function showTeamTalkResults() {
     voicePlayed = true;
     const spinnerEl = resultsDiv.querySelector('.spinner');
     if (spinnerEl) spinnerEl.remove();
-    const doneEl = document.createElement('div');
-    doneEl.style.cssText = 'margin-top: 30px; font-family: \'Barlow\', sans-serif; font-size: 20px; color: var(--text-muted);';
-    doneEl.textContent = 'Team Talk complete.';
-    resultsDiv.appendChild(doneEl);
+    // Short pause then move on to the Interview Round
+    setTimeout(() => {
+      resultsDiv.remove();
+      startRound3();
+    }, 2000);
   };
 
   playAudio('team_talk_scores_intro.mp3', {
@@ -7956,10 +7957,10 @@ async function showTeamTalkResults() {
 // NOTES (UPDATED)
 // ═══════════════════════════════════════════════════════════════════════════
 /*
-  FULL GAME FLOW (v8.0):
+  FULL GAME FLOW (v8.1):
   Round 1 Quiz → Bonus Round (Karaoke) → Scores Review #1
-  → Round 2 Puns (30s) → Pun Review → [Match Draw if 4+ players]
-  → Round 3 Interview → Victory Screen
+  → Round 2 Puns (30s) → Pun Review → Team Talk
+  → Round 3 Interview → [Match Draw if 4+ players] → Victory Screen
 
   Phases 3 (Commentary) and 4 (Toilet Paper) are deferred.
 */
