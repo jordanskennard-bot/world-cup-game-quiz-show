@@ -7175,6 +7175,784 @@ function loadPhotoAlbum() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// TEAM TALK ROUND
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ─── Word bank ───────────────────────────────────────────────────────────────
+
+const TEAM_TALK_WORDS = [
+  // FOOTBALL category (difficulty 1–10)
+  { id: 1,  word: 'Offside',           category: 'football', difficulty: 3 },
+  { id: 2,  word: 'Free kick',         category: 'football', difficulty: 2 },
+  { id: 3,  word: 'Hat-trick',         category: 'football', difficulty: 4 },
+  { id: 4,  word: 'Corner',            category: 'football', difficulty: 2 },
+  { id: 5,  word: 'Penalty',           category: 'football', difficulty: 3 },
+  { id: 6,  word: 'Red card',          category: 'football', difficulty: 2 },
+  { id: 7,  word: 'Yellow card',       category: 'football', difficulty: 2 },
+  { id: 8,  word: 'Goalkeeper',        category: 'football', difficulty: 2 },
+  { id: 9,  word: 'Striker',           category: 'football', difficulty: 3 },
+  { id: 10, word: 'Winger',            category: 'football', difficulty: 3 },
+  { id: 11, word: 'Header',            category: 'football', difficulty: 3 },
+  { id: 12, word: 'Bicycle kick',      category: 'football', difficulty: 5 },
+  { id: 13, word: 'Clean sheet',       category: 'football', difficulty: 4 },
+  { id: 14, word: 'Extra time',        category: 'football', difficulty: 3 },
+  { id: 15, word: 'Penalty shootout',  category: 'football', difficulty: 4 },
+  { id: 16, word: 'Volley',            category: 'football', difficulty: 4 },
+  { id: 17, word: 'Nutmeg',            category: 'football', difficulty: 5 },
+  { id: 18, word: 'Dribble',           category: 'football', difficulty: 3 },
+  { id: 19, word: 'Tackle',            category: 'football', difficulty: 2 },
+  { id: 20, word: 'Throw-in',          category: 'football', difficulty: 2 },
+  { id: 21, word: 'Crossbar',          category: 'football', difficulty: 4 },
+  { id: 22, word: 'Woodwork',          category: 'football', difficulty: 5 },
+  { id: 23, word: 'Substitute',        category: 'football', difficulty: 3 },
+  { id: 24, word: 'Injury time',       category: 'football', difficulty: 4 },
+  { id: 25, word: 'Own goal',          category: 'football', difficulty: 4 },
+  { id: 26, word: 'Brace',             category: 'football', difficulty: 6 },
+  { id: 27, word: 'Formation',         category: 'football', difficulty: 4 },
+  { id: 28, word: 'VAR',               category: 'football', difficulty: 5 },
+  { id: 29, word: 'Chip shot',         category: 'football', difficulty: 5 },
+  { id: 30, word: 'Backheel',          category: 'football', difficulty: 6 },
+
+  // SPORTS category (General Sports + Extreme Sports, difficulty 1–10)
+  { id: 31, word: 'Marathon',          category: 'sports', difficulty: 3 },
+  { id: 32, word: 'Slam dunk',         category: 'sports', difficulty: 4 },
+  { id: 33, word: 'Hole in one',       category: 'sports', difficulty: 5 },
+  { id: 34, word: 'Grand slam',        category: 'sports', difficulty: 5 },
+  { id: 35, word: 'Photo finish',      category: 'sports', difficulty: 6 },
+  { id: 36, word: 'Bungee jump',       category: 'sports', difficulty: 5 },
+  { id: 37, word: 'Skateboard',        category: 'sports', difficulty: 4 },
+  { id: 38, word: 'Surfing',           category: 'sports', difficulty: 3 },
+  { id: 39, word: 'Snowboard',         category: 'sports', difficulty: 4 },
+  { id: 40, word: 'Triathlon',         category: 'sports', difficulty: 6 },
+  { id: 41, word: 'Javelin',           category: 'sports', difficulty: 5 },
+  { id: 42, word: 'High jump',         category: 'sports', difficulty: 4 },
+  { id: 43, word: 'Long jump',         category: 'sports', difficulty: 4 },
+  { id: 44, word: 'Hurdles',           category: 'sports', difficulty: 4 },
+  { id: 45, word: 'Knockout',          category: 'sports', difficulty: 4 },
+  { id: 46, word: 'Home run',          category: 'sports', difficulty: 4 },
+  { id: 47, word: 'Ace',               category: 'sports', difficulty: 5 },
+  { id: 48, word: 'Smash',             category: 'sports', difficulty: 4 },
+  { id: 49, word: 'Alley-oop',         category: 'sports', difficulty: 7 },
+  { id: 50, word: 'Penalty try',       category: 'sports', difficulty: 7 },
+  { id: 51, word: 'Wicket',            category: 'sports', difficulty: 6 },
+  { id: 52, word: 'Slalom',            category: 'sports', difficulty: 6 },
+  { id: 53, word: 'Moguls',            category: 'sports', difficulty: 7 },
+  { id: 54, word: 'Halfpipe',          category: 'sports', difficulty: 6 },
+  { id: 55, word: 'Pommel horse',      category: 'sports', difficulty: 7 },
+  { id: 56, word: 'Vault',             category: 'sports', difficulty: 5 },
+  { id: 57, word: 'Epee',              category: 'sports', difficulty: 8 },
+  { id: 58, word: 'Luge',              category: 'sports', difficulty: 7 },
+  { id: 59, word: 'Biathlon',          category: 'sports', difficulty: 7 },
+  { id: 60, word: 'Synchronized swimming', category: 'sports', difficulty: 6 },
+
+  // ANY category (everything else, difficulty 1–10)
+  { id: 61,  word: 'Sunscreen',        category: 'any', difficulty: 3 },
+  { id: 62,  word: 'Barbecue',         category: 'any', difficulty: 3 },
+  { id: 63,  word: 'Trampoline',       category: 'any', difficulty: 4 },
+  { id: 64,  word: 'Microwave',        category: 'any', difficulty: 3 },
+  { id: 65,  word: 'Telescope',        category: 'any', difficulty: 5 },
+  { id: 66,  word: 'Rollercoaster',    category: 'any', difficulty: 4 },
+  { id: 67,  word: 'Helicopter',       category: 'any', difficulty: 4 },
+  { id: 68,  word: 'Tornado',          category: 'any', difficulty: 4 },
+  { id: 69,  word: 'Volcano',          category: 'any', difficulty: 4 },
+  { id: 70,  word: 'Submarine',        category: 'any', difficulty: 4 },
+  { id: 71,  word: 'Quicksand',        category: 'any', difficulty: 5 },
+  { id: 72,  word: 'Escalator',        category: 'any', difficulty: 4 },
+  { id: 73,  word: 'Flamingo',         category: 'any', difficulty: 4 },
+  { id: 74,  word: 'Penguin',          category: 'any', difficulty: 3 },
+  { id: 75,  word: 'Kangaroo',         category: 'any', difficulty: 4 },
+  { id: 76,  word: 'Platypus',         category: 'any', difficulty: 6 },
+  { id: 77,  word: 'Avalanche',        category: 'any', difficulty: 5 },
+  { id: 78,  word: 'Spaghetti',        category: 'any', difficulty: 4 },
+  { id: 79,  word: 'Karaoke',          category: 'any', difficulty: 4 },
+  { id: 80,  word: 'Disco ball',       category: 'any', difficulty: 4 },
+  { id: 81,  word: 'Photocopier',      category: 'any', difficulty: 5 },
+  { id: 82,  word: 'Accordion',        category: 'any', difficulty: 5 },
+  { id: 83,  word: 'Bagpipes',         category: 'any', difficulty: 5 },
+  { id: 84,  word: 'Boomerang',        category: 'any', difficulty: 5 },
+  { id: 85,  word: 'Coconut',          category: 'any', difficulty: 3 },
+  { id: 86,  word: 'Pineapple',        category: 'any', difficulty: 3 },
+  { id: 87,  word: 'Earthquake',       category: 'any', difficulty: 4 },
+  { id: 88,  word: 'Igloo',            category: 'any', difficulty: 4 },
+  { id: 89,  word: 'Pirate',           category: 'any', difficulty: 3 },
+  { id: 90,  word: 'Unicycle',         category: 'any', difficulty: 5 },
+  { id: 91,  word: 'Treadmill',        category: 'any', difficulty: 4 },
+  { id: 92,  word: 'Lawnmower',        category: 'any', difficulty: 4 },
+  { id: 93,  word: 'Dishwasher',       category: 'any', difficulty: 4 },
+  { id: 94,  word: 'Catapult',         category: 'any', difficulty: 5 },
+  { id: 95,  word: 'Guillotine',       category: 'any', difficulty: 6 },
+  { id: 96,  word: 'Pendulum',         category: 'any', difficulty: 6 },
+  { id: 97,  word: 'Turnstile',        category: 'any', difficulty: 6 },
+  { id: 98,  word: 'Periscope',        category: 'any', difficulty: 7 },
+  { id: 99,  word: 'Stalagmite',       category: 'any', difficulty: 8 },
+  { id: 100, word: 'Kaleidoscope',     category: 'any', difficulty: 7 },
+  { id: 101, word: 'Ferris wheel',     category: 'any', difficulty: 4 },
+  { id: 102, word: 'Windmill',         category: 'any', difficulty: 4 },
+  { id: 103, word: 'Lighthouse',       category: 'any', difficulty: 4 },
+  { id: 104, word: 'Waterfall',        category: 'any', difficulty: 3 },
+  { id: 105, word: 'Quicksilver',      category: 'any', difficulty: 7 },
+  { id: 106, word: 'Whirlpool',        category: 'any', difficulty: 5 },
+  { id: 107, word: 'Sandcastle',       category: 'any', difficulty: 4 },
+  { id: 108, word: 'Skyscraper',       category: 'any', difficulty: 4 },
+  { id: 109, word: 'Confetti',         category: 'any', difficulty: 4 },
+  { id: 110, word: 'Bubble wrap',      category: 'any', difficulty: 3 },
+  { id: 111, word: 'Hammock',          category: 'any', difficulty: 5 },
+  { id: 112, word: 'Blimp',            category: 'any', difficulty: 5 },
+  { id: 113, word: 'Velcro',           category: 'any', difficulty: 5 },
+  { id: 114, word: 'Yoyo',             category: 'any', difficulty: 4 },
+  { id: 115, word: 'Jigsaw',           category: 'any', difficulty: 4 },
+  { id: 116, word: 'Tuba',             category: 'any', difficulty: 5 },
+  { id: 117, word: 'Xylophone',        category: 'any', difficulty: 5 },
+  { id: 118, word: 'Harmonica',        category: 'any', difficulty: 5 },
+  { id: 119, word: 'Ukulele',          category: 'any', difficulty: 5 },
+  { id: 120, word: 'Kazoo',            category: 'any', difficulty: 4 },
+  { id: 121, word: 'Didgeridoo',       category: 'any', difficulty: 7 },
+  { id: 122, word: 'Theremin',         category: 'any', difficulty: 9 },
+  { id: 123, word: 'Ventriloquist',    category: 'any', difficulty: 8 },
+  { id: 124, word: 'Sommelier',        category: 'any', difficulty: 9 },
+  { id: 125, word: 'Taxidermist',      category: 'any', difficulty: 9 },
+  { id: 126, word: 'Chimney sweep',    category: 'any', difficulty: 5 },
+  { id: 127, word: 'Scarecrow',        category: 'any', difficulty: 4 },
+  { id: 128, word: 'Mannequin',        category: 'any', difficulty: 5 },
+  { id: 129, word: 'Tumbleweed',       category: 'any', difficulty: 6 },
+  { id: 130, word: 'Gossip',           category: 'any', difficulty: 4 },
+  { id: 131, word: 'Amnesia',          category: 'any', difficulty: 6 },
+  { id: 132, word: 'Déjà vu',          category: 'any', difficulty: 6 },
+  { id: 133, word: 'Hiccup',           category: 'any', difficulty: 4 },
+  { id: 134, word: 'Sneeze',           category: 'any', difficulty: 3 },
+  { id: 135, word: 'Yawn',             category: 'any', difficulty: 3 },
+  { id: 136, word: 'Goosebumps',       category: 'any', difficulty: 4 },
+  { id: 137, word: 'Frostbite',        category: 'any', difficulty: 5 },
+  { id: 138, word: 'Thunderstorm',     category: 'any', difficulty: 4 },
+  { id: 139, word: 'Quicksand',        category: 'any', difficulty: 5 },
+  { id: 140, word: 'Superstition',     category: 'any', difficulty: 6 },
+  { id: 141, word: 'Paranoia',         category: 'any', difficulty: 7 },
+  { id: 142, word: 'Hallucination',    category: 'any', difficulty: 8 },
+  { id: 143, word: 'Nostalgia',        category: 'any', difficulty: 6 },
+  { id: 144, word: 'Claustrophobia',   category: 'any', difficulty: 8 },
+  { id: 145, word: 'Vertigo',          category: 'any', difficulty: 7 },
+  { id: 146, word: 'Insomnia',         category: 'any', difficulty: 6 },
+  { id: 147, word: 'Narcolepsy',       category: 'any', difficulty: 9 },
+  { id: 148, word: 'Hypochondria',     category: 'any', difficulty: 9 },
+  { id: 149, word: 'Scapegoat',        category: 'any', difficulty: 6 },
+  { id: 150, word: 'Red herring',      category: 'any', difficulty: 6 },
+  { id: 151, word: 'Bluff',            category: 'any', difficulty: 4 },
+  { id: 152, word: 'Plot twist',       category: 'any', difficulty: 5 },
+  { id: 153, word: 'Cliffhanger',      category: 'any', difficulty: 5 },
+  { id: 154, word: 'Flashback',        category: 'any', difficulty: 5 },
+  { id: 155, word: 'Foreshadowing',    category: 'any', difficulty: 8 },
+  { id: 156, word: 'Anticlimax',       category: 'any', difficulty: 7 },
+  { id: 157, word: 'Punchline',        category: 'any', difficulty: 5 },
+  { id: 158, word: 'Slapstick',        category: 'any', difficulty: 6 },
+  { id: 159, word: 'Satire',           category: 'any', difficulty: 7 },
+  { id: 160, word: 'Parody',           category: 'any', difficulty: 6 },
+  { id: 161, word: 'Improvise',        category: 'any', difficulty: 5 },
+  { id: 162, word: 'Mime',             category: 'any', difficulty: 4 },
+  { id: 163, word: 'Encore',           category: 'any', difficulty: 5 },
+  { id: 164, word: 'Standing ovation', category: 'any', difficulty: 5 },
+  { id: 165, word: 'Curtain call',     category: 'any', difficulty: 6 },
+  { id: 166, word: 'Intermission',     category: 'any', difficulty: 6 },
+  { id: 167, word: 'Understudy',       category: 'any', difficulty: 7 },
+  { id: 168, word: 'Soliloquy',        category: 'any', difficulty: 9 },
+  { id: 169, word: 'Heckle',           category: 'any', difficulty: 6 },
+  { id: 170, word: 'Boo',              category: 'any', difficulty: 2 },
+  { id: 171, word: 'Upstage',          category: 'any', difficulty: 7 },
+  { id: 172, word: 'Trapdoor',         category: 'any', difficulty: 5 },
+  { id: 173, word: 'Smoke and mirrors', category: 'any', difficulty: 6 },
+  { id: 174, word: 'Prestidigitation', category: 'any', difficulty: 10 },
+  { id: 175, word: 'Sleight of hand',  category: 'any', difficulty: 7 },
+  { id: 176, word: 'Vanishing act',    category: 'any', difficulty: 5 },
+  { id: 177, word: 'Levitation',       category: 'any', difficulty: 6 },
+  { id: 178, word: 'Sawing in half',   category: 'any', difficulty: 5 },
+  { id: 179, word: 'Straitjacket',     category: 'any', difficulty: 7 },
+  { id: 180, word: 'Escapologist',     category: 'any', difficulty: 8 },
+  { id: 181, word: 'Firewalk',         category: 'any', difficulty: 6 },
+  { id: 182, word: 'Tightrope',        category: 'any', difficulty: 5 },
+  { id: 183, word: 'Juggle',           category: 'any', difficulty: 4 },
+  { id: 184, word: 'Stilts',           category: 'any', difficulty: 4 },
+  { id: 185, word: 'Unicycle',         category: 'any', difficulty: 5 },
+  { id: 186, word: 'Clown',            category: 'any', difficulty: 2 },
+  { id: 187, word: 'Acrobat',          category: 'any', difficulty: 4 },
+  { id: 188, word: 'Contortionist',    category: 'any', difficulty: 7 },
+  { id: 189, word: 'Trapeze',          category: 'any', difficulty: 5 },
+  { id: 190, word: 'Ringmaster',       category: 'any', difficulty: 6 },
+  { id: 191, word: 'Stampede',         category: 'any', difficulty: 6 },
+  { id: 192, word: 'Safari',           category: 'any', difficulty: 4 },
+  { id: 193, word: 'Quickstep',        category: 'any', difficulty: 7 },
+  { id: 194, word: 'Moonwalk',         category: 'any', difficulty: 5 },
+  { id: 195, word: 'Breakdance',       category: 'any', difficulty: 5 },
+  { id: 196, word: 'Limbo',            category: 'any', difficulty: 4 },
+  { id: 197, word: 'Conga line',       category: 'any', difficulty: 5 },
+  { id: 198, word: 'Gangnam Style',    category: 'any', difficulty: 5 },
+  { id: 199, word: 'Floss',            category: 'any', difficulty: 4 },
+  { id: 200, word: 'Dab',              category: 'any', difficulty: 3 },
+  { id: 201, word: 'Macarena',         category: 'any', difficulty: 5 },
+  { id: 202, word: 'YMCA',             category: 'any', difficulty: 4 },
+  { id: 203, word: 'Electric slide',   category: 'any', difficulty: 6 },
+  { id: 204, word: 'Robot dance',      category: 'any', difficulty: 4 },
+  { id: 205, word: 'Worm',             category: 'any', difficulty: 4 },
+  { id: 206, word: 'Sprinkler',        category: 'any', difficulty: 5 },
+  { id: 207, word: 'Running man',      category: 'any', difficulty: 5 },
+  { id: 208, word: 'Shopping trolley', category: 'any', difficulty: 4 },
+  { id: 209, word: 'Lawnmower',        category: 'any', difficulty: 4 },
+  { id: 210, word: 'Disco fever',      category: 'any', difficulty: 5 },
+  { id: 211, word: 'Paparazzi',        category: 'any', difficulty: 6 },
+  { id: 212, word: 'Influencer',       category: 'any', difficulty: 5 },
+  { id: 213, word: 'Selfie stick',     category: 'any', difficulty: 4 },
+  { id: 214, word: 'Going viral',      category: 'any', difficulty: 5 },
+  { id: 215, word: 'Clickbait',        category: 'any', difficulty: 6 },
+  { id: 216, word: 'Meme',             category: 'any', difficulty: 4 },
+  { id: 217, word: 'Hashtag',          category: 'any', difficulty: 4 },
+  { id: 218, word: 'Algorithm',        category: 'any', difficulty: 7 },
+  { id: 219, word: 'Ghosting',         category: 'any', difficulty: 5 },
+  { id: 220, word: 'Catfishing',       category: 'any', difficulty: 6 },
+  { id: 221, word: 'Doom scrolling',   category: 'any', difficulty: 6 },
+  { id: 222, word: 'FOMO',             category: 'any', difficulty: 5 },
+  { id: 223, word: 'Photobomb',        category: 'any', difficulty: 5 },
+  { id: 224, word: 'Autocorrect fail', category: 'any', difficulty: 5 },
+  { id: 225, word: 'Buffering',        category: 'any', difficulty: 5 },
+  { id: 226, word: 'Spam',             category: 'any', difficulty: 3 },
+  { id: 227, word: 'Password reset',   category: 'any', difficulty: 4 },
+  { id: 228, word: 'Error 404',        category: 'any', difficulty: 6 },
+  { id: 229, word: 'Blue screen',      category: 'any', difficulty: 5 },
+  { id: 230, word: 'Ctrl+Alt+Delete',  category: 'any', difficulty: 5 },
+  { id: 231, word: 'Unboxing',         category: 'any', difficulty: 4 },
+  { id: 232, word: 'Rage quit',        category: 'any', difficulty: 5 },
+  { id: 233, word: 'Speed run',        category: 'any', difficulty: 6 },
+  { id: 234, word: 'Easter egg',       category: 'any', difficulty: 5 },
+  { id: 235, word: 'Power up',         category: 'any', difficulty: 4 },
+  { id: 236, word: 'Respawn',          category: 'any', difficulty: 5 },
+  { id: 237, word: '1080',             category: 'any', difficulty: 6 },
+  { id: 238, word: 'Wipeout',          category: 'any', difficulty: 4 },
+  { id: 239, word: 'Nosedive',         category: 'any', difficulty: 5 },
+  { id: 240, word: 'Tailspin',         category: 'any', difficulty: 7 },
+  { id: 241, word: 'Overcook',         category: 'any', difficulty: 5 },
+  { id: 242, word: 'Recipe',           category: 'any', difficulty: 3 },
+  { id: 243, word: 'Sous vide',        category: 'any', difficulty: 8 },
+  { id: 244, word: 'Flambé',           category: 'any', difficulty: 7 },
+  { id: 245, word: 'Deglaze',          category: 'any', difficulty: 8 },
+  { id: 246, word: 'Caramelise',       category: 'any', difficulty: 7 },
+  { id: 247, word: 'Braise',           category: 'any', difficulty: 7 },
+  { id: 248, word: 'Julienne',         category: 'any', difficulty: 8 },
+  { id: 249, word: 'Ganache',          category: 'any', difficulty: 8 },
+  { id: 250, word: 'Soufflé',          category: 'any', difficulty: 9 },
+];
+
+// ─── Instruction pool ────────────────────────────────────────────────────────
+
+const TT_VOCAL_INSTRUCTIONS = [
+  'You must speak in rhyme',
+  'You cannot use the letter P',
+  'Start slow — you can only talk faster',
+  'Deepest voice possible',
+  'Highest voice possible',
+  'Always give a new compliment when you speak',
+  'Whisper only',
+  'No English',
+  'Foreign accent',
+];
+
+const TT_PHYSICAL_LIST_A = [
+  'One hand on the floor at all times',
+  'Constant hopping',
+  'Stand too close',
+  'Sit on the floor',
+  'Hands on your head',
+  'Rub your tummy and pat your head',
+  'Be an airplane',
+];
+
+// List B is the same pool — we just pick a DIFFERENT entry from List A
+const TT_PHYSICAL_LIST_B = TT_PHYSICAL_LIST_A;
+
+// ─── State ───────────────────────────────────────────────────────────────────
+
+let _ttTeam1Score = 0;
+let _ttTeam2Score = 0;
+let _ttUsedIdsTeam1 = [];  // word IDs used in Team 1's turn
+let _ttUsedIdsTeam2 = [];  // word IDs used in Team 2's turn
+let _ttCurrentTeam = 1;
+let _ttTimeLeft = 120;
+let _ttTimerInterval = null;
+let _ttCurrentWord = null;  // { id, word, difficulty, points }
+let _ttVocalInstruction = null;   // chosen at start of each turn
+let _ttPhysicalA = null;          // chosen randomly when elapsed hits 60s
+let _ttPhysicalB = null;          // chosen (different from A) when elapsed hits 90s
+let _ttWordActionRef = null;
+let _ttDingIndex = 0;             // rotates through ding files 1–3
+let _ttCountdownPlayed = false;   // ensures countdown plays once per turn
+
+function playTeamTalkDing(options = {}) {
+  _ttDingIndex = (_ttDingIndex % 3) + 1;
+  playAudio(`team_talk_ding_${_ttDingIndex}.mp3`, options);
+}
+
+// ─── Intro ───────────────────────────────────────────────────────────────────
+
+function showTeamTalkIntro() {
+  const div = document.createElement('div');
+  div.id = 'team-talk-intro';
+  div.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, var(--motd-dark-navy) 0%, var(--motd-navy) 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 40px; text-align: center;';
+  div.innerHTML = `
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 90px; color: var(--motd-gold); text-shadow: 0 0 40px rgba(255,198,41,0.8); letter-spacing: 6px; margin-bottom: 20px;">TEAM TALK</div>
+    <div style="font-family: 'Barlow', sans-serif; font-size: 26px; color: var(--text); line-height: 1.6; max-width: 800px; margin-bottom: 40px;">
+      Race to get your guesser to say the word!<br>
+      <span style="color: var(--motd-gold);">2 minutes</span> per team &mdash; most points wins.
+    </div>
+    <div class="spinner" style="margin-top: 10px;"></div>
+  `;
+  document.body.appendChild(div);
+
+  // Update Firebase phase
+  gameRef.child('teamTalk').set({
+    active: true,
+    phase: 'intro',
+    currentTeam: 1,
+    timeLeft: 120,
+    team1Score: 0,
+    team2Score: 0,
+    scorerReady: false,
+  });
+
+  // Play intro audio, then advance after it ends (or after 4s fallback)
+  let advanced = false;
+  const advance = () => {
+    if (advanced) return;
+    advanced = true;
+    const introEl = document.getElementById('team-talk-intro');
+    if (introEl) introEl.remove();
+    startTeamTalkTurn(1);
+  };
+
+  playAudio('team_talk_intro.mp3', {
+    onEnded: advance,
+    onError: () => setTimeout(advance, 0),
+  });
+  setTimeout(advance, 4000);
+}
+
+// ─── Turn start ──────────────────────────────────────────────────────────────
+
+function startTeamTalkTurn(teamNumber) {
+  _ttCurrentTeam = teamNumber;
+  _ttTimeLeft = 120;
+
+  // Reset vocal/physical instruction picks for this turn
+  _ttVocalInstruction = TT_VOCAL_INSTRUCTIONS[Math.floor(Math.random() * TT_VOCAL_INSTRUCTIONS.length)];
+  _ttPhysicalA = null;
+  _ttPhysicalB = null;
+
+  // Reset scorerReady in Firebase (flush stale value)
+  gameRef.child('teamTalk').update({
+    phase: teamNumber === 1 ? 'team1turn' : 'team2turn',
+    currentTeam: teamNumber,
+    timeLeft: 120,
+    scorerReady: false,
+    currentWord: null,
+    wordAction: null,
+  });
+
+  // Show waiting state on host
+  showTeamTalkWaitingScreen(teamNumber);
+
+  // Listen for scorer ready signal
+  gameRef.child('teamTalk/scorerReady').on('value', (snap) => {
+    if (snap.val() === true) {
+      gameRef.child('teamTalk/scorerReady').off();
+      startTeamTalkCountdown();
+    }
+  });
+}
+
+// ─── Waiting screen (host) ───────────────────────────────────────────────────
+
+function showTeamTalkWaitingScreen(teamNumber) {
+  document.querySelectorAll('[id^="team-talk-"]').forEach(el => el.remove());
+
+  const teamData = teamNumber === 1 ? team1 : team2;
+  const scoringTeam = teamNumber === 1 ? team2 : team1;
+
+  const div = document.createElement('div');
+  div.id = 'team-talk-waiting';
+  div.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, var(--motd-dark-navy) 0%, var(--motd-navy) 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 40px; text-align: center;';
+  div.innerHTML = `
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 32px; color: var(--text-muted); letter-spacing: 4px; margin-bottom: 20px;">TEAM TALK</div>
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 70px; color: var(--motd-gold); text-shadow: 0 0 30px rgba(255,198,41,0.7); letter-spacing: 4px; margin-bottom: 16px;">
+      ${teamData.flag} ${teamData.name}
+    </div>
+    <div style="font-family: 'Barlow', sans-serif; font-size: 26px; color: var(--text); margin-bottom: 50px;">
+      Get ready! ${scoringTeam.flag} ${scoringTeam.name} captain is starting...
+    </div>
+    <div class="spinner"></div>
+  `;
+  document.body.appendChild(div);
+}
+
+// ─── Countdown + active turn ──────────────────────────────────────────────────
+
+function startTeamTalkCountdown() {
+  const waitEl = document.getElementById('team-talk-waiting');
+  if (waitEl) waitEl.remove();
+
+  // Pick first word
+  _ttCurrentWord = pickNextTeamTalkWord();
+  if (_ttCurrentWord) {
+    gameRef.child('teamTalk/currentWord').set(_ttCurrentWord);
+  }
+
+  renderTeamTalkActiveScreen();
+
+  // Reset per-turn flags
+  _ttCountdownPlayed = false;
+
+  // Start the 2-minute countdown
+  _ttTimerInterval = setInterval(() => {
+    _ttTimeLeft--;
+    gameRef.child('teamTalk/timeLeft').set(_ttTimeLeft);
+    updateTeamTalkTimerDisplay();
+    updateTeamTalkInstructions();
+
+    // Play quiet 15-sec countdown audio once when 15 seconds remain
+    if (_ttTimeLeft === 15 && !_ttCountdownPlayed) {
+      _ttCountdownPlayed = true;
+      playAudio('countdown_15sec.mp3?v=2', { volume: 0.25 });
+    }
+
+    if (_ttTimeLeft <= 0) {
+      clearInterval(_ttTimerInterval);
+      _ttTimerInterval = null;
+      endTeamTalkTurn();
+    }
+  }, 1000);
+
+  listenForTeamTalkWordActions();
+}
+
+// ─── Active turn screen render ────────────────────────────────────────────────
+
+function renderTeamTalkActiveScreen() {
+  document.querySelectorAll('[id^="team-talk-"]').forEach(el => el.remove());
+
+  const teamData = _ttCurrentTeam === 1 ? team1 : team2;
+  const score = _ttCurrentTeam === 1 ? _ttTeam1Score : _ttTeam2Score;
+  const word = _ttCurrentWord;
+  const diffLabel = word.difficulty <= 3 ? 'Easy' : word.difficulty <= 6 ? 'Medium' : 'Hard';
+  const points = word.difficulty;
+
+  const div = document.createElement('div');
+  div.id = 'team-talk-active';
+  div.style.cssText = [
+    'position: fixed',
+    'inset: 0',
+    'background: linear-gradient(135deg, var(--motd-dark-navy) 0%, var(--motd-navy) 100%)',
+    'display: flex',
+    'flex-direction: column',
+    'align-items: center',
+    'justify-content: space-between',
+    'z-index: 10000',
+    'padding: 30px 40px',
+    'text-align: center',
+  ].join(';');
+
+  div.innerHTML = `
+    <!-- Header: team + score -->
+    <div style="width: 100%; display: flex; justify-content: space-between; align-items: center;">
+      <div style="font-family: 'Bebas Neue', sans-serif; font-size: 28px; color: var(--motd-gold); letter-spacing: 3px;">${teamData.flag} ${teamData.name}</div>
+      <div style="font-family: 'Bebas Neue', sans-serif; font-size: 28px; color: var(--text);">Score: <span id="tt-score-display">${score}</span></div>
+    </div>
+
+    <!-- Timer -->
+    <div id="tt-timer" style="font-family: 'Bebas Neue', sans-serif; font-size: 110px; color: #2ecc71; text-shadow: 0 0 40px rgba(46,204,113,0.6); line-height: 1; transition: color 0.5s;">
+      ${_ttTimeLeft}
+    </div>
+
+    <!-- Word -->
+    <div>
+      <div id="tt-word" style="font-family: 'Bebas Neue', sans-serif; font-size: 100px; color: #fff; text-shadow: 0 0 20px rgba(255,255,255,0.3); letter-spacing: 4px; line-height: 1.0; margin-bottom: 12px;">
+        ${word.word}
+      </div>
+      <div style="display: flex; gap: 16px; justify-content: center; align-items: center;">
+        <span id="tt-diff-label" style="font-family: 'Barlow Condensed', sans-serif; font-size: 22px; color: var(--text-muted); background: rgba(255,255,255,0.08); padding: 6px 18px; border-radius: 8px;">${diffLabel}</span>
+        <span id="tt-points-label" style="font-family: 'Bebas Neue', sans-serif; font-size: 28px; color: var(--motd-gold);">+${points} pts</span>
+      </div>
+    </div>
+
+    <!-- Instruction boxes -->
+    <div id="tt-instructions" style="width: 100%; max-width: 900px; display: flex; flex-direction: column; gap: 10px; align-items: center;">
+      <div id="tt-instr-main" style="width: 100%; background: rgba(255,198,41,0.15); border: 2px solid var(--motd-gold); border-radius: 12px; padding: 14px 24px; font-family: 'Barlow', sans-serif; font-size: 22px; color: var(--motd-gold);">
+        ❌ You cannot say the selected word
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(div);
+}
+
+// ─── Timer display + instruction updates ─────────────────────────────────────
+
+function updateTeamTalkTimerDisplay() {
+  const timerEl = document.getElementById('tt-timer');
+  if (!timerEl) return;
+  timerEl.textContent = _ttTimeLeft;
+
+  if (_ttTimeLeft > 60) {
+    timerEl.style.color = '#2ecc71';
+    timerEl.style.textShadow = '0 0 40px rgba(46,204,113,0.6)';
+  } else if (_ttTimeLeft > 30) {
+    timerEl.style.color = '#ffc629';
+    timerEl.style.textShadow = '0 0 40px rgba(255,198,41,0.6)';
+  } else {
+    timerEl.style.color = '#d4145a';
+    timerEl.style.textShadow = '0 0 40px rgba(212,20,90,0.6)';
+  }
+}
+
+function updateTeamTalkInstructions() {
+  const elapsed = 120 - _ttTimeLeft;
+  const mainEl    = document.getElementById('tt-instr-main');
+  const instrBox  = document.getElementById('tt-instructions');
+  if (!instrBox) return;
+
+  // ── Main instruction changes ──────────────────────────────────────────────
+  if (elapsed >= 90 && mainEl) {
+    mainEl.textContent = '🤫 No words';
+  } else if (elapsed >= 50 && mainEl) {
+    mainEl.textContent = '🔢 Only three words';
+  }
+
+  // ── Vocal instruction appears at elapsed 30s (once) ──────────────────────
+  if (elapsed === 30) {
+    if (!document.getElementById('tt-instr-vocal')) {
+      const vocalEl = document.createElement('div');
+      vocalEl.id = 'tt-instr-vocal';
+      vocalEl.style.cssText = 'width: 100%; background: rgba(77,212,232,0.15); border: 2px solid var(--motd-cyan); border-radius: 12px; padding: 14px 24px; font-family: \'Barlow\', sans-serif; font-size: 22px; color: var(--motd-cyan);';
+      vocalEl.textContent = '🎙️ ' + _ttVocalInstruction;
+      instrBox.appendChild(vocalEl);
+    }
+  }
+
+  // ── Physical instruction A appears at elapsed 60s (once) ─────────────────
+  if (elapsed === 60) {
+    if (!document.getElementById('tt-instr-physical')) {
+      const idx = Math.floor(Math.random() * TT_PHYSICAL_LIST_A.length);
+      _ttPhysicalA = TT_PHYSICAL_LIST_A[idx];
+      const physEl = document.createElement('div');
+      physEl.id = 'tt-instr-physical';
+      physEl.style.cssText = 'width: 100%; background: rgba(212,20,90,0.15); border: 2px solid var(--motd-magenta); border-radius: 12px; padding: 14px 24px; font-family: \'Barlow\', sans-serif; font-size: 22px; color: var(--motd-magenta);';
+      physEl.textContent = '🏃 ' + _ttPhysicalA;
+      instrBox.appendChild(physEl);
+    }
+  }
+
+  // ── Physical instruction B replaces A at elapsed 90s ────────────────────
+  if (elapsed === 90) {
+    const physEl = document.getElementById('tt-instr-physical');
+    if (physEl && _ttPhysicalA) {
+      const available = TT_PHYSICAL_LIST_B.filter(p => p !== _ttPhysicalA);
+      _ttPhysicalB = available[Math.floor(Math.random() * available.length)];
+      physEl.textContent = '🏃 ' + _ttPhysicalB;
+    }
+  }
+}
+
+// ─── Word selection ───────────────────────────────────────────────────────────
+
+function pickNextTeamTalkWord() {
+  const usedIds = _ttCurrentTeam === 1 ? _ttUsedIdsTeam1 : _ttUsedIdsTeam2;
+
+  let pool;
+  if (_ttTimeLeft > 105) {
+    pool = TEAM_TALK_WORDS.filter(w => w.category === 'football' && !usedIds.includes(w.id));
+    if (pool.length === 0) pool = TEAM_TALK_WORDS.filter(w => !usedIds.includes(w.id));
+  } else if (_ttTimeLeft > 90) {
+    pool = TEAM_TALK_WORDS.filter(w => (w.category === 'football' || w.category === 'sports') && !usedIds.includes(w.id));
+    if (pool.length === 0) pool = TEAM_TALK_WORDS.filter(w => !usedIds.includes(w.id));
+  } else {
+    pool = TEAM_TALK_WORDS.filter(w => !usedIds.includes(w.id));
+  }
+
+  if (pool.length === 0) return null;
+  const word = pool[Math.floor(Math.random() * pool.length)];
+  usedIds.push(word.id);
+  return { id: word.id, word: word.word, difficulty: word.difficulty, points: word.difficulty };
+}
+
+function advanceToNextWord() {
+  _ttCurrentWord = pickNextTeamTalkWord();
+  if (!_ttCurrentWord) {
+    _ttCurrentWord = { id: -1, word: '(No more words!)', difficulty: 1, points: 0 };
+  }
+  gameRef.child('teamTalk/currentWord').set(_ttCurrentWord);
+
+  const wordEl = document.getElementById('tt-word');
+  if (wordEl) wordEl.textContent = _ttCurrentWord.word;
+
+  const diffLabel = _ttCurrentWord.difficulty <= 3 ? 'Easy' : _ttCurrentWord.difficulty <= 6 ? 'Medium' : 'Hard';
+  const diffEl = document.getElementById('tt-diff-label');
+  if (diffEl) diffEl.textContent = diffLabel;
+  const ptsEl = document.getElementById('tt-points-label');
+  if (ptsEl) ptsEl.textContent = '+' + _ttCurrentWord.points + ' pts';
+}
+
+// ─── Word action listener ────────────────────────────────────────────────────
+
+function listenForTeamTalkWordActions() {
+  if (_ttWordActionRef) {
+    _ttWordActionRef.off();
+    _ttWordActionRef = null;
+  }
+
+  _ttWordActionRef = gameRef.child('teamTalk/wordAction');
+  let lastActionTs = 0;
+
+  _ttWordActionRef.on('value', (snap) => {
+    const action = snap.val();
+    if (!action || action.ts <= lastActionTs) return;
+    lastActionTs = action.ts;
+
+    if (action.action === 'correct') {
+      const pts = _ttCurrentWord ? _ttCurrentWord.points : 0;
+      if (_ttCurrentTeam === 1) {
+        _ttTeam1Score += pts;
+        gameRef.child('teamTalk/team1Score').set(_ttTeam1Score);
+      } else {
+        _ttTeam2Score += pts;
+        gameRef.child('teamTalk/team2Score').set(_ttTeam2Score);
+      }
+      const scoreEl = document.getElementById('tt-score-display');
+      if (scoreEl) scoreEl.textContent = _ttCurrentTeam === 1 ? _ttTeam1Score : _ttTeam2Score;
+      advanceToNextWord();
+    } else if (action.action === 'skip') {
+      advanceToNextWord();
+    }
+  });
+}
+
+// ─── End of turn ─────────────────────────────────────────────────────────────
+
+function endTeamTalkTurn() {
+  if (_ttWordActionRef) {
+    _ttWordActionRef.off();
+    _ttWordActionRef = null;
+  }
+
+  const activeEl = document.getElementById('team-talk-active');
+  if (activeEl) activeEl.remove();
+
+  if (_ttCurrentTeam === 1) {
+    playTeamTalkDing({
+      onEnded: () => {
+        gameRef.child('teamTalk').update({ phase: 'intermission' });
+        playAudio('team_talk_next_team.mp3', {
+          onEnded: () => startTeamTalkTurn(2),
+          onError: () => setTimeout(() => startTeamTalkTurn(2), 500),
+        });
+      },
+      onError: () => {
+        gameRef.child('teamTalk').update({ phase: 'intermission' });
+        setTimeout(() => startTeamTalkTurn(2), 500);
+      },
+    });
+  } else {
+    playTeamTalkDing({
+      onEnded: () => showTeamTalkResults(),
+      onError: () => setTimeout(() => showTeamTalkResults(), 500),
+    });
+  }
+}
+
+// ─── Results ─────────────────────────────────────────────────────────────────
+
+async function showTeamTalkResults() {
+  gameRef.child('teamTalk').update({ phase: 'results', active: false });
+
+  document.querySelectorAll('[id^="team-talk-"]').forEach(el => el.remove());
+
+  const winner = _ttTeam1Score > _ttTeam2Score ? team1 :
+                 _ttTeam2Score > _ttTeam1Score ? team2 : null;
+
+  const resultsDiv = document.createElement('div');
+  resultsDiv.id = 'team-talk-results';
+  resultsDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, var(--motd-dark-navy) 0%, var(--motd-navy) 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 40px; text-align: center;';
+  resultsDiv.innerHTML = `
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 50px; color: var(--motd-gold); letter-spacing: 5px; margin-bottom: 40px;">TEAM TALK — FINAL SCORES</div>
+    <div style="display: flex; gap: 80px; align-items: center; justify-content: center; margin-bottom: 40px;">
+      <div style="text-align: center;">
+        <div style="font-size: 60px; margin-bottom: 10px;">${team1.flag}</div>
+        <div style="font-family: 'Bebas Neue', sans-serif; font-size: 32px; color: var(--text); margin-bottom: 12px;">${team1.name}</div>
+        <div style="font-family: 'Bebas Neue', sans-serif; font-size: 90px; color: #4dd4e8; text-shadow: 0 0 30px rgba(77,212,232,0.6);">${_ttTeam1Score}</div>
+      </div>
+      <div style="font-family: 'Bebas Neue', sans-serif; font-size: 60px; color: var(--text-muted);">–</div>
+      <div style="text-align: center;">
+        <div style="font-size: 60px; margin-bottom: 10px;">${team2.flag}</div>
+        <div style="font-family: 'Bebas Neue', sans-serif; font-size: 32px; color: var(--text); margin-bottom: 12px;">${team2.name}</div>
+        <div style="font-family: 'Bebas Neue', sans-serif; font-size: 90px; color: #d4145a; text-shadow: 0 0 30px rgba(212,20,90,0.6);">${_ttTeam2Score}</div>
+      </div>
+    </div>
+    <div id="tt-winner-line" style="font-family: 'Bebas Neue', sans-serif; font-size: 38px; color: var(--motd-gold); letter-spacing: 3px; min-height: 50px;">
+      ${winner ? winner.flag + ' ' + winner.name + ' wins the round!' : "It's a draw!"}
+    </div>
+    <div class="spinner" style="margin-top: 30px;"></div>
+  `;
+  document.body.appendChild(resultsDiv);
+
+  const ELEVENLABS_API_KEY = 'sk_eb4900ceb7e4366087590c2b906743504ba8c844524ddcc4';
+  const VOICE_ID = 'rfkTsdZrVWEVhDycUYn9';
+
+  const scoreLine = winner
+    ? `${team1.name} scored ${_ttTeam1Score} and ${team2.name} scored ${_ttTeam2Score}. ${winner.name} wins the round!`
+    : `${team1.name} scored ${_ttTeam1Score} and ${team2.name} scored ${_ttTeam2Score}. It's a draw!`;
+
+  const voiceText = `Right, let's see how the Team Talk went! ${scoreLine}`;
+
+  let voicePlayed = false;
+  const afterVoice = () => {
+    if (voicePlayed) return;
+    voicePlayed = true;
+    const spinnerEl = resultsDiv.querySelector('.spinner');
+    if (spinnerEl) spinnerEl.remove();
+    const doneEl = document.createElement('div');
+    doneEl.style.cssText = 'margin-top: 30px; font-family: \'Barlow\', sans-serif; font-size: 20px; color: var(--text-muted);';
+    doneEl.textContent = 'Team Talk complete.';
+    resultsDiv.appendChild(doneEl);
+  };
+
+  playAudio('team_talk_scores_intro.mp3', {
+    onEnded: async () => {
+      try {
+        const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`, {
+          method: 'POST',
+          headers: {
+            'Accept': 'audio/mpeg',
+            'Content-Type': 'application/json',
+            'xi-api-key': ELEVENLABS_API_KEY,
+          },
+          body: JSON.stringify({
+            text: voiceText,
+            model_id: 'eleven_monolingual_v1',
+            voice_settings: { stability: 0.5, similarity_boost: 0.75, style: 0.0, use_speaker_boost: true },
+          }),
+        });
+        if (!response.ok) throw new Error(`ElevenLabs ${response.status}`);
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const voiceAudio = new Audio(url);
+        window._audioRefs = window._audioRefs || [];
+        window._audioRefs.push(voiceAudio);
+        voiceAudio.addEventListener('ended', afterVoice);
+        voiceAudio.play().catch(() => setTimeout(afterVoice, 1000));
+        setTimeout(() => { if (!voicePlayed) afterVoice(); }, 15000);
+      } catch (err) {
+        console.error('Team Talk ElevenLabs error:', err);
+        setTimeout(afterVoice, 1000);
+      }
+    },
+    onError: () => setTimeout(afterVoice, 500),
+  });
+  setTimeout(() => { if (!voicePlayed) afterVoice(); }, 20000);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // NOTES (UPDATED)
 // ═══════════════════════════════════════════════════════════════════════════
 /*
