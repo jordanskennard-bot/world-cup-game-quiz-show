@@ -2163,37 +2163,118 @@ function revealBlowBallEmotion(emotion) {
   if (hiddenEl) hiddenEl.style.display = 'none';
 }
 
-// Photographer screen during the hidden snap phase — camera ready, no emotion shown
+// Photographer screen during the hidden snap phase — live camera + Take Photo button beneath it
 function showPhotographerSnapScreen(roundNumber) {
+  _stopBlowBallCamera(); // clean up any previous stream
   let emotionDiv = document.getElementById('player-blowball-emotion');
   if (!emotionDiv) {
     emotionDiv = document.createElement('div');
     emotionDiv.id = 'player-blowball-emotion';
-    emotionDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, #0a1628 0%, #1a2b4a 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 30px; text-align: center;';
+    emotionDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, #0a1628 0%, #1a2b4a 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 20px; text-align: center; overflow-y: auto;';
     document.body.appendChild(emotionDiv);
   }
 
   emotionDiv.innerHTML = `
-    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 32px; color: rgba(255,255,255,0.6); margin-bottom: 10px; letter-spacing: 3px;">
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 28px; color: rgba(255,255,255,0.6); margin-bottom: 6px; letter-spacing: 3px;">
       ROUND ${roundNumber}
     </div>
-    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 40px; color: #fff; margin-bottom: 20px;">
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 34px; color: #fff; margin-bottom: 10px;">
       📸 You're the Photographer!
     </div>
-    <div id="blowball-player-hidden" style="font-family: 'Bebas Neue', sans-serif; font-size: 72px; color: #ffc629; opacity: 0.3; letter-spacing: 12px; margin-bottom: 24px;">
+    <div id="blowball-player-hidden" style="font-family: 'Bebas Neue', sans-serif; font-size: 52px; color: #ffc629; opacity: 0.3; letter-spacing: 10px; margin-bottom: 10px;">
       ? ? ?
     </div>
-    <div id="blowball-player-reveal" style="display: none; font-family: 'Bebas Neue', sans-serif; font-size: 72px; color: #ffc629; text-shadow: 0 0 40px rgba(255,198,41,0.8); margin-bottom: 24px;"></div>
-    <input type="file" accept="image/*" capture="user" id="photo-capture"
-           style="display: none;" onchange="handlePhotoCapture(this)">
-    <button onclick="document.getElementById('photo-capture').click()"
-            style="padding: 20px 50px; background: linear-gradient(135deg, #4dd4e8, #ffc629); color: #0a1628; border: none; border-radius: 15px; font-family: 'Bebas Neue', sans-serif; font-size: 28px; cursor: pointer; box-shadow: 0 10px 30px rgba(255,198,41,0.4); -webkit-tap-highlight-color: transparent;">
+    <div id="blowball-player-reveal" style="display: none; font-family: 'Bebas Neue', sans-serif; font-size: 52px; color: #ffc629; text-shadow: 0 0 30px rgba(255,198,41,0.8); margin-bottom: 10px;"></div>
+
+    <!-- Live camera view -->
+    <div id="camera-wrapper" style="width: 100%; max-width: 340px; border-radius: 14px; overflow: hidden; border: 3px solid rgba(77,212,232,0.5); background: #000; margin-bottom: 14px; position: relative; min-height: 200px;">
+      <video id="camera-stream" autoplay playsinline muted
+             style="width: 100%; display: block; border-radius: 10px;"></video>
+      <div id="camera-loading" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.5);font-family:'Barlow',sans-serif;font-size:16px;">
+        Loading camera…
+      </div>
+    </div>
+
+    <!-- Take Photo button — beneath the camera -->
+    <button id="take-photo-btn" onclick="captureBlowBallPhoto()"
+            style="padding: 16px 44px; background: linear-gradient(135deg, #4dd4e8, #ffc629); color: #0a1628; border: none; border-radius: 14px; font-family: 'Bebas Neue', sans-serif; font-size: 28px; cursor: pointer; box-shadow: 0 8px 24px rgba(255,198,41,0.4); -webkit-tap-highlight-color: transparent; margin-bottom: 16px;">
       📸 Take Photo
     </button>
-    <div id="photo-preview" style="margin-top: 30px; display: none;">
-      <img id="preview-img" style="max-width: 280px; border-radius: 12px; border: 3px solid #4dd4e8;">
+
+    <!-- Preview shown after capture -->
+    <div id="photo-preview" style="display: none; text-align: center;">
+      <img id="preview-img" style="max-width: 240px; border-radius: 10px; border: 3px solid #4dd4e8;">
+      <div style="font-family: 'Barlow', sans-serif; font-size: 15px; color: #4dd4e8; margin-top: 6px;">✅ Photo saved!</div>
     </div>
+
+    <!-- Hidden canvas for frame capture -->
+    <canvas id="photo-canvas" style="display: none;"></canvas>
   `;
+
+  _startBlowBallCamera();
+}
+
+function _startBlowBallCamera() {
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false })
+    .then(stream => {
+      window._blowBallCameraStream = stream;
+      const video = document.getElementById('camera-stream');
+      const loading = document.getElementById('camera-loading');
+      if (video) {
+        video.srcObject = stream;
+        video.play().catch(() => {});
+        video.addEventListener('loadedmetadata', () => { if (loading) loading.style.display = 'none'; });
+      }
+    })
+    .catch(err => {
+      console.warn('📷 Camera unavailable — falling back to file input:', err);
+      const wrapper = document.getElementById('camera-wrapper');
+      if (wrapper) wrapper.style.display = 'none';
+      // Reroute Take Photo button to file-input fallback
+      const btn = document.getElementById('take-photo-btn');
+      if (btn) {
+        const inp = document.createElement('input');
+        inp.type = 'file'; inp.accept = 'image/*'; inp.capture = 'user';
+        inp.id = 'photo-capture'; inp.style.display = 'none';
+        inp.onchange = () => handlePhotoCapture(inp);
+        btn.parentNode.insertBefore(inp, btn);
+        btn.onclick = () => inp.click();
+      }
+    });
+}
+
+function captureBlowBallPhoto() {
+  const video = document.getElementById('camera-stream');
+  const canvas = document.getElementById('photo-canvas');
+  const btn = document.getElementById('take-photo-btn');
+  if (!video || !canvas) return;
+
+  canvas.width  = video.videoWidth  || 640;
+  canvas.height = video.videoHeight || 480;
+  canvas.getContext('2d').drawImage(video, 0, 0);
+  const base64 = canvas.toDataURL('image/jpeg', 0.75);
+
+  // Show preview
+  const preview = document.getElementById('photo-preview');
+  const previewImg = document.getElementById('preview-img');
+  if (preview && previewImg) { previewImg.src = base64; preview.style.display = 'block'; }
+
+  // Change button to Retake
+  if (btn) btn.textContent = '🔄 Retake';
+
+  // Upload to Firebase
+  gameRef.child('blowBallPhotoRound').once('value', snap => {
+    const roundNumber = snap.val() || 1;
+    gameRef.child(`blowBall/photos/${playerId}`).push({ photo: base64, round: roundNumber, timestamp: Date.now() });
+    console.log('✅ Photo captured and uploaded');
+  });
+}
+
+function _stopBlowBallCamera() {
+  if (window._blowBallCameraStream) {
+    window._blowBallCameraStream.getTracks().forEach(t => t.stop());
+    window._blowBallCameraStream = null;
+  }
 }
 
 // Spectator screen during the hidden snap phase — emotion not shown yet
@@ -2340,6 +2421,7 @@ function convertToBase64(file) {
 }
 
 function showPlayerBlowBallJudging() {
+  _stopBlowBallCamera(); // stop live camera stream if still running
   const emotionDiv = document.getElementById('player-blowball-emotion');
   if (emotionDiv) emotionDiv.remove();
   // Remove Full Time button/container if still present
@@ -2360,60 +2442,84 @@ function showPlayerBlowBallJudging() {
 }
 
 function showRefereeBlowBallScoring() {
+  _bbT1Touched = false;
+  _bbT2Touched = false;
+  blowBallTeam1Score = 0;
+  blowBallTeam2Score = 0;
+
   const scoringDiv = document.createElement('div');
   scoringDiv.id = 'player-blowball-judging';
   scoringDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, #0a1628 0%, #1a2b4a 100%); display: flex; flex-direction: column; align-items: center; padding: 30px; overflow-y: auto; z-index: 10000; text-align: center;';
 
-  const btns = (team, fn) => [1,2,3,4,5].map(s => `
-    <button onclick="${fn}(${s})"
-            style="width: 64px; height: 64px; background: linear-gradient(135deg, #4dd4e8, #ffc629); color: #0a1628; border: none; border-radius: 50%; font-family: 'Bebas Neue', sans-serif; font-size: 36px; cursor: pointer; -webkit-tap-highlight-color: transparent;">
-      ${s}
-    </button>
-  `).join('');
-
   scoringDiv.innerHTML = `
-    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 46px; color: #ffc629; margin-bottom: 24px;">
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 46px; color: #ffc629; margin-bottom: 10px;">
       ⚽ You Are the Referee ⚽
     </div>
-    <div style="font-family: 'Barlow', sans-serif; font-size: 22px; color: rgba(255,255,255,0.85); margin-bottom: 36px;">
+    <div style="font-family: 'Barlow', sans-serif; font-size: 20px; color: rgba(255,255,255,0.85); margin-bottom: 6px;">
       Score each team on speed, flair, and huff!
     </div>
-
-    <div style="margin-bottom: 36px; width: 100%; max-width: 480px;">
-      <div style="font-family: 'Bebas Neue', sans-serif; font-size: 30px; color: #fff; margin-bottom: 16px;">Team 1 Score</div>
-      <div style="display: flex; gap: 12px; justify-content: center;">${btns(1, 'setBlowBallTeam1Score')}</div>
-      <div id="t1-selected" style="font-family: 'Barlow', sans-serif; font-size: 16px; color: #4dd4e8; margin-top: 8px; min-height: 20px;"></div>
+    <div style="font-family: 'Barlow', sans-serif; font-size: 15px; color: rgba(255,255,255,0.5); margin-bottom: 30px;">
+      +17 points to the team who scored first
     </div>
 
-    <div style="margin-bottom: 36px; width: 100%; max-width: 480px;">
-      <div style="font-family: 'Bebas Neue', sans-serif; font-size: 30px; color: #fff; margin-bottom: 16px;">Team 2 Score</div>
-      <div style="display: flex; gap: 12px; justify-content: center;">${btns(2, 'setBlowBallTeam2Score')}</div>
-      <div id="t2-selected" style="font-family: 'Barlow', sans-serif; font-size: 16px; color: #4dd4e8; margin-top: 8px; min-height: 20px;"></div>
+    <div style="margin-bottom: 30px; width: 100%; max-width: 380px;">
+      <div style="font-family: 'Bebas Neue', sans-serif; font-size: 28px; color: #fff; margin-bottom: 6px;">Team 1</div>
+      <div id="t1-score-display" style="font-family: 'Bebas Neue', sans-serif; font-size: 72px; color: #4dd4e8; line-height: 1; margin-bottom: 8px;">0</div>
+      <input type="range" id="t1-slider" min="0" max="23" value="0"
+             oninput="onBlowBallSlider(1, this.value)"
+             style="width: 100%; height: 40px; cursor: pointer; accent-color: #4dd4e8; -webkit-appearance: none; background: transparent;">
+      <div style="display: flex; justify-content: space-between; color: rgba(255,255,255,0.35); font-family: 'Barlow', sans-serif; font-size: 12px; margin-top: 2px;">
+        <span>0 — Poor</span><span>23 — Excellent</span>
+      </div>
     </div>
 
-    <div style="font-family: 'Barlow', sans-serif; font-size: 15px; color: rgba(255,255,255,0.55);">
-      1 = Poor &nbsp;|&nbsp; 5 = Excellent
+    <div style="margin-bottom: 30px; width: 100%; max-width: 380px;">
+      <div style="font-family: 'Bebas Neue', sans-serif; font-size: 28px; color: #fff; margin-bottom: 6px;">Team 2</div>
+      <div id="t2-score-display" style="font-family: 'Bebas Neue', sans-serif; font-size: 72px; color: #d4145a; line-height: 1; margin-bottom: 8px;">0</div>
+      <input type="range" id="t2-slider" min="0" max="23" value="0"
+             oninput="onBlowBallSlider(2, this.value)"
+             style="width: 100%; height: 40px; cursor: pointer; accent-color: #d4145a; -webkit-appearance: none; background: transparent;">
+      <div style="display: flex; justify-content: space-between; color: rgba(255,255,255,0.35); font-family: 'Barlow', sans-serif; font-size: 12px; margin-top: 2px;">
+        <span>0 — Poor</span><span>23 — Excellent</span>
+      </div>
     </div>
+
+    <button id="blowball-submit-scores" onclick="submitBlowBallScores()" disabled
+            style="padding: 16px 0; width: 100%; max-width: 380px; background: rgba(255,255,255,0.12); color: rgba(255,255,255,0.35); border: none; border-radius: 14px; font-family: 'Bebas Neue', sans-serif; font-size: 28px; cursor: default; letter-spacing: 2px; -webkit-tap-highlight-color: transparent;">
+      Submit Scores
+    </button>
   `;
 
   document.body.appendChild(scoringDiv);
 }
 
-let blowBallTeam1Score = null;
-let blowBallTeam2Score = null;
+let blowBallTeam1Score = 0;
+let blowBallTeam2Score = 0;
+let _bbT1Touched = false;
+let _bbT2Touched = false;
 
-function setBlowBallTeam1Score(score) {
-  blowBallTeam1Score = score;
-  const el = document.getElementById('t1-selected');
-  if (el) el.textContent = `Selected: ${score}`;
-  if (blowBallTeam2Score !== null) submitBlowBallScores();
-}
-
-function setBlowBallTeam2Score(score) {
-  blowBallTeam2Score = score;
-  const el = document.getElementById('t2-selected');
-  if (el) el.textContent = `Selected: ${score}`;
-  if (blowBallTeam1Score !== null) submitBlowBallScores();
+function onBlowBallSlider(team, value) {
+  value = parseInt(value);
+  if (team === 1) {
+    blowBallTeam1Score = value;
+    _bbT1Touched = true;
+    const el = document.getElementById('t1-score-display');
+    if (el) el.textContent = value;
+  } else {
+    blowBallTeam2Score = value;
+    _bbT2Touched = true;
+    const el = document.getElementById('t2-score-display');
+    if (el) el.textContent = value;
+  }
+  if (_bbT1Touched && _bbT2Touched) {
+    const btn = document.getElementById('blowball-submit-scores');
+    if (btn) {
+      btn.disabled = false;
+      btn.style.background = 'linear-gradient(135deg, #4dd4e8, #ffc629)';
+      btn.style.color = '#0a1628';
+      btn.style.cursor = 'pointer';
+    }
+  }
 }
 
 function submitBlowBallScores() {
@@ -2425,8 +2531,10 @@ function submitBlowBallScores() {
   const scoringDiv = document.getElementById('player-blowball-judging');
   if (scoringDiv) scoringDiv.remove();
 
-  blowBallTeam1Score = null;
-  blowBallTeam2Score = null;
+  blowBallTeam1Score = 0;
+  blowBallTeam2Score = 0;
+  _bbT1Touched = false;
+  _bbT2Touched = false;
 
   showWaitingForBlowBallScoring();
 }
@@ -2447,6 +2555,248 @@ function showWaitingForBlowBallScoring() {
   `;
 
   document.body.appendChild(waitDiv);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CAPTION CONTEST — PLAYER SIDE
+// ═══════════════════════════════════════════════════════════════════════════
+
+(function setupCaptionContestListener() {
+  const check = setInterval(() => {
+    if (!gameRef) return;
+    clearInterval(check);
+
+    gameRef.child('captionContest/phase').on('value', (snap) => {
+      const phase = snap.val();
+
+      // Remove all blow ball screens as soon as caption contest starts
+      if (phase) {
+        ['player-blowball-emotion', 'waiting-blowball-scoring', 'player-blowball-judging',
+         'blowball-full-time-container'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.remove();
+        });
+      }
+
+      // Always clean up Player 1 reading-ready listener + button when phase changes
+      if (window._captionReadingReadyOff) {
+        window._captionReadingReadyOff();
+        window._captionReadingReadyOff = null;
+      }
+      const nextBtnEl = document.getElementById('caption-next-btn-player');
+      if (nextBtnEl) nextBtnEl.remove();
+
+      // Clear UI when contest ends or moves to winner/reviewing
+      if (!phase || phase === 'winner' || phase === 'reviewing') {
+        ['caption-input-screen', 'caption-voting-screen-player'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.remove();
+        });
+
+        // Player 1: watch for reading-ready signal during review phase
+        if (phase === 'reviewing' && window._isPlayer1) {
+          const readingReadyRef = gameRef.child('captionContest/readingReady');
+          const handler = (s) => {
+            const d = s.val();
+            const existing = document.getElementById('caption-next-btn-player');
+            if (existing) existing.remove();
+            if (d) showCaptionNextPlayerButton(d.canVote);
+          };
+          readingReadyRef.on('value', handler);
+          window._captionReadingReadyOff = () => readingReadyRef.off('value', handler);
+        }
+        return;
+      }
+
+      if (phase === 'captioning') {
+        const voteEl = document.getElementById('caption-voting-screen-player');
+        if (voteEl) voteEl.remove();
+        if (document.getElementById('caption-input-screen')) return;
+        gameRef.child('captionContest').once('value', (s) => {
+          const d = s.val();
+          if (d && d.phase === 'captioning') showCaptionInput(d);
+        });
+      }
+
+      if (phase === 'voting') {
+        const stale = document.getElementById('caption-voting-screen-player');
+        if (stale) stale.remove();
+        gameRef.child('captionContest').once('value', (s) => {
+          const d = s.val();
+          if (d && d.phase === 'voting') showCaptionVotingPlayer(d);
+        });
+      }
+    });
+  }, 500);
+})();
+
+function showCaptionInput(d) {
+  const existing = document.getElementById('caption-input-screen');
+  if (existing) existing.remove();
+
+  const isDraw = d.style === 'draw';
+  const div = document.createElement('div');
+  div.id = 'caption-input-screen';
+  div.style.cssText = 'position:fixed;inset:0;background:linear-gradient(135deg,#0a1628 0%,#1a2b4a 100%);display:flex;flex-direction:column;align-items:center;z-index:10000;padding:16px;overflow-y:auto;';
+
+  div.innerHTML = `
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;color:rgba(255,255,255,0.3);letter-spacing:2px;margin-bottom:12px;text-align:center;">
+      📸 CAPTION CONTEST
+    </div>
+    <div style="position:relative;width:100%;max-width:360px;margin-bottom:12px;flex-shrink:0;">
+      <img id="caption-photo-player" src="${d.photoUrl}" style="width:100%;height:200px;object-fit:cover;border-radius:12px;border:3px solid #ffc629;display:block;">
+      ${isDraw ? `<canvas id="caption-draw-canvas" style="position:absolute;inset:0;width:100%;height:100%;border-radius:12px;cursor:crosshair;touch-action:none;"></canvas>` : ''}
+    </div>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:26px;color:#ffc629;text-align:center;margin-bottom:12px;letter-spacing:1px;max-width:360px;">
+      ${d.instruction}
+    </div>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:52px;color:#fff;margin-bottom:12px;" id="player-caption-timer">:45</div>
+    ${isDraw ? `
+      <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-bottom:12px;">
+        <button onclick="setCaptionDrawColor('#ffffff')" style="width:36px;height:36px;background:#fff;border-radius:50%;border:3px solid rgba(255,255,255,0.5);cursor:pointer;"></button>
+        <button onclick="setCaptionDrawColor('#ff0000')" style="width:36px;height:36px;background:#f00;border-radius:50%;border:3px solid rgba(255,255,255,0.3);cursor:pointer;"></button>
+        <button onclick="setCaptionDrawColor('#00dd00')" style="width:36px;height:36px;background:#0d0;border-radius:50%;border:3px solid rgba(255,255,255,0.3);cursor:pointer;"></button>
+        <button onclick="setCaptionDrawColor('#ffc629')" style="width:36px;height:36px;background:#ffc629;border-radius:50%;border:3px solid rgba(255,255,255,0.3);cursor:pointer;"></button>
+        <button onclick="setCaptionDrawColor('#4dd4e8')" style="width:36px;height:36px;background:#4dd4e8;border-radius:50%;border:3px solid rgba(255,255,255,0.3);cursor:pointer;"></button>
+        <button onclick="clearCaptionCanvas()" style="padding:6px 14px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.3);color:#fff;border-radius:8px;font-family:'Barlow',sans-serif;font-size:13px;cursor:pointer;">Clear</button>
+      </div>
+    ` : `
+      <textarea id="caption-text-input" placeholder="Your caption…" maxlength="140"
+        style="width:100%;max-width:360px;height:80px;background:rgba(255,255,255,0.08);border:2px solid rgba(255,255,255,0.3);border-radius:12px;color:#fff;font-family:'Barlow',sans-serif;font-size:18px;padding:12px;resize:none;outline:none;box-sizing:border-box;margin-bottom:12px;-webkit-tap-highlight-color:transparent;"></textarea>
+    `}
+    <button id="caption-submit-btn" onclick="submitCaption('${d.style}')"
+      style="padding:14px 0;background:linear-gradient(135deg,#4dd4e8,#ffc629);color:#0a1628;border:none;border-radius:14px;font-family:'Bebas Neue',sans-serif;font-size:26px;cursor:pointer;box-shadow:0 8px 24px rgba(255,198,41,0.4);width:100%;max-width:360px;-webkit-tap-highlight-color:transparent;">
+      Submit
+    </button>
+    <div id="caption-submitted-msg" style="display:none;font-family:'Bebas Neue',sans-serif;font-size:26px;color:var(--motd-gold);margin-top:20px;text-align:center;">
+      ✅ Caption submitted!<br>
+      <span style="font-size:17px;color:rgba(255,255,255,0.5);">Waiting for others…</span>
+    </div>
+  `;
+  document.body.appendChild(div);
+
+  window._captionPlayerTimeLeft = 45;
+  window._captionPlayerStyle = d.style;
+  window._captionPlayerTimerInterval = setInterval(() => {
+    window._captionPlayerTimeLeft--;
+    const el = document.getElementById('player-caption-timer');
+    if (el) el.textContent = `:${String(window._captionPlayerTimeLeft).padStart(2, '0')}`;
+    if (window._captionPlayerTimeLeft <= 0) {
+      clearInterval(window._captionPlayerTimerInterval);
+      window._captionPlayerTimerInterval = null;
+      submitCaption(window._captionPlayerStyle);
+    }
+  }, 1000);
+
+  gameRef.child('captionContest/timeLeft').on('value', (snap) => {
+    const host = snap.val();
+    if (host !== null && host < window._captionPlayerTimeLeft) {
+      window._captionPlayerTimeLeft = host;
+      const el = document.getElementById('player-caption-timer');
+      if (el) el.textContent = `:${String(host).padStart(2, '0')}`;
+    }
+  });
+
+  if (isDraw) setupCaptionCanvas();
+}
+
+window._captionDrawColor = '#ffffff';
+
+function setupCaptionCanvas() {
+  requestAnimationFrame(() => {
+    const img    = document.getElementById('caption-photo-player');
+    const canvas = document.getElementById('caption-draw-canvas');
+    if (!canvas || !img) return;
+    const rect = img.getBoundingClientRect();
+    canvas.width  = rect.width  * window.devicePixelRatio;
+    canvas.height = rect.height * window.devicePixelRatio;
+    canvas.style.width  = rect.width  + 'px';
+    canvas.style.height = rect.height + 'px';
+    const ctx = canvas.getContext('2d');
+    ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    let drawing = false, lastX = 0, lastY = 0;
+    const pos = (e) => { const r = canvas.getBoundingClientRect(); const t = e.touches ? e.touches[0] : e; return { x: t.clientX - r.left, y: t.clientY - r.top }; };
+    canvas.addEventListener('pointerdown', (e) => { drawing = true; const p = pos(e); lastX = p.x; lastY = p.y; e.preventDefault(); });
+    canvas.addEventListener('pointermove', (e) => { if (!drawing) return; const p = pos(e); ctx.strokeStyle = window._captionDrawColor; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(lastX, lastY); ctx.lineTo(p.x, p.y); ctx.stroke(); lastX = p.x; lastY = p.y; e.preventDefault(); });
+    canvas.addEventListener('pointerup',    () => { drawing = false; });
+    canvas.addEventListener('pointerleave', () => { drawing = false; });
+  });
+}
+
+function setCaptionDrawColor(color) { window._captionDrawColor = color; }
+
+function clearCaptionCanvas() {
+  const canvas = document.getElementById('caption-draw-canvas');
+  if (!canvas) return;
+  canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+}
+
+function submitCaption(style) {
+  const btn = document.getElementById('caption-submit-btn');
+  if (btn && btn.disabled) return;
+  if (btn) btn.disabled = true;
+  clearInterval(window._captionPlayerTimerInterval);
+  gameRef.child('captionContest/timeLeft').off();
+  let text = '', drawing = null;
+  if (style === 'draw') {
+    const canvas = document.getElementById('caption-draw-canvas');
+    if (canvas) drawing = canvas.toDataURL('image/png', 0.6);
+    text = '(Drawing)';
+  } else {
+    const input = document.getElementById('caption-text-input');
+    text = (input?.value || '').trim() || '(No caption)';
+  }
+  gameRef.child(`captionContest/submissions/${playerId}`).set({ text, drawing, submitted: true, timestamp: Date.now() });
+  if (btn) btn.style.display = 'none';
+  const msg = document.getElementById('caption-submitted-msg');
+  if (msg) msg.style.display = 'block';
+}
+
+function showCaptionVotingPlayer(d) {
+  const existing = document.getElementById('caption-voting-screen-player');
+  if (existing) existing.remove();
+  const captions = d.captions || {};
+  const isDraw   = d.style === 'draw';
+  const photoUrl = d.photoUrl || '';
+  const entries  = Object.entries(captions).map(([pid, c]) => ({ pid, text: c.text || '', drawing: c.drawing || null }));
+  if (entries.length === 0) { gameRef.child(`captionContest/votes/${playerId}`).set(playerId); return; }
+  const div = document.createElement('div');
+  div.id = 'caption-voting-screen-player';
+  div.style.cssText = 'position:fixed;inset:0;background:linear-gradient(135deg,#0a1628 0%,#1a2b4a 100%);display:flex;flex-direction:column;align-items:center;z-index:10000;padding:20px;overflow-y:auto;';
+  const photoHtml = (!isDraw && photoUrl) ? `<img src="${photoUrl}" style="width:140px;height:105px;object-fit:cover;border-radius:10px;border:3px solid var(--motd-gold);margin-bottom:16px;">` : '';
+  const optionsHtml = entries.map(e => {
+    if (isDraw && e.drawing) return `<button onclick="submitCaptionVote('${e.pid}')" id="caption-vote-opt-${e.pid}" style="width:100%;max-width:420px;display:flex;justify-content:center;padding:10px;background:rgba(255,255,255,0.06);border:2px solid rgba(255,255,255,0.15);border-radius:12px;cursor:pointer;margin-bottom:10px;-webkit-tap-highlight-color:transparent;"><div style="position:relative;width:160px;height:120px;border-radius:8px;overflow:hidden;border:2px solid rgba(255,255,255,0.2);"><img src="${photoUrl}" style="width:100%;height:100%;object-fit:cover;"><img src="${e.drawing}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;"></div></button>`;
+    return `<button onclick="submitCaptionVote('${e.pid}')" id="caption-vote-opt-${e.pid}" style="width:100%;max-width:420px;display:flex;align-items:center;gap:14px;text-align:left;padding:14px 18px;background:rgba(255,255,255,0.06);border:2px solid rgba(255,255,255,0.15);border-radius:12px;color:#fff;font-family:'Barlow',sans-serif;font-size:17px;cursor:pointer;margin-bottom:10px;-webkit-tap-highlight-color:transparent;"><span style="flex:1;">${e.text || '(no caption)'}</span></button>`;
+  }).join('');
+  div.innerHTML = `
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:rgba(255,255,255,0.3);letter-spacing:2px;margin-bottom:12px;text-align:center;">📸 VOTE FOR YOUR FAVOURITE</div>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:34px;color:var(--motd-gold);margin-bottom:14px;text-align:center;">Which caption is best?</div>
+    ${photoHtml}
+    <div style="display:flex;flex-direction:column;align-items:center;width:100%;">${optionsHtml}</div>
+    <div id="caption-voted-msg" style="display:none;font-family:'Bebas Neue',sans-serif;font-size:26px;color:var(--motd-gold);margin-top:20px;text-align:center;">✅ Voted!<br><span style="font-size:17px;color:rgba(255,255,255,0.5);">Waiting for others…</span></div>
+  `;
+  document.body.appendChild(div);
+}
+
+function submitCaptionVote(winnerPid) {
+  document.querySelectorAll('[id^="caption-vote-opt-"]').forEach(btn => { btn.style.opacity = '0.3'; btn.disabled = true; });
+  const sel = document.getElementById(`caption-vote-opt-${winnerPid}`);
+  if (sel) { sel.style.opacity = '1'; sel.style.borderColor = 'var(--motd-gold)'; sel.style.background = 'rgba(255,198,41,0.15)'; }
+  gameRef.child(`captionContest/votes/${playerId}`).set(winnerPid);
+  const msg = document.getElementById('caption-voted-msg');
+  if (msg) msg.style.display = 'block';
+}
+
+function showCaptionNextPlayerButton(canVote) {
+  const existing = document.getElementById('caption-next-btn-player');
+  if (existing) existing.remove();
+  const btn = document.createElement('button');
+  btn.id = 'caption-next-btn-player';
+  btn.style.cssText = 'position:fixed;bottom:40px;left:50%;transform:translateX(-50%);padding:18px 52px;background:linear-gradient(135deg,#4dd4e8,#ffc629);color:#0a1628;border:none;border-radius:14px;font-family:"Bebas Neue",sans-serif;font-size:28px;letter-spacing:2px;cursor:pointer;z-index:11000;box-shadow:0 8px 30px rgba(77,212,232,0.5);-webkit-tap-highlight-color:transparent;';
+  btn.textContent = canVote ? '🗳️ Start Voting' : 'Next →';
+  btn.onclick = () => { btn.disabled = true; btn.style.opacity = '0.5'; btn.textContent = '⏳…'; gameRef.child('captionContest/playerAdvanced').set(Date.now()); };
+  document.body.appendChild(btn);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -2806,11 +3156,8 @@ function showCommentaryScreen(phase) {
       else { showCommentaryWaiting('Recording in progress...', '🔴'); }
     });
   } else if (phase === 'team1Playback' || phase === 'team2Playback') {
-    const t = phase === 'team1Playback' ? 1 : 2;
-    gameRef.child(`commentary/team${t}/commentator`).once('value', (snap) => {
-      if (snap.val() === playerId && commentaryAudioBlob) { showCommentaryPlaybackOnPlayer(t); }
-      else { showCommentaryWaiting('Watch the screen!', '📺'); }
-    });
+    // Commentary audio plays on the host screen — all players just watch
+    showCommentaryWaiting('Watch the screen!', '📺');
   } else if (phase === 'team1Scoring' || phase === 'team2Scoring') {
     const t = phase === 'team1Scoring' ? 1 : 2;
     if (isCaptain1) { showCommentaryRefereeOnPlayer(t); }
@@ -2926,7 +3273,7 @@ async function startPlayerMicRecording(teamNumber) {
     <div style="font-size: 64px; margin-bottom: 20px;">🎙️</div>
     <div style="font-family: 'Bebas Neue', sans-serif; font-size: 36px; color: var(--motd-gold, #ffc629); letter-spacing: 3px; margin-bottom: 12px;">GET READY!</div>
     <div style="font-family: 'Barlow', sans-serif; font-size: 20px; color: rgba(255,255,255,0.7); line-height: 1.6; margin-bottom: 32px;">Hold your phone up to your mouth.<br>Press Ready when you're set — the video will start.</div>
-    <button id="commentary-ready-btn" onclick="signalCommentaryReady()"
+    <button id="commentary-ready-btn" onclick="signalCommentaryReady(${teamNumber})"
             style="padding: 18px 48px; background: linear-gradient(135deg, #4dd4e8, #00bcd4); color: #0a1628; border: none; border-radius: 14px; font-family: 'Bebas Neue', sans-serif; font-size: 32px; letter-spacing: 2px; cursor: pointer; box-shadow: 0 8px 30px rgba(77,212,232,0.5); -webkit-tap-highlight-color: transparent;">
       🎙️ I'm Ready!
     </button>
@@ -2971,7 +3318,7 @@ async function startPlayerMicRecording(teamNumber) {
       <div style="font-size: 48px; margin-bottom: 16px;">🚫</div>
       <div style="font-family: 'Bebas Neue', sans-serif; font-size: 28px; color: #ff4444; margin-bottom: 8px;">Mic not available</div>
       <div style="font-family: 'Barlow', sans-serif; font-size: 18px; color: rgba(255,255,255,0.6); margin-bottom: 28px;">Commentate out loud anyway!</div>
-      <button id="commentary-ready-btn" onclick="signalCommentaryReady()"
+      <button id="commentary-ready-btn" onclick="signalCommentaryReady(${teamNumber})"
               style="padding: 18px 48px; background: linear-gradient(135deg, #4dd4e8, #00bcd4); color: #0a1628; border: none; border-radius: 14px; font-family: 'Bebas Neue', sans-serif; font-size: 32px; letter-spacing: 2px; cursor: pointer; box-shadow: 0 8px 30px rgba(77,212,232,0.5); -webkit-tap-highlight-color: transparent;">
         🎙️ I'm Ready!
       </button>
@@ -2979,25 +3326,39 @@ async function startPlayerMicRecording(teamNumber) {
   }
 }
 
-// Called when the commentator presses "I'm Ready!" — tells the host to start the video
-function signalCommentaryReady() {
+// Called when the commentator presses "I'm Ready!" — starts video on their phone and signals host
+function signalCommentaryReady(teamNumber) {
   const btn = document.getElementById('commentary-ready-btn');
   if (btn) { btn.disabled = true; btn.textContent = '⏳ Starting…'; }
 
-  // Switch to LIVE screen
-  const div = document.getElementById('player-commentary-recording');
-  if (div) {
-    div.innerHTML = `
-      <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 20px;">
-        <div style="width: 18px; height: 18px; background: #ff0000; border-radius: 50%; animation: pulse 1s infinite;"></div>
-        <div style="font-family: 'Bebas Neue', sans-serif; font-size: 32px; color: #ff4444; letter-spacing: 3px;">LIVE — YOU'RE ON!</div>
-      </div>
-      <div style="font-size: 64px; margin-bottom: 20px;">🎙️</div>
-      <div style="font-family: 'Barlow', sans-serif; font-size: 22px; color: rgba(255,255,255,0.8); line-height: 1.6;">Commentate out loud!<br>Watch the screen &amp; keep talking!</div>
-    `;
-  }
-
+  // Signal host to start the hidden timing video
   gameRef.update({ commentaryCommentatorReady: true });
+
+  // Fetch the video file and play it on the commentator's phone
+  gameRef.child(`commentary/team${teamNumber}/videoFile`).once('value', (snap) => {
+    const videoFile = snap.val();
+    const div = document.getElementById('player-commentary-recording');
+    if (div && videoFile) {
+      div.innerHTML = `
+        <video id="player-commentary-video" src="${videoFile}" autoplay playsinline
+               style="width: 100%; max-height: 70vh; border-radius: 8px; display: block;"></video>
+        <div style="display: flex; align-items: center; gap: 10px; margin-top: 14px; justify-content: center;">
+          <div style="width: 14px; height: 14px; background: #ff0000; border-radius: 50%; animation: pulse 1s infinite;"></div>
+          <div style="font-family: 'Bebas Neue', sans-serif; font-size: 26px; color: #ff4444; letter-spacing: 3px;">LIVE — YOU'RE ON!</div>
+        </div>
+      `;
+    } else if (div) {
+      // Fallback if no video file found
+      div.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 20px;">
+          <div style="width: 18px; height: 18px; background: #ff0000; border-radius: 50%; animation: pulse 1s infinite;"></div>
+          <div style="font-family: 'Bebas Neue', sans-serif; font-size: 32px; color: #ff4444; letter-spacing: 3px;">LIVE — YOU'RE ON!</div>
+        </div>
+        <div style="font-size: 64px; margin-bottom: 20px;">🎙️</div>
+        <div style="font-family: 'Barlow', sans-serif; font-size: 22px; color: rgba(255,255,255,0.8); line-height: 1.6;">Commentate out loud!<br>Keep talking!</div>
+      `;
+    }
+  });
 }
 
 function showCommentaryPlaybackOnPlayer(teamNumber) {
@@ -3080,7 +3441,7 @@ function showGoalPostsJudgingOnPlayer() {
 
     div.innerHTML = `
       <div style="font-family: 'Bebas Neue', sans-serif; font-size: 40px; color: #ffc629; margin-bottom: 8px; letter-spacing: 3px;">⚽ Goal Post Glory</div>
-      <div style="font-family: 'Barlow', sans-serif; font-size: 20px; color: rgba(255,255,255,0.7); margin-bottom: 30px;">Score each team's goal posts out of 5</div>
+      <div style="font-family: 'Barlow', sans-serif; font-size: 20px; color: rgba(255,255,255,0.7); margin-bottom: 30px;">Score each team's goal posts out of 11</div>
 
       <div id="gp-team1-row" style="margin-bottom: 24px; text-align: center;"></div>
       <div id="gp-team2-row" style="margin-bottom: 30px; text-align: center;"></div>
@@ -3103,7 +3464,7 @@ function showGoalPostsJudgingOnPlayer() {
             ${team ? team.flag + ' ' + team.name : 'Team ' + teamNum}
           </div>
           <div>
-            ${[1,2,3,4,5].map(n => `<button style="${btnStyle(selected, n)}" data-team="${teamNum}" data-n="${n}">${n}</button>`).join('')}
+            ${[1,2,3,4,5,6,7,8,9,10,11].map(n => `<button style="${btnStyle(selected, n)}" data-team="${teamNum}" data-n="${n}">${n}</button>`).join('')}
           </div>
         `;
       });

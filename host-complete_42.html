@@ -1583,7 +1583,9 @@ const ROUND_3_ANSWER_POOL = [
   "Nuclear weapons and saucisson",
   "Cottaging Cheese",
   "Dinosaur juice",
-  "Mini Golf"
+  "Mini Golf",
+  "A communal biscuit",
+  "Huw Edwards' hard drive"
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1918,9 +1920,11 @@ function showTeamSelection() {
   // Hide lobby, show "waiting for team selection" message
   document.getElementById('lobby-screen').classList.add('hidden');
   
-  // Stop intro_music if playing
+  // Stop intro_music if playing (also purge from resume queue so pause/resume can't restart it)
   if (window.introMusicAudio) {
-    window.introMusicAudio.pause();
+    const _ima = window.introMusicAudio;
+    _ima.pause();
+    if (window._pausedAudioRefs) window._pausedAudioRefs = window._pausedAudioRefs.filter(a => a !== _ima);
     window.introMusicAudio = null;
   }
   
@@ -1972,9 +1976,11 @@ function confirmTeams() {
 
   teamsSelected = true;
   
-  // Stop intro_music if playing
+  // Stop intro_music if playing (also purge from resume queue so pause/resume can't restart it)
   if (window.introMusicAudio) {
-    window.introMusicAudio.pause();
+    const _ima = window.introMusicAudio;
+    _ima.pause();
+    if (window._pausedAudioRefs) window._pausedAudioRefs = window._pausedAudioRefs.filter(a => a !== _ima);
     window.introMusicAudio = null;
   }
   
@@ -5003,6 +5009,7 @@ function startCommentaryRound() {
 
   const explainerAudio = new Audio('commentary_explainer.mp3?v=2');
   explainerAudio.volume = 0.7;
+  window._audioRefs.push(explainerAudio);
   explainerAudio.play().catch(e => console.log('commentary_explainer not found:', e));
 
   let explainerTransitioned = false;
@@ -5041,6 +5048,7 @@ function startCommentaryTeamSelection(teamNumber) {
 
   const selectionAudio = new Audio(teamNumber === 1 ? 'commentary_intro_home.mp3?v=2' : 'commentary_intro_away.mp3?v=2');
   selectionAudio.volume = 0.7;
+  window._audioRefs.push(selectionAudio);
   selectionAudio.play().catch(e => console.log('Commentary selection audio not found:', e));
 
   let selectionTimeout = null;
@@ -5116,19 +5124,16 @@ function startCommentaryRecording(teamNumber, commentatorId, videoFile) {
   recordingDiv.id = recId;
   recordingDiv.style.cssText = 'position: fixed; inset: 0; background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 20px;';
   recordingDiv.innerHTML = `
-    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 30px;">
       <div style="width: 16px; height: 16px; background: #ff0000; border-radius: 50%; animation: pulse 1s infinite;"></div>
       <div style="font-family: 'Bebas Neue', sans-serif; font-size: 36px; color: #ff4444; letter-spacing: 3px;">● RECORDING</div>
     </div>
-    <div style="position: relative; width: 100%; max-width: 900px;">
-      <video id="commentary-video-${teamNumber}" src="${videoFile}" style="width: 100%; max-height: 65vh; border-radius: 8px; display: block;" playsinline></video>
-      <div id="commentary-waiting-overlay-${teamNumber}" style="position: absolute; inset: 0; background: rgba(0,0,0,0.75); display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 8px;">
-        <div style="font-size: 48px; margin-bottom: 16px;">🎙️</div>
-        <div style="font-family: 'Bebas Neue', sans-serif; font-size: 36px; color: var(--motd-gold); letter-spacing: 3px;">Waiting for commentator…</div>
-        <div style="font-family: 'Barlow', sans-serif; font-size: 20px; color: rgba(255,255,255,0.6); margin-top: 10px;">Video starts when they press Ready</div>
-        <div class="spinner" style="margin-top: 24px;"></div>
-      </div>
-    </div>
+    <div style="font-size: 80px; margin-bottom: 20px;">🎙️</div>
+    <div id="commentary-recording-status-${teamNumber}" style="font-family: 'Bebas Neue', sans-serif; font-size: 40px; color: var(--motd-gold); letter-spacing: 3px; text-align: center;">Waiting for commentator…</div>
+    <div style="font-family: 'Barlow', sans-serif; font-size: 20px; color: rgba(255,255,255,0.6); margin-top: 10px;">Video playing on their phone</div>
+    <div class="spinner" style="margin-top: 24px;"></div>
+    <!-- Hidden video: not shown on screen — used only for timing the recording end -->
+    <video id="commentary-video-${teamNumber}" src="${videoFile}" style="display:none;" playsinline muted></video>
   `;
   document.body.appendChild(recordingDiv);
   gameRef.update({ commentaryPhase: `team${teamNumber}Recording`, [`commentary/team${teamNumber}/commentatorRecording`]: true });
@@ -5136,9 +5141,10 @@ function startCommentaryRecording(teamNumber, commentatorId, videoFile) {
   const video = document.getElementById(`commentary-video-${teamNumber}`);
 
   const startVideo = () => {
-    const overlay = document.getElementById(`commentary-waiting-overlay-${teamNumber}`);
-    if (overlay) overlay.remove();
-    video.play().catch(e => console.log('Commentary video play failed:', e));
+    const statusEl = document.getElementById(`commentary-recording-status-${teamNumber}`);
+    if (statusEl) statusEl.textContent = '🎬 VIDEO LIVE ON THEIR PHONE';
+    // Play hidden timing video so its 'ended' event fires when the clip finishes
+    video.play().catch(e => console.log('Commentary timing video play failed:', e));
   };
 
   // Flush any stale ready signal, then wait for commentator to press Ready
@@ -5199,6 +5205,7 @@ function startCommentaryPlayback(teamNumber, commentatorId, videoFile) {
       v.play().catch(e => console.log('Playback video play failed:', e));
       if (recordingURL) {
         const recordingAudio = new Audio(recordingURL);
+        window._audioRefs.push(recordingAudio);
         recordingAudio.play().catch(e => console.log('Commentary recording play failed:', e));
         console.log('🎙️ Playing player mic recording for Team', teamNumber);
       } else {
@@ -5209,6 +5216,7 @@ function startCommentaryPlayback(teamNumber, commentatorId, videoFile) {
     // Play commentary_review.mp3 first, then start video + mic in sync
     const reviewAudio = new Audio('commentary_review.mp3?v=2');
     reviewAudio.volume = 0.7;
+    window._audioRefs.push(reviewAudio);
     let reviewPlayed = false;
     const onReviewDone = () => {
       if (reviewPlayed) return;
@@ -5402,8 +5410,8 @@ function assignSabotageTasks() {
     },
     {
       id: 'offside_trap',
-      name: 'Offside Trap',
-      description: 'Challenge someone on the opposing team to use a piece of toilet paper creatively on their person without them noticing it came from you. For every piece they accept and keep, you score a point. Tell no one.',
+      name: 'Quick Pass',
+      description: 'Give somebody as many individual pieces of toilet paper as possible (with or without them knowing). You get one point per piece of toilet paper they still have on them at the end of the game. No points if they smell something fishy.',
       pointsPerPiece: 1
     },
     {
@@ -5548,7 +5556,9 @@ function startBogRollingTimer() {
       clearInterval(interval);
 
       if (window.bogRollingMusic) {
-        window.bogRollingMusic.pause();
+        const _brm = window.bogRollingMusic;
+        _brm.pause();
+        if (window._pausedAudioRefs) window._pausedAudioRefs = window._pausedAudioRefs.filter(a => a !== _brm);
         window.bogRollingMusic = null;
       }
 
@@ -5633,7 +5643,9 @@ function startGoalPostsTimer() {
       clearInterval(interval);
 
       if (window.goalPostsMusic) {
-        window.goalPostsMusic.pause();
+        const _gpm = window.goalPostsMusic;
+        _gpm.pause();
+        if (window._pausedAudioRefs) window._pausedAudioRefs = window._pausedAudioRefs.filter(a => a !== _gpm);
         window.goalPostsMusic = null;
       }
 

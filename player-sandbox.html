@@ -2406,60 +2406,84 @@ function showPlayerBlowBallJudging() {
 }
 
 function showRefereeBlowBallScoring() {
+  _bbT1Touched = false;
+  _bbT2Touched = false;
+  blowBallTeam1Score = 0;
+  blowBallTeam2Score = 0;
+
   const scoringDiv = document.createElement('div');
   scoringDiv.id = 'player-blowball-judging';
   scoringDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, #0a1628 0%, #1a2b4a 100%); display: flex; flex-direction: column; align-items: center; padding: 30px; overflow-y: auto; z-index: 10000; text-align: center;';
 
-  const btns = (team, fn) => [1,2,3,4,5].map(s => `
-    <button onclick="${fn}(${s})"
-            style="width: 48px; height: 48px; background: linear-gradient(135deg, #4dd4e8, #ffc629); color: #0a1628; border: none; border-radius: 50%; font-family: 'Bebas Neue', sans-serif; font-size: 26px; cursor: pointer; -webkit-tap-highlight-color: transparent;">
-      ${s}
-    </button>
-  `).join('');
-
   scoringDiv.innerHTML = `
-    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 46px; color: #ffc629; margin-bottom: 24px;">
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 46px; color: #ffc629; margin-bottom: 10px;">
       ⚽ You Are the Referee ⚽
     </div>
-    <div style="font-family: 'Barlow', sans-serif; font-size: 22px; color: rgba(255,255,255,0.85); margin-bottom: 36px;">
+    <div style="font-family: 'Barlow', sans-serif; font-size: 20px; color: rgba(255,255,255,0.85); margin-bottom: 6px;">
       Score each team on speed, flair, and huff!
     </div>
-
-    <div style="margin-bottom: 36px; width: 100%; max-width: 480px;">
-      <div style="font-family: 'Bebas Neue', sans-serif; font-size: 30px; color: #fff; margin-bottom: 16px;">Team 1 Score</div>
-      <div style="display: flex; gap: 8px; justify-content: center;">${btns(1, 'setBlowBallTeam1Score')}</div>
-      <div id="t1-selected" style="font-family: 'Barlow', sans-serif; font-size: 16px; color: #4dd4e8; margin-top: 8px; min-height: 20px;"></div>
+    <div style="font-family: 'Barlow', sans-serif; font-size: 15px; color: rgba(255,255,255,0.5); margin-bottom: 30px;">
+      +17 points to the team who scored first
     </div>
 
-    <div style="margin-bottom: 36px; width: 100%; max-width: 480px;">
-      <div style="font-family: 'Bebas Neue', sans-serif; font-size: 30px; color: #fff; margin-bottom: 16px;">Team 2 Score</div>
-      <div style="display: flex; gap: 8px; justify-content: center;">${btns(2, 'setBlowBallTeam2Score')}</div>
-      <div id="t2-selected" style="font-family: 'Barlow', sans-serif; font-size: 16px; color: #4dd4e8; margin-top: 8px; min-height: 20px;"></div>
+    <div style="margin-bottom: 30px; width: 100%; max-width: 380px;">
+      <div style="font-family: 'Bebas Neue', sans-serif; font-size: 28px; color: #fff; margin-bottom: 6px;">Team 1</div>
+      <div id="t1-score-display" style="font-family: 'Bebas Neue', sans-serif; font-size: 72px; color: #4dd4e8; line-height: 1; margin-bottom: 8px;">0</div>
+      <input type="range" id="t1-slider" min="0" max="23" value="0"
+             oninput="onBlowBallSlider(1, this.value)"
+             style="width: 100%; height: 40px; cursor: pointer; accent-color: #4dd4e8; -webkit-appearance: none; background: transparent;">
+      <div style="display: flex; justify-content: space-between; color: rgba(255,255,255,0.35); font-family: 'Barlow', sans-serif; font-size: 12px; margin-top: 2px;">
+        <span>0 — Poor</span><span>23 — Excellent</span>
+      </div>
     </div>
 
-    <div style="font-family: 'Barlow', sans-serif; font-size: 15px; color: rgba(255,255,255,0.55);">
-      1 = Poor &nbsp;|&nbsp; 5 = Excellent
+    <div style="margin-bottom: 30px; width: 100%; max-width: 380px;">
+      <div style="font-family: 'Bebas Neue', sans-serif; font-size: 28px; color: #fff; margin-bottom: 6px;">Team 2</div>
+      <div id="t2-score-display" style="font-family: 'Bebas Neue', sans-serif; font-size: 72px; color: #d4145a; line-height: 1; margin-bottom: 8px;">0</div>
+      <input type="range" id="t2-slider" min="0" max="23" value="0"
+             oninput="onBlowBallSlider(2, this.value)"
+             style="width: 100%; height: 40px; cursor: pointer; accent-color: #d4145a; -webkit-appearance: none; background: transparent;">
+      <div style="display: flex; justify-content: space-between; color: rgba(255,255,255,0.35); font-family: 'Barlow', sans-serif; font-size: 12px; margin-top: 2px;">
+        <span>0 — Poor</span><span>23 — Excellent</span>
+      </div>
     </div>
+
+    <button id="blowball-submit-scores" onclick="submitBlowBallScores()" disabled
+            style="padding: 16px 0; width: 100%; max-width: 380px; background: rgba(255,255,255,0.12); color: rgba(255,255,255,0.35); border: none; border-radius: 14px; font-family: 'Bebas Neue', sans-serif; font-size: 28px; cursor: default; letter-spacing: 2px; -webkit-tap-highlight-color: transparent;">
+      Submit Scores
+    </button>
   `;
 
   document.body.appendChild(scoringDiv);
 }
 
-let blowBallTeam1Score = null;
-let blowBallTeam2Score = null;
+let blowBallTeam1Score = 0;
+let blowBallTeam2Score = 0;
+let _bbT1Touched = false;
+let _bbT2Touched = false;
 
-function setBlowBallTeam1Score(score) {
-  blowBallTeam1Score = score;
-  const el = document.getElementById('t1-selected');
-  if (el) el.textContent = `Selected: ${score}`;
-  if (blowBallTeam2Score !== null) submitBlowBallScores();
-}
-
-function setBlowBallTeam2Score(score) {
-  blowBallTeam2Score = score;
-  const el = document.getElementById('t2-selected');
-  if (el) el.textContent = `Selected: ${score}`;
-  if (blowBallTeam1Score !== null) submitBlowBallScores();
+function onBlowBallSlider(team, value) {
+  value = parseInt(value);
+  if (team === 1) {
+    blowBallTeam1Score = value;
+    _bbT1Touched = true;
+    const el = document.getElementById('t1-score-display');
+    if (el) el.textContent = value;
+  } else {
+    blowBallTeam2Score = value;
+    _bbT2Touched = true;
+    const el = document.getElementById('t2-score-display');
+    if (el) el.textContent = value;
+  }
+  if (_bbT1Touched && _bbT2Touched) {
+    const btn = document.getElementById('blowball-submit-scores');
+    if (btn) {
+      btn.disabled = false;
+      btn.style.background = 'linear-gradient(135deg, #4dd4e8, #ffc629)';
+      btn.style.color = '#0a1628';
+      btn.style.cursor = 'pointer';
+    }
+  }
 }
 
 function submitBlowBallScores() {
@@ -2471,8 +2495,10 @@ function submitBlowBallScores() {
   const scoringDiv = document.getElementById('player-blowball-judging');
   if (scoringDiv) scoringDiv.remove();
 
-  blowBallTeam1Score = null;
-  blowBallTeam2Score = null;
+  blowBallTeam1Score = 0;
+  blowBallTeam2Score = 0;
+  _bbT1Touched = false;
+  _bbT2Touched = false;
 
   showWaitingForBlowBallScoring();
 }
@@ -2852,11 +2878,8 @@ function showCommentaryScreen(phase) {
       else { showCommentaryWaiting('Recording in progress...', '🔴'); }
     });
   } else if (phase === 'team1Playback' || phase === 'team2Playback') {
-    const t = phase === 'team1Playback' ? 1 : 2;
-    gameRef.child(`commentary/team${t}/commentator`).once('value', (snap) => {
-      if (snap.val() === playerId && commentaryAudioBlob) { showCommentaryPlaybackOnPlayer(t); }
-      else { showCommentaryWaiting('Watch the screen!', '📺'); }
-    });
+    // Commentary audio plays on the host screen — all players just watch
+    showCommentaryWaiting('Watch the screen!', '📺');
   } else if (phase === 'team1Scoring' || phase === 'team2Scoring') {
     const t = phase === 'team1Scoring' ? 1 : 2;
     if (isCaptain1) { showCommentaryRefereeOnPlayer(t); }
@@ -2972,7 +2995,7 @@ async function startPlayerMicRecording(teamNumber) {
     <div style="font-size: 64px; margin-bottom: 20px;">🎙️</div>
     <div style="font-family: 'Bebas Neue', sans-serif; font-size: 36px; color: var(--motd-gold, #ffc629); letter-spacing: 3px; margin-bottom: 12px;">GET READY!</div>
     <div style="font-family: 'Barlow', sans-serif; font-size: 20px; color: rgba(255,255,255,0.7); line-height: 1.6; margin-bottom: 32px;">Hold your phone up to your mouth.<br>Press Ready when you're set — the video will start.</div>
-    <button id="commentary-ready-btn" onclick="signalCommentaryReady()"
+    <button id="commentary-ready-btn" onclick="signalCommentaryReady(${teamNumber})"
             style="padding: 18px 48px; background: linear-gradient(135deg, #4dd4e8, #00bcd4); color: #0a1628; border: none; border-radius: 14px; font-family: 'Bebas Neue', sans-serif; font-size: 32px; letter-spacing: 2px; cursor: pointer; box-shadow: 0 8px 30px rgba(77,212,232,0.5); -webkit-tap-highlight-color: transparent;">
       🎙️ I'm Ready!
     </button>
@@ -3017,7 +3040,7 @@ async function startPlayerMicRecording(teamNumber) {
       <div style="font-size: 48px; margin-bottom: 16px;">🚫</div>
       <div style="font-family: 'Bebas Neue', sans-serif; font-size: 28px; color: #ff4444; margin-bottom: 8px;">Mic not available</div>
       <div style="font-family: 'Barlow', sans-serif; font-size: 18px; color: rgba(255,255,255,0.6); margin-bottom: 28px;">Commentate out loud anyway!</div>
-      <button id="commentary-ready-btn" onclick="signalCommentaryReady()"
+      <button id="commentary-ready-btn" onclick="signalCommentaryReady(${teamNumber})"
               style="padding: 18px 48px; background: linear-gradient(135deg, #4dd4e8, #00bcd4); color: #0a1628; border: none; border-radius: 14px; font-family: 'Bebas Neue', sans-serif; font-size: 32px; letter-spacing: 2px; cursor: pointer; box-shadow: 0 8px 30px rgba(77,212,232,0.5); -webkit-tap-highlight-color: transparent;">
         🎙️ I'm Ready!
       </button>
@@ -3025,25 +3048,38 @@ async function startPlayerMicRecording(teamNumber) {
   }
 }
 
-// Called when the commentator presses "I'm Ready!" — tells the host to start the video
-function signalCommentaryReady() {
+// Called when the commentator presses "I'm Ready!" — starts video on their phone and signals host
+function signalCommentaryReady(teamNumber) {
   const btn = document.getElementById('commentary-ready-btn');
   if (btn) { btn.disabled = true; btn.textContent = '⏳ Starting…'; }
 
-  // Switch to LIVE screen
-  const div = document.getElementById('player-commentary-recording');
-  if (div) {
-    div.innerHTML = `
-      <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 20px;">
-        <div style="width: 18px; height: 18px; background: #ff0000; border-radius: 50%; animation: pulse 1s infinite;"></div>
-        <div style="font-family: 'Bebas Neue', sans-serif; font-size: 32px; color: #ff4444; letter-spacing: 3px;">LIVE — YOU'RE ON!</div>
-      </div>
-      <div style="font-size: 64px; margin-bottom: 20px;">🎙️</div>
-      <div style="font-family: 'Barlow', sans-serif; font-size: 22px; color: rgba(255,255,255,0.8); line-height: 1.6;">Commentate out loud!<br>Watch the screen &amp; keep talking!</div>
-    `;
-  }
-
+  // Signal host to start the hidden timing video
   gameRef.update({ commentaryCommentatorReady: true });
+
+  // Fetch the video file and play it on the commentator's phone
+  gameRef.child(`commentary/team${teamNumber}/videoFile`).once('value', (snap) => {
+    const videoFile = snap.val();
+    const div = document.getElementById('player-commentary-recording');
+    if (div && videoFile) {
+      div.innerHTML = `
+        <video id="player-commentary-video" src="${videoFile}" autoplay playsinline
+               style="width: 100%; max-height: 70vh; border-radius: 8px; display: block;"></video>
+        <div style="display: flex; align-items: center; gap: 10px; margin-top: 14px; justify-content: center;">
+          <div style="width: 14px; height: 14px; background: #ff0000; border-radius: 50%; animation: pulse 1s infinite;"></div>
+          <div style="font-family: 'Bebas Neue', sans-serif; font-size: 26px; color: #ff4444; letter-spacing: 3px;">LIVE — YOU'RE ON!</div>
+        </div>
+      `;
+    } else if (div) {
+      div.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 20px;">
+          <div style="width: 18px; height: 18px; background: #ff0000; border-radius: 50%; animation: pulse 1s infinite;"></div>
+          <div style="font-family: 'Bebas Neue', sans-serif; font-size: 32px; color: #ff4444; letter-spacing: 3px;">LIVE — YOU'RE ON!</div>
+        </div>
+        <div style="font-size: 64px; margin-bottom: 20px;">🎙️</div>
+        <div style="font-family: 'Barlow', sans-serif; font-size: 22px; color: rgba(255,255,255,0.8); line-height: 1.6;">Commentate out loud!<br>Keep talking!</div>
+      `;
+    }
+  });
 }
 
 function showCommentaryPlaybackOnPlayer(teamNumber) {
@@ -3126,7 +3162,7 @@ function showGoalPostsJudgingOnPlayer() {
 
     div.innerHTML = `
       <div style="font-family: 'Bebas Neue', sans-serif; font-size: 40px; color: #ffc629; margin-bottom: 8px; letter-spacing: 3px;">⚽ Goal Post Glory</div>
-      <div style="font-family: 'Barlow', sans-serif; font-size: 20px; color: rgba(255,255,255,0.7); margin-bottom: 30px;">Score each team's goal posts out of 5</div>
+      <div style="font-family: 'Barlow', sans-serif; font-size: 20px; color: rgba(255,255,255,0.7); margin-bottom: 30px;">Score each team's goal posts out of 11</div>
 
       <div id="gp-team1-row" style="margin-bottom: 24px; text-align: center;"></div>
       <div id="gp-team2-row" style="margin-bottom: 30px; text-align: center;"></div>
@@ -3149,7 +3185,7 @@ function showGoalPostsJudgingOnPlayer() {
             ${team ? team.flag + ' ' + team.name : 'Team ' + teamNum}
           </div>
           <div>
-            ${[1,2,3,4,5].map(n => `<button style="${btnStyle(selected, n)}" data-team="${teamNum}" data-n="${n}">${n}</button>`).join('')}
+            ${[1,2,3,4,5,6,7,8,9,10,11].map(n => `<button style="${btnStyle(selected, n)}" data-team="${teamNum}" data-n="${n}">${n}</button>`).join('')}
           </div>
         `;
       });
