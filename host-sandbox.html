@@ -7731,6 +7731,13 @@ let _ttVocalInstruction = null;   // chosen at start of each turn
 let _ttPhysicalA = null;          // chosen randomly when elapsed hits 60s
 let _ttPhysicalB = null;          // chosen (different from A) when elapsed hits 90s
 let _ttWordActionRef = null;
+let _ttDingIndex = 0;             // rotates through ding files 1–3
+let _ttCountdownPlayed = false;   // ensures countdown plays once per turn
+
+function playTeamTalkDing(options = {}) {
+  _ttDingIndex = (_ttDingIndex % 3) + 1;
+  playAudio(`team_talk_ding_${_ttDingIndex}.mp3`, options);
+}
 
 // ─── Intro ───────────────────────────────────────────────────────────────────
 
@@ -7850,12 +7857,21 @@ function startTeamTalkCountdown() {
   // Render the active turn screen
   renderTeamTalkActiveScreen();
 
+  // Reset per-turn flags
+  _ttCountdownPlayed = false;
+
   // Start the 2-minute countdown
   _ttTimerInterval = setInterval(() => {
     _ttTimeLeft--;
     gameRef.child('teamTalk/timeLeft').set(_ttTimeLeft);
     updateTeamTalkTimerDisplay();
     updateTeamTalkInstructions();
+
+    // Play quiet 15-sec countdown audio once when 15 seconds remain
+    if (_ttTimeLeft === 15 && !_ttCountdownPlayed) {
+      _ttCountdownPlayed = true;
+      playAudio('countdown_15sec.mp3?v=2', { volume: 0.25 });
+    }
 
     if (_ttTimeLeft <= 0) {
       clearInterval(_ttTimerInterval);
@@ -8094,7 +8110,7 @@ function endTeamTalkTurn() {
 
   if (_ttCurrentTeam === 1) {
     // Play ding then next_team, then start Team 2
-    playAudio('team_talk_ding.mp3', {
+    playTeamTalkDing({
       onEnded: () => {
         gameRef.child('teamTalk').update({ phase: 'intermission' });
         playAudio('team_talk_next_team.mp3', {
@@ -8109,7 +8125,7 @@ function endTeamTalkTurn() {
     });
   } else {
     // Both teams done — play ding then results
-    playAudio('team_talk_ding.mp3', {
+    playTeamTalkDing({
       onEnded: () => showTeamTalkResults(),
       onError: () => setTimeout(() => showTeamTalkResults(), 500),
     });
