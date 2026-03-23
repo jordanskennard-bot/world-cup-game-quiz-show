@@ -1157,8 +1157,8 @@
         <div class="lobby-subtitle" style="text-align: center; margin-bottom: 10px;">
           <span id="player-count">0</span> Players Joined
         </div>
-        <div class="lobby-subtitle" style="text-align: center; margin-bottom: 20px; color: var(--motd-gold);">
-          First player will control the game
+        <div class="lobby-subtitle" id="referee-notice" style="text-align: center; margin-bottom: 20px; color: var(--motd-gold);">
+          The first player will also act as the referee, they will kick off once all players are ready
         </div>
         <div class="players-grid" id="players-grid"></div>
       </div>
@@ -2295,7 +2295,15 @@ function updatePlayersList() {
   
   const playerArray = Object.values(players);
   count.textContent = playerArray.length;
-  
+
+  const refereeNotice = document.getElementById('referee-notice');
+  if (refereeNotice) {
+    const refName = getRefereeName();
+    refereeNotice.textContent = playerArray.length > 0
+      ? `${refName} will also act as the referee, they will kick off once all players are ready`
+      : 'The first player will also act as the referee, they will kick off once all players are ready';
+  }
+
   grid.innerHTML = playerArray.map(player => {
     const teamClass = player.team === 1 ? 'team1' : player.team === 2 ? 'team2' : '';
     const teamFlag = player.team === 1 ? team1?.flag : player.team === 2 ? team2?.flag : '';
