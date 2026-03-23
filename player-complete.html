@@ -1416,7 +1416,7 @@ function listenForGameStart() {
     if (myTeam && myTeam === trapData.targetTeam) {
       // Deduct 2 points
       if (players[playerId]) {
-        players[playerId].score = Math.max(0, (players[playerId].score || 0) - 2);
+        players[playerId].score = (players[playerId].score || 0) - 2;
         gameRef.child(`players/${playerId}/score`).set(players[playerId].score);
       }
       // Play audio on phone
@@ -3440,28 +3440,8 @@ function voteForAnswer(targetPlayerId, questionIndex) {
 
     // Add haptic feedback
     if (navigator.vibrate) navigator.vibrate(50);
-
-    // Player 1 (first in list) gets the Next Question button
-    const isFirstPlayer = Object.keys(players)[0] === playerId;
-    if (isFirstPlayer) showRound3NextQuestionButton();
+    // Auto-advance is handled by the host after accept audio plays — no button needed.
   });
-}
-
-function showRound3NextQuestionButton() {
-  if (document.getElementById('round3-next-q-btn')) return;
-
-  const btn = document.createElement('button');
-  btn.id = 'round3-next-q-btn';
-  btn.style.cssText = 'position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); padding: 16px 50px; background: linear-gradient(135deg, #4dd4e8, #ffc629); color: #0a1628; border: none; border-radius: 14px; font-family: \'Bebas Neue\', sans-serif; font-size: 28px; cursor: pointer; z-index: 9999; box-shadow: 0 8px 24px rgba(255,198,41,0.4); -webkit-tap-highlight-color: transparent;';
-  btn.textContent = 'Next Question →';
-  btn.onclick = () => {
-    btn.disabled = true;
-    btn.textContent = 'Loading…';
-    gameRef.update({ round3NextQuestion: true });
-    setTimeout(() => btn.remove(), 3000);
-  };
-
-  document.body.appendChild(btn);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -3798,7 +3778,7 @@ function showPlayerRound1Explainer() {
     </div>
     
     <div id="round1-wait-message" style="font-family: 'Barlow', sans-serif; font-size: 18px; color: #4dd4e8; margin-top: 20px;">
-      Waiting for first player to start...
+      Waiting for ${Object.values(players)[0]?.name || 'Player 1'} to blow the whistle...
     </div>
     
     <div id="round1-wait-spinner" class="spinner" style="margin-top: 20px;"></div>

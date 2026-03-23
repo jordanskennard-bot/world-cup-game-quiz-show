@@ -2077,7 +2077,7 @@ function showRound1Explainer() {
     </div>
     
     <div style="font-family: 'Barlow', sans-serif; font-size: 22px; color: var(--motd-cyan); margin-bottom: 40px;">
-      Waiting for first player to start...
+      Waiting for ${getRefereeName()} to blow the whistle...
     </div>
     
     <div class="spinner"></div>
@@ -2656,7 +2656,7 @@ gameRef.child('sabotageUsed').on('value', (snapshot) => {
     Object.entries(players).forEach(([playerId, player]) => {
       if (player.team === targetTeam) {
         const currentScore = player.score || 0;
-        const newScore = Math.max(0, currentScore - 5); // Don't go below 0
+        const newScore = currentScore - 5;
         gameRef.child('players/' + playerId).update({ score: newScore });
       }
     });
@@ -3888,17 +3888,8 @@ function startRound3() {
     document.getElementById('round3-screen').classList.add('active');
     round3CurrentQ = 0;
 
-    // Set up a SINGLE 'next question' listener — only here, never inside loadRound3Question.
-    // Flush any stale value first so it doesn't fire immediately on attach.
-    gameRef.child('round3NextQuestion').remove();
-    gameRef.child('round3NextQuestion').off();
-    gameRef.child('round3NextQuestion').on('value', (snap) => {
-      if (snap.val() === true) {
-        gameRef.child('round3NextQuestion').remove();
-        nextRound3Question();
-      }
-    });
-
+    // Auto-advance is handled by the accept-audio callback in checkRound3Votes().
+    // No Firebase listener needed — questions advance automatically once all votes are in.
     loadRound3Question(0);
   };
 
@@ -4102,9 +4093,12 @@ function awardRound3Points(votes, questionIndex) {
     window._round3NamesRevealed[questionIndex] = true;
     displaySubmittedAnswers(window._round3LastSubmissions[questionIndex] || {}, questionIndex);
 
+    console.log('🎵 Playing accept audio — all votes in for question', questionIndex);
+    const advance = () => setTimeout(() => nextRound3Question(), 1500);
     if (window.playPunReactionAudio) {
-      window.playPunReactionAudio('accept');
-      console.log('🎵 Playing accept audio — all votes in for question', questionIndex);
+      window.playPunReactionAudio('accept', advance);
+    } else {
+      advance();
     }
   }
 }
@@ -4438,7 +4432,7 @@ function bonusJudgement(teamNum, passed) {
   // Award/deduct points for all players on the team
   Object.entries(players).forEach(([pid, player]) => {
     if (player.team === teamNum) {
-      const newScore = Math.max(0, (player.score || 0) + pointChange);
+      const newScore = (player.score || 0) + pointChange;
       gameRef.child('players/' + pid + '/score').set(newScore);
     }
   });
@@ -5076,7 +5070,7 @@ function startCommentaryTeamSelection(teamNumber) {
     const updates = {};
     Object.entries(players).forEach(([pid, player]) => {
       if (player.team === teamNumber) {
-        const newScore = Math.max(0, (player.score || 0) - 5);
+        const newScore = (player.score || 0) - 5;
         updates['players/' + pid + '/score'] = newScore;
         if (players[pid]) players[pid].score = newScore;
       }
