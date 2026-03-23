@@ -2356,6 +2356,7 @@ gameRef.child('round1Started').on('value', (snapshot) => {
     if (explainerDiv) {
       explainerDiv.remove();
     }
+    createPauseButton();
     startGamePlay();
     gameRef.child('round1Started').remove(); // Clear trigger
   }

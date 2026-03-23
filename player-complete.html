@@ -2290,6 +2290,7 @@ function showBlowBallGetReadyScreen() {
 function pressBlowBallReady() {
   const btn = document.getElementById('blowball-ready-btn');
   if (btn) { btn.disabled = true; btn.textContent = '⏳ Starting…'; }
+  new Audio('final_whistle.mp3?v=2').play().catch(() => {});
   gameRef.update({ blowBallReady: true });
 }
 
@@ -4460,7 +4461,8 @@ function scoreMatchDrawPlayer(scoringPlayerId, score) {
 
 function startRound1() {
   console.log('🎮 Player 1 starting Round 1');
-  
+  new Audio('final_whistle.mp3?v=2').play().catch(() => {});
+
   // Hide start button
   document.getElementById('round1-start-controls').style.display = 'none';
   document.getElementById('round1-wait-message').style.display = 'block';
