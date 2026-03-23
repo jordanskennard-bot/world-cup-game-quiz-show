@@ -1968,7 +1968,8 @@ function showTeamSelection() {
 
 function confirmTeams() {
   if (!team1 || !team2) return;
-  
+  if (teamsSelected) return; // guard — playerTeamSelections listener can fire multiple times
+
   teamsSelected = true;
   
   // Stop intro_music if playing
@@ -2044,6 +2045,11 @@ function proceedToVoiceGeneration() {
 // ═══════════════════════════════════════════════════════════════════════════
 
 function showRound1Explainer() {
+  // Guard: never show if the game is already underway
+  if (gameStarted) return;
+  // Guard: never create a second explainer if one already exists
+  if (document.getElementById('round1-explainer')) return;
+
   // Remove match card if still showing
   const matchCardEl = document.getElementById('match-card-screen');
   if (matchCardEl) matchCardEl.remove();
@@ -2364,7 +2370,7 @@ gameRef.child('round1Started').on('value', (snapshot) => {
 
 // Listen for reveal answer command
 gameRef.child('revealAnswer').on('value', (snapshot) => {
-  if (snapshot.val() === true && !answerRevealed) {
+  if (snapshot.val() === true && !answerRevealed && gameStarted) {
     revealAnswer();
     gameRef.update({ revealAnswer: false });
   }
@@ -2483,15 +2489,20 @@ function updateScoreboard() {
 // GAME FLOW
 // ═══════════════════════════════════════════════════════════════════════════
 
+// Module-level flag — survives across any accidental double-calls of generateIntroVoiceDirectly
+let _explainerShown = false;
+
 async function generateIntroVoiceDirectly() {
+  if (_explainerShown) return; // already running or done — don't start again
+
   const text = `Thanks Clyde!... It's looking like an interesting game.. We've got ${team1.name} up against ${team2.name}! Certainly one to watch! (given you're already here).`;
-  
+
   console.log('🎙️ Generating intro voice:', text);
-  
+
   // Your ElevenLabs API credentials
   const ELEVENLABS_API_KEY = 'sk_eb4900ceb7e4366087590c2b906743504ba8c844524ddcc4';
   const VOICE_ID = 'rfkTsdZrVWEVhDycUYn9';
-  
+
   let explainerShown = false; // Move outside try so catch can access
   
   try {
@@ -2531,7 +2542,7 @@ async function generateIntroVoiceDirectly() {
       window._introVoiceAudio = null;
       if (!explainerShown) {
         console.log('✅ Intro voice finished, showing explainer');
-        explainerShown = true;
+        explainerShown = true; _explainerShown = true;
         showRound1Explainer();
       }
     });
@@ -2547,16 +2558,16 @@ async function generateIntroVoiceDirectly() {
         } else {
           console.error('❌ ElevenLabs error:', err);
           if (!explainerShown) {
-            setTimeout(() => { explainerShown = true; showRound1Explainer(); }, 2000);
+            setTimeout(() => { explainerShown = true; _explainerShown = true; showRound1Explainer(); }, 2000);
           }
         }
       });
 
     // Fallback if audio doesn't play or unlock never happens
     setTimeout(() => {
-      if (!explainerShown && (!window._introVoiceAudio || window._introVoiceAudio.paused)) {
+      if (!explainerShown && !_explainerShown && (!window._introVoiceAudio || window._introVoiceAudio.paused)) {
         console.log('⚠️ Audio not playing, showing explainer anyway');
-        explainerShown = true;
+        explainerShown = true; _explainerShown = true;
         showRound1Explainer();
       }
     }, 15000);
@@ -2566,7 +2577,7 @@ async function generateIntroVoiceDirectly() {
     // Show explainer even if voice fails
     if (!explainerShown) {
       setTimeout(() => {
-        explainerShown = true;
+        explainerShown = true; _explainerShown = true;
         showRound1Explainer();
       }, 2000);
     }
@@ -2575,6 +2586,9 @@ async function generateIntroVoiceDirectly() {
 
 function startGamePlay() {
   document.getElementById('lobby-screen').classList.add('hidden');
+  // Clear "Selecting Teams" overlay if it's still in the container
+  const tsw = document.getElementById('team-select-waiting');
+  if (tsw) tsw.remove();
   gameRef.update({ started: true });
   gameStarted = true;
   document.getElementById('game-screen').classList.add('active');
@@ -2703,8 +2717,9 @@ function loadQuestion(index) {
     .then(() => console.log(`🔊 Question ${questionNumber} audio playing`))
     .catch(err => console.error('Question audio play failed:', err));
   
-  // Store reference to stop if needed
+  // Store reference to stop if needed, and add to generic pool so pauseAllAudio() catches it
   window.currentQuestionAudio = questionAudio;
+  window._audioRefs.push(questionAudio);
 }
 
 function updateAnswerCounts(answers) {
@@ -2764,8 +2779,9 @@ function revealAnswer() {
     answerAudio.volume = 0.6;
   }
 
-  // Keep GC-safe reference
+  // Keep GC-safe reference, and add to generic pool so pauseAllAudio() catches it
   window.currentAnswerAudio = answerAudio;
+  window._audioRefs.push(answerAudio);
 
   console.log(`🎵 Playing ${answerAudioFile}`);
 
@@ -7280,6 +7296,11 @@ function pauseAllAudio() {
     if (!v.paused) { v.pause(); window._pausedAudioRefs.push(v); }
   });
 
+  // 4. Preloaded R1 question/answer audio objects (used directly, not via playAudio())
+  if (window.r1AudioPreload) {
+    Object.values(window.r1AudioPreload).forEach(maybePause);
+  }
+
   console.log(`⏸️ Paused ${window._pausedAudioRefs.length} audio/video source(s)`);
 }
 
@@ -7337,9 +7358,17 @@ function createPauseButton() {
   const btn = document.createElement('button');
   btn.id = 'pause-button';
   btn.innerHTML = '⏸️ Pause';
-  btn.style.cssText = 'position: fixed; top: 16px; right: 16px; z-index: 9998; padding: 10px 20px; background: rgba(255,198,41,0.9); color: #0a1628; border: none; border-radius: 8px; font-family: \'Bebas Neue\', sans-serif; font-size: 18px; cursor: pointer; letter-spacing: 1px;';
+  btn.style.cssText = 'padding: 6px 14px; background: rgba(255,198,41,0.9); color: #0a1628; border: none; border-radius: 6px; font-family: \'Bebas Neue\', sans-serif; font-size: 16px; cursor: pointer; letter-spacing: 1px; white-space: nowrap;';
   btn.onclick = togglePause;
-  document.body.appendChild(btn);
+
+  // Insert into header right, between the QR code and the round indicator
+  const headerRight = document.querySelector('.header-right');
+  const roundIndicator = document.getElementById('round-indicator');
+  if (headerRight && roundIndicator) {
+    headerRight.insertBefore(btn, roundIndicator);
+  } else {
+    document.body.appendChild(btn);
+  }
 }
 
 function togglePause() {

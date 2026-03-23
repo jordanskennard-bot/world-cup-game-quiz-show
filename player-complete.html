@@ -824,7 +824,7 @@
     </div>
     
     <div class="lead-controls" id="waiting-lead-controls">
-      <button class="lead-btn primary" onclick="startGameAsLead()">🎮 Start Game</button>
+      <button class="lead-btn primary" onclick="startGameAsLead()">⚽ Kick Off</button>
     </div>
     
     <div style="display: none; text-align: center; font-family: 'Barlow', sans-serif; font-size: 14px; color: var(--text-muted); margin-top: 10px; font-style: italic;" id="start-game-note">
@@ -3656,7 +3656,7 @@ function showOffsideTrapButton() {
   const overlay = document.getElementById('offside-overlay');
   overlay.classList.add('active');
   
-  let offsideTrapTimeLeft = 10;
+  let offsideTrapTimeLeft = 4;
   document.getElementById('offside-timer').textContent = offsideTrapTimeLeft;
   
   // Countdown timer
@@ -4987,12 +4987,40 @@ function rejoinGame(savedCode, savedPid, savedName) {
   setTimeout(() => toast.remove(), 3000);
 
   document.getElementById('join-screen').classList.add('hidden');
-  document.getElementById('waiting-screen').classList.add('active');
-  document.getElementById('waiting-name').textContent = playerName;
-  document.getElementById('waiting-code').textContent = gameCode;
-
-  listenForGameStart();
   startHeartbeat();
+
+  // Read current game state once to decide where to drop back in
+  gameRef.once('value', (snap) => {
+    const data = snap.val() || {};
+
+    // Determine if this player is Player 1 (first in the players list)
+    const playerIds = Object.keys(data.players || {});
+    if (playerIds.length > 0 && playerIds[0] === playerId) {
+      window._isPlayer1 = true;
+    }
+
+    // Game is underway if any in-progress phase key is present
+    const gameUnderway = data.round || data.round2Active || data.blowBallActive ||
+                         data.blowBallComplete || data.round3IntroActive ||
+                         data.showScoresReview || data.bonusRoundPhase ||
+                         data.gameComplete;
+
+    if (gameUnderway) {
+      // Skip the waiting screen — jump straight back into the game.
+      // startPlaying() sets up all reactive Firebase listeners which will
+      // immediately fire with current values and restore the right screen.
+      window._startPlayingCalled = false; // reset guard so startPlaying() runs
+      startPlaying();
+      if (window._isPlayer1) createPlayerPauseButton();
+    } else {
+      // Game hasn't started yet — wait as normal
+      document.getElementById('waiting-screen').classList.add('active');
+      document.getElementById('waiting-name').textContent = playerName;
+      document.getElementById('waiting-code').textContent = gameCode;
+    }
+
+    listenForGameStart();
+  });
 }
 
 function startNewSession() {
