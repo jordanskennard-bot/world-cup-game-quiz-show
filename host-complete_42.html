@@ -1787,8 +1787,7 @@ let teamsSelected = false;
 
 // Sabotage button state
 let sabotageActivated = false;
-let team1SabotageUsed = false;
-let team2SabotageUsed = false;
+let sabotageUsed = false; // single shared flag — only one team can win it
 let leadPlayerId = null;
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -2620,75 +2619,74 @@ function startGamePlay() {
 
 function scheduleSabotageButtons() {
   if (!teamsSelected || !team1 || !team2) return;
-  
-  // Random time between 15-45 seconds for team 1
-  const team1Delay = Math.random() * 30000 + 15000;
-  
-  // Random time between 15-45 seconds for team 2 (different from team 1)
-  const team2Delay = Math.random() * 30000 + 15000;
-  
+
+  // Single shared timer — both teams race for the same opportunity
+  const delay = Math.random() * 30000 + 15000;
   setTimeout(() => {
-    if (!team1SabotageUsed) {
-      activateSabotageForTeam(1);
-    }
-  }, team1Delay);
-  
-  setTimeout(() => {
-    if (!team2SabotageUsed) {
-      activateSabotageForTeam(2);
-    }
-  }, team2Delay);
+    if (!sabotageUsed) activateSharedSabotage();
+  }, delay);
 }
 
-function activateSabotageForTeam(teamNumber) {
-  // Pick a random player from this team
-  const teamPlayers = Object.entries(players).filter(([id, player]) => player.team === teamNumber);
-  
-  if (teamPlayers.length === 0) return;
-  
-  const randomIndex = Math.floor(Math.random() * teamPlayers.length);
-  const [selectedPlayerId, selectedPlayer] = teamPlayers[randomIndex];
-  
-  // Notify this player via Firebase
-  gameRef.child('sabotage/' + selectedPlayerId).set({
-    active: true,
-    timestamp: Date.now(),
-    teamNumber: teamNumber
+function activateSharedSabotage() {
+  // Pick one random player from each team
+  const team1Players = Object.entries(players).filter(([, p]) => p.team === 1);
+  const team2Players = Object.entries(players).filter(([, p]) => p.team === 2);
+  if (!team1Players.length || !team2Players.length) return;
+
+  const [t1Id, t1Player] = team1Players[Math.floor(Math.random() * team1Players.length)];
+  const [t2Id, t2Player] = team2Players[Math.floor(Math.random() * team2Players.length)];
+
+  const now = Date.now();
+  // Show the button on both phones at the same moment
+  gameRef.update({
+    [`sabotage/${t1Id}`]: { active: true, timestamp: now },
+    [`sabotage/${t2Id}`]: { active: true, timestamp: now },
+    sabotageOpportunityPlayers: { team1: t1Id, team2: t2Id }
   });
-  
-  console.log(`Sabotage button activated for ${selectedPlayer.name} (Team ${teamNumber})`);
-  
-  // Auto-deactivate after 10 seconds
+
+  console.log(`🚩 Shared sabotage: ${t1Player.name} (T1) vs ${t2Player.name} (T2) — fastest wins!`);
+
+  // Auto-expire after 10 s if nobody claims it
   setTimeout(() => {
-    gameRef.child('sabotage/' + selectedPlayerId).remove();
+    if (!sabotageUsed) {
+      gameRef.update({
+        [`sabotage/${t1Id}`]: null,
+        [`sabotage/${t2Id}`]: null,
+        sabotageOpportunityPlayers: null
+      });
+      console.log('🚩 Shared sabotage expired unclaimed');
+    }
   }, 10000);
 }
 
-// Listen for sabotage usage
+// Listen for sabotage usage — only the first team to press wins
 gameRef.child('sabotageUsed').on('value', (snapshot) => {
   const sabotageData = snapshot.val();
-  if (sabotageData) {
+  if (sabotageData && !sabotageUsed) {
+    sabotageUsed = true;
     const { userId, targetTeam } = sabotageData;
-    
-    // Deduct 5 points from target team
-    Object.entries(players).forEach(([playerId, player]) => {
+
+    // Deduct 5 points from every player on the target team
+    Object.entries(players).forEach(([pid, player]) => {
       if (player.team === targetTeam) {
-        const currentScore = player.score || 0;
-        const newScore = currentScore - 5;
-        gameRef.child('players/' + playerId).update({ score: newScore });
+        const newScore = (player.score || 0) - 5;
+        gameRef.child('players/' + pid).update({ score: newScore });
       }
     });
-    
-    // Mark as used
-    gameRef.child('players/' + userId).once('value', (snap) => {
-      const userTeam = snap.val()?.team;
-      if (userTeam === 1) team1SabotageUsed = true;
-      if (userTeam === 2) team2SabotageUsed = true;
+
+    // Clear both players' buttons and the opportunity record
+    gameRef.child('sabotageOpportunityPlayers').once('value', (snap) => {
+      const opp = snap.val();
+      if (opp) {
+        if (opp.team1) gameRef.child('sabotage/' + opp.team1).remove();
+        if (opp.team2) gameRef.child('sabotage/' + opp.team2).remove();
+      }
+      gameRef.child('sabotageOpportunityPlayers').remove();
     });
-    
+
     // Clear the trigger
     gameRef.child('sabotageUsed').remove();
-    
+
     updateScoreboard();
   }
 });
@@ -3336,19 +3334,17 @@ function startRound2Gameplay() {
   document.getElementById('round2-screen').classList.add('active');
   document.getElementById('round-indicator').textContent = 'Round 2 - Punned It';
   
-  // Assign each player a unique random category (shuffle categories, cycle if more players than categories)
-  const shuffledCats = [...ROUND_2_CATEGORIES].sort(() => Math.random() - 0.5);
+  // Pick one shared category — every player gets the same topic
+  const category = ROUND_2_CATEGORIES[Math.floor(Math.random() * ROUND_2_CATEGORIES.length)];
   const playerIds = Object.keys(players);
   const playerCategoryUpdates = {};
-  playerIds.forEach((pid, i) => {
-    const cat = shuffledCats[i % shuffledCats.length];
-    playerCategoryUpdates[`players/${pid}/punCategory`] = cat;
+  playerIds.forEach((pid) => {
+    playerCategoryUpdates[`players/${pid}/punCategory`] = category;
   });
   gameRef.update(playerCategoryUpdates);
 
-  // Host screen shows "Multiple Categories" (players each have their own)
-  const category = shuffledCats[0]; // fallback for host display / legacy field
-  document.getElementById('pun-category').textContent = 'See your phone!';
+  // Show the shared category on the host screen
+  document.getElementById('pun-category').textContent = category;
 
   // Reset timer
   round2TimeLeft = 60;
@@ -3641,7 +3637,7 @@ function showPunReviewIntro() {
 
 async function reviewNextPun() {
   if (currentPunIndex >= allPuns.length) {
-    // All puns reviewed → show Pun Champion then Scores Review #2
+    // All puns reviewed → show Pun King then Scores Review #2
     console.log('✅ All puns reviewed, showing Scores Review #2');
     const reviewScreen = document.getElementById('pun-review-screen');
     if (reviewScreen) reviewScreen.remove();
@@ -3820,7 +3816,7 @@ function showPunChampionScreen(championId, acceptCount, onDone) {
   div.id = 'pun-champion-screen';
   div.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, #0a1628, #1a2b4a); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10001; padding: 40px; text-align: center;';
   div.innerHTML = `
-    <div style="font-family:'Bebas Neue',sans-serif;font-size:52px;color:var(--motd-gold);letter-spacing:4px;margin-bottom:24px;text-shadow:0 0 40px rgba(255,198,41,0.8);">🏅 PUN CHAMPION!</div>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:52px;color:var(--motd-gold);letter-spacing:4px;margin-bottom:24px;text-shadow:0 0 40px rgba(255,198,41,0.8);">🏅 THE PUN KING!</div>
     <div style="margin-bottom:20px;">${photoContent}</div>
     <div style="font-family:'Bebas Neue',sans-serif;font-size:48px;color:${teamColor};margin-bottom:10px;letter-spacing:2px;">${player.name || 'Unknown'}</div>
     <div style="font-family:'Barlow',sans-serif;font-size:26px;color:rgba(255,255,255,0.75);font-style:italic;max-width:700px;margin-bottom:18px;">"${bestPun ? bestPun.pun : ''}"</div>

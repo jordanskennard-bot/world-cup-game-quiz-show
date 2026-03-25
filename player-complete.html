@@ -1304,15 +1304,17 @@ function listenForGameStart() {
   });
   
   // Listen for team selection phase
+  // Guard: skip on rejoin — game is already underway, team is already assigned
   gameRef.child('teamSelectionStarted').on('value', (snapshot) => {
-    if (snapshot.val() === true) {
+    if (snapshot.val() === true && !window._startPlayingCalled) {
       showTeamSelectionScreen();
     }
   });
-  
+
   // Listen for Round 1 explainer
+  // Guard: skip on rejoin — player is already mid-game
   gameRef.child('showRound1Explainer').on('value', (snapshot) => {
-    if (snapshot.val() === true) {
+    if (snapshot.val() === true && !window._startPlayingCalled) {
       showPlayerRound1Explainer();
     }
   });
@@ -1338,6 +1340,9 @@ function listenForGameStart() {
   // ── BONUS ROUND LISTENER ──
   gameRef.child('bonusRoundPhase').on('value', (snapshot) => {
     const phase = snapshot.val();
+    // Bail out when no bonus round is active — avoids hiding game-screen on
+    // initial subscription fire (null) or on rejoin after the bonus round has ended.
+    if (!phase) return;
     // Synchronously hide Round 1 screen and remove ANY existing bonus overlays
     // BEFORE calling the show functions (some of which are async internally).
     // This prevents the Round 1 question from briefly showing through the gap.
@@ -1376,8 +1381,9 @@ function listenForGameStart() {
   });
 
   // ── ROUND 2 LISTENERS ──
+  // Guard: skip on rejoin — round2Active listener will put player straight into gameplay
   gameRef.child('showRound2Explainer').on('value', (snapshot) => {
-    if (snapshot.val() === true) {
+    if (snapshot.val() === true && !window._startPlayingCalled) {
       showPlayerRound2Explainer();
     }
   });
@@ -4033,29 +4039,34 @@ function hideOffsideTrapButton(timer) {
 }
 
 function useOffsideTrap() {
-  // Get player's team and target the other team
-  gameRef.child('players/' + playerId + '/team').once('value', (snapshot) => {
-    const myTeam = snapshot.val();
-    const targetTeam = myTeam === 1 ? 2 : 1;
-    
-    // Trigger offside trap - steal 2 points from EACH player on other team
-    gameRef.child('offsideTrapUsed').set({
-      userId: playerId,
-      userTeam: myTeam,
-      targetTeam: targetTeam,
-      timestamp: Date.now()
-    });
-    
-    // Hide button
-    hideOffsideTrapButton(window.offsideTrapTimer);
-    
-    // Show success message
-    alert('🚩 OFFSIDE TRAP SPRUNG! -2 points from each opponent!');
-    
-    // Vibrate success
-    if (navigator.vibrate) {
-      navigator.vibrate([100, 50, 100, 50, 100]);
+  // Hide the button immediately so the player can't tap twice
+  hideOffsideTrapButton(window.offsideTrapTimer);
+
+  // Use a Firebase transaction to atomically claim the shared opportunity.
+  // Only the first team to press wins — if already claimed, the transaction aborts.
+  gameRef.child('sabotageOpportunityPlayers').transaction((current) => {
+    if (!current || current.claimed) return; // abort — already claimed or expired
+    return { ...current, claimed: true, claimedBy: playerId };
+  }, (error, committed) => {
+    if (!committed) {
+      // Opponent was faster — button already hidden, nothing more to do
+      console.log('🚩 Sabotage already claimed by opponent');
+      return;
     }
+
+    // We won the race — apply the sabotage
+    gameRef.child('players/' + playerId + '/team').once('value', (snap) => {
+      const myTeam = snap.val();
+      const targetTeam = myTeam === 1 ? 2 : 1;
+      gameRef.child('sabotageUsed').set({
+        userId: playerId,
+        userTeam: myTeam,
+        targetTeam: targetTeam,
+        timestamp: Date.now()
+      });
+    });
+
+    if (navigator.vibrate) navigator.vibrate([100, 50, 100, 50, 100]);
   });
 }
 
@@ -4178,6 +4189,11 @@ function showPlayerRound1Explainer() {
           console.log('🎮 Intro finished — start button unlocked');
         }
       });
+    } else {
+      // Non-player-1: fill in the actual player 1 name now that we have fresh data
+      const p1Name = players[playerIds[0]]?.name || 'Player 1';
+      const waitMsg = document.getElementById('round1-wait-message');
+      if (waitMsg) waitMsg.textContent = `Waiting for ${p1Name} to blow the whistle...`;
     }
   });
   
