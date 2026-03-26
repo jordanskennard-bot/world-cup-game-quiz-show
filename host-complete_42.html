@@ -2704,7 +2704,9 @@ async function generateIntroVoiceDirectly() {
 function startGamePlay() {
   document.getElementById('lobby-screen').classList.add('hidden');
   gameRef.update({ started: true });
-  showRound1Explainer();
+  document.getElementById('game-screen').classList.add('active');
+  currentQuestion = 0;
+  loadQuestion(0);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -8370,6 +8372,7 @@ function listenForTeamTalkWordActions() {
       if (scoreEl) scoreEl.textContent = _ttCurrentTeam === 1 ? _ttTeam1Score : _ttTeam2Score;
       advanceToNextWord();
     } else if (action.action === 'skip') {
+      playAudio('reject_1.mp3', { volume: 0.7 });
       advanceToNextWord();
     }
   });
@@ -8462,13 +8465,34 @@ async function showTeamTalkResults() {
   const afterVoice = () => {
     if (voicePlayed) return;
     voicePlayed = true;
-    // Spinner stays — host can proceed from here manually (sandbox test end)
+
+    // Replace spinner with a "Continue to Round 1" button
     const spinnerEl = resultsDiv.querySelector('.spinner');
     if (spinnerEl) spinnerEl.remove();
-    const doneEl = document.createElement('div');
-    doneEl.style.cssText = 'margin-top: 30px; font-family: \'Barlow\', sans-serif; font-size: 20px; color: var(--text-muted);';
-    doneEl.textContent = 'Team Talk complete.';
-    resultsDiv.appendChild(doneEl);
+
+    const continueBtn = document.createElement('button');
+    continueBtn.id = 'tt-continue-btn';
+    continueBtn.textContent = '▶ Continue to Round 1';
+    continueBtn.style.cssText = [
+      'margin-top: 40px',
+      'padding: 22px 64px',
+      'background: linear-gradient(135deg, #ffc629, #f39c12)',
+      'color: #0a1628',
+      'border: none',
+      'border-radius: 16px',
+      'font-family: \'Bebas Neue\', sans-serif',
+      'font-size: 38px',
+      'letter-spacing: 3px',
+      'cursor: pointer',
+      'box-shadow: 0 8px 30px rgba(255,198,41,0.5)',
+    ].join(';');
+    continueBtn.onclick = () => {
+      continueBtn.disabled = true;
+      continueBtn.textContent = 'Loading…';
+      resultsDiv.remove();
+      showRound1Explainer();
+    };
+    resultsDiv.appendChild(continueBtn);
   };
 
   playAudio('team_talk_scores_intro.mp3', {
