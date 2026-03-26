@@ -1880,7 +1880,7 @@ let leadPlayerId = null;
 
 document.getElementById('game-code').textContent = gameCode;
 
-const playerUrl = window.location.origin + window.location.pathname.replace(/host[^/]*\.html/, 'player-sandbox.html') + '?code=' + gameCode;
+const playerUrl = window.location.origin + window.location.pathname.replace(/host[^/]*\.html/, 'player-complete_27.html') + '?code=' + gameCode;
 const joinUrlEl = document.getElementById('join-url');
 joinUrlEl.textContent = playerUrl;
 joinUrlEl.href = playerUrl;
@@ -7363,7 +7363,7 @@ function createPersistentQRCode() {
   const sizes = { small: 80, medium: 110, large: 150 };
   const qrSize = sizes[savedSize];
 
-  const playerUrl = window.location.href.replace('host-sandbox.html', 'player-sandbox.html') + '?code=' + gameCode;
+  const playerUrl = window.location.href.replace(/host[^/]*\.html/, 'player-complete_27.html') + '?code=' + gameCode;
   const qrImgUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${qrSize}x${qrSize}&data=${encodeURIComponent(playerUrl)}`;
 
   const qrDiv = document.createElement('div');
