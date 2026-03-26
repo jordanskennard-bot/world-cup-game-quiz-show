@@ -8130,6 +8130,7 @@ function startTeamTalkCountdown() {
   _ttCurrentWord = pickNextTeamTalkWord();
   if (_ttCurrentWord) {
     gameRef.child('teamTalk/currentWord').set(_ttCurrentWord);
+    playAudio('accept_1.mp3', { volume: 0.7 });
   }
 
   // Render the active turn screen
@@ -8325,6 +8326,7 @@ function advanceToNextWord() {
     _ttCurrentWord = { id: -1, word: '(No more words!)', difficulty: 1, points: 0 };
   }
   gameRef.child('teamTalk/currentWord').set(_ttCurrentWord);
+  playAudio('accept_1.mp3', { volume: 0.7 });
 
   // Update word on screen
   const wordEl = document.getElementById('tt-word');

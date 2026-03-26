@@ -1698,34 +1698,44 @@ function startGameAsLead() {
     return;
   }
 
-  // Play whistle sound immediately on button press
-  const whistleAudio = new Audio('full_time_whistle.mp3');
-  whistleAudio.volume = 0.9;
-  whistleAudio.play().catch(() => {});
-
   gameStartTriggered = true;
   console.log('Start Game button clicked!');
   console.log('Game ref:', gameRef);
-  
-  // Disable the button
+
+  // Disable the button immediately so it can't be tapped again
   const startBtn = document.querySelector('[onclick="startGameAsLead()"]');
   if (startBtn) {
     startBtn.disabled = true;
     startBtn.style.opacity = '0.5';
-    startBtn.textContent = 'Starting...';
+    startBtn.textContent = '📯 Blowing…';
   }
-  
-  // Signal all players to choose teams AND trigger host music screen
-  gameRef.update({
-    teamSelectionStarted: true,
-    readyToSelectTeams: true
-  }).then(() => {
-    console.log('Team selection started');
-    showTeamSelectionScreen();
-  }).catch((error) => {
-    console.error('Error updating Firebase:', error);
-    gameStartTriggered = false; // Reset on error
-  });
+
+  // Play whistle — only signal Firebase AFTER it finishes so the next
+  // audio on the host doesn't overlap with the whistle still sounding.
+  const whistleAudio = new Audio('full_time_whistle.mp3');
+  whistleAudio.volume = 0.9;
+
+  const proceed = () => {
+    if (startBtn) startBtn.textContent = 'Starting...';
+    // Signal all players to choose teams AND trigger host music screen
+    gameRef.update({
+      teamSelectionStarted: true,
+      readyToSelectTeams: true
+    }).then(() => {
+      console.log('Team selection started');
+      showTeamSelectionScreen();
+    }).catch((error) => {
+      console.error('Error updating Firebase:', error);
+      gameStartTriggered = false; // Reset on error
+    });
+  };
+
+  // Wait for whistle to end; fallback after 5 s in case the file is long/silent
+  let proceeded = false;
+  const onceProceed = () => { if (!proceeded) { proceeded = true; proceed(); } };
+  whistleAudio.addEventListener('ended', onceProceed);
+  whistleAudio.play().catch(onceProceed); // if audio fails, proceed anyway
+  setTimeout(onceProceed, 5000);
 }
 
 function startPlaying() {
@@ -3293,9 +3303,25 @@ function showPunReviewOnPlayer() {
     
     document.body.appendChild(reviewDiv);
   });
+
+  // All phones hear the accept/reject result when the referee decides
+  gameRef.child('punDecision').on('value', (snap) => {
+    const decision = snap.val();
+    if (!decision) return;
+    // Only non-referees play the sound here; referee already played it on button tap
+    if (!isFirstPlayer) {
+      new Audio((decision.accepted ? 'accept_1' : 'reject_1') + '.mp3?v=2').play().catch(() => {});
+    }
+  });
 }
 
 function acceptPunAsPlayer() {
+  // Immediate audio feedback on the referee's phone
+  new Audio('accept_1.mp3?v=2').play().catch(() => {});
+
+  // Disable buttons to prevent double-tap
+  document.querySelectorAll('.pun-submit-btn').forEach(b => b.disabled = true);
+
   gameRef.child('currentPunIndex').once('value', (snapshot) => {
     const index = snapshot.val();
     gameRef.child('punDecision').set({
@@ -3307,6 +3333,12 @@ function acceptPunAsPlayer() {
 }
 
 function rejectPunAsPlayer() {
+  // Immediate audio feedback on the referee's phone
+  new Audio('reject_1.mp3?v=2').play().catch(() => {});
+
+  // Disable buttons to prevent double-tap
+  document.querySelectorAll('.pun-submit-btn').forEach(b => b.disabled = true);
+
   gameRef.child('currentPunIndex').once('value', (snapshot) => {
     const index = snapshot.val();
     gameRef.child('punDecision').set({
