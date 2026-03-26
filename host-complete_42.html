@@ -4312,7 +4312,7 @@ const ROUND3_REACTIONS = [
 ];
 let _round3ReactionIdx = 0;
 
-async function readWinningAnswerAloud(answerText) {
+async function readWinningAnswerAloud(answerText, onDone) {
   const ELEVENLABS_API_KEY = 'sk_eb4900ceb7e4366087590c2b906743504ba8c844524ddcc4';
   const VOICE_ID = 'rfkTsdZrVWEVhDycUYn9';
 
@@ -4327,6 +4327,8 @@ async function readWinningAnswerAloud(answerText) {
   }).then(r => r.blob()).then(blob => new Audio(URL.createObjectURL(blob)));
 
   try {
+    console.log('🎙️ Reading winning answer aloud:', answerText);
+
     // 1. Read out the winning answer
     const answerAudio = await callTTS(`(amused) And the winner is... "${answerText}"`);
     answerAudio.volume = 0.85;
@@ -4341,15 +4343,22 @@ async function readWinningAnswerAloud(answerText) {
     // 2. Play a rotating reaction comment
     const reaction = ROUND3_REACTIONS[_round3ReactionIdx % ROUND3_REACTIONS.length];
     _round3ReactionIdx++;
+    console.log('🎙️ Playing Round 3 reaction:', reaction);
     const reactionAudio = await callTTS(reaction);
     reactionAudio.volume = 0.85;
     window._currentTTSAudio = reactionAudio;
-    reactionAudio.onended = () => { window._currentTTSAudio = null; };
-    reactionAudio.onerror = () => { window._currentTTSAudio = null; };
-    reactionAudio.play().catch(() => {});
+
+    await new Promise(resolve => {
+      reactionAudio.onended = () => { window._currentTTSAudio = null; resolve(); };
+      reactionAudio.onerror = () => { window._currentTTSAudio = null; resolve(); };
+      reactionAudio.play().catch(() => resolve());
+    });
 
   } catch (err) {
     console.error('❌ readWinningAnswerAloud error:', err);
+  } finally {
+    // Always advance after TTS finishes (or fails)
+    if (onDone) setTimeout(onDone, 1500);
   }
 }
 
@@ -4393,10 +4402,14 @@ function awardRound3Points(votes, questionIndex) {
       console.log('🎵 Playing accept audio — all votes in for question', questionIndex);
     }
 
-    // Read out the winning answer then deliver a reaction
+    // Read out the winning answer then deliver a reaction, then auto-advance
     const winningAnswer = window._round3LastSubmissions[questionIndex]?.[winnerId]?.answer;
+    console.log('🎙️ Round 3 winner:', winnerId, '| answer:', winningAnswer);
     if (winningAnswer) {
-      readWinningAnswerAloud(winningAnswer);
+      readWinningAnswerAloud(winningAnswer, () => nextRound3Question());
+    } else {
+      // No TTS — still auto-advance after a short pause
+      setTimeout(() => nextRound3Question(), 3000);
     }
   }
 }
