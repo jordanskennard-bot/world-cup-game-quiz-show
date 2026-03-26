@@ -824,7 +824,7 @@
     </div>
     
     <div class="lead-controls" id="waiting-lead-controls">
-      <button class="lead-btn primary" onclick="startGameAsLead()">🎮 Start Game</button>
+      <button class="lead-btn primary" onclick="startGameAsLead()">📯 Blow Whistle</button>
     </div>
     
     <div style="display: none; text-align: center; font-family: 'Barlow', sans-serif; font-size: 14px; color: var(--text-muted); margin-top: 10px; font-style: italic;" id="start-game-note">
@@ -937,7 +937,6 @@
       <button class="sabotage-btn" onclick="useOffsideTrap()">
         🚩 OFFSIDE TRAP 🚩
       </button>
-      <div class="sabotage-warning">Only you can see this! Act fast...</div>
     </div>
   </div>
 
@@ -1304,15 +1303,25 @@ function listenForGameStart() {
   });
   
   // Listen for team selection phase
+  // Guard: skip on rejoin — game is already underway, team is already assigned
   gameRef.child('teamSelectionStarted').on('value', (snapshot) => {
-    if (snapshot.val() === true) {
+    if (snapshot.val() === true && !window._startPlayingCalled) {
       showTeamSelectionScreen();
     }
   });
-  
+
+  // ── TEAM TALK — must be active BEFORE 'started:true' because team talk
+  //    is the pre-game intro that runs while players are on the waiting screen ──
+  gameRef.child('teamTalk/phase').on('value', (snap) => {
+    const phase = snap.val();
+    if (!phase) return;
+    handleTeamTalkPhase(phase);
+  });
+
   // Listen for Round 1 explainer
+  // Guard: skip on rejoin — player is already mid-game
   gameRef.child('showRound1Explainer').on('value', (snapshot) => {
-    if (snapshot.val() === true) {
+    if (snapshot.val() === true && !window._startPlayingCalled) {
       showPlayerRound1Explainer();
     }
   });
@@ -1338,6 +1347,9 @@ function listenForGameStart() {
   // ── BONUS ROUND LISTENER ──
   gameRef.child('bonusRoundPhase').on('value', (snapshot) => {
     const phase = snapshot.val();
+    // Bail out when no bonus round is active — avoids hiding game-screen on
+    // initial subscription fire (null) or on rejoin after the bonus round has ended.
+    if (!phase) return;
     // Synchronously hide Round 1 screen and remove ANY existing bonus overlays
     // BEFORE calling the show functions (some of which are async internally).
     // This prevents the Round 1 question from briefly showing through the gap.
@@ -1376,8 +1388,9 @@ function listenForGameStart() {
   });
 
   // ── ROUND 2 LISTENERS ──
+  // Guard: skip on rejoin — round2Active listener will put player straight into gameplay
   gameRef.child('showRound2Explainer').on('value', (snapshot) => {
-    if (snapshot.val() === true) {
+    if (snapshot.val() === true && !window._startPlayingCalled) {
       showPlayerRound2Explainer();
     }
   });
@@ -1416,7 +1429,7 @@ function listenForGameStart() {
     if (myTeam && myTeam === trapData.targetTeam) {
       // Deduct 2 points
       if (players[playerId]) {
-        players[playerId].score = Math.max(0, (players[playerId].score || 0) - 2);
+        players[playerId].score = (players[playerId].score || 0) - 2;
         gameRef.child(`players/${playerId}/score`).set(players[playerId].score);
       }
       // Play audio on phone
@@ -1538,6 +1551,7 @@ function listenForGameStart() {
       if (timerDiv) timerDiv.remove();
     }
   });
+
 }
 
 function showPlayerToiletPaperAlert() {
@@ -1683,7 +1697,12 @@ function startGameAsLead() {
     console.log('⚠️ Start already triggered, ignoring');
     return;
   }
-  
+
+  // Play whistle sound immediately on button press
+  const whistleAudio = new Audio('full_time_whistle.mp3');
+  whistleAudio.volume = 0.9;
+  whistleAudio.play().catch(() => {});
+
   gameStartTriggered = true;
   console.log('Start Game button clicked!');
   console.log('Game ref:', gameRef);
@@ -2261,6 +2280,7 @@ function showBlowBallGetReadyScreen() {
 function pressBlowBallReady() {
   const btn = document.getElementById('blowball-ready-btn');
   if (btn) { btn.disabled = true; btn.textContent = '⏳ Starting…'; }
+  new Audio('final_whistle.mp3?v=2').play().catch(() => {});
   gameRef.update({ blowBallReady: true });
 }
 
@@ -2398,60 +2418,84 @@ function showPlayerBlowBallJudging() {
 }
 
 function showRefereeBlowBallScoring() {
+  _bbT1Touched = false;
+  _bbT2Touched = false;
+  blowBallTeam1Score = 0;
+  blowBallTeam2Score = 0;
+
   const scoringDiv = document.createElement('div');
   scoringDiv.id = 'player-blowball-judging';
   scoringDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, #0a1628 0%, #1a2b4a 100%); display: flex; flex-direction: column; align-items: center; padding: 30px; overflow-y: auto; z-index: 10000; text-align: center;';
 
-  const btns = (team, fn) => [1,2,3,4,5].map(s => `
-    <button onclick="${fn}(${s})"
-            style="width: 48px; height: 48px; background: linear-gradient(135deg, #4dd4e8, #ffc629); color: #0a1628; border: none; border-radius: 50%; font-family: 'Bebas Neue', sans-serif; font-size: 26px; cursor: pointer; -webkit-tap-highlight-color: transparent;">
-      ${s}
-    </button>
-  `).join('');
-
   scoringDiv.innerHTML = `
-    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 46px; color: #ffc629; margin-bottom: 24px;">
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 46px; color: #ffc629; margin-bottom: 10px;">
       ⚽ You Are the Referee ⚽
     </div>
-    <div style="font-family: 'Barlow', sans-serif; font-size: 22px; color: rgba(255,255,255,0.85); margin-bottom: 36px;">
+    <div style="font-family: 'Barlow', sans-serif; font-size: 20px; color: rgba(255,255,255,0.85); margin-bottom: 6px;">
       Score each team on speed, flair, and huff!
     </div>
-
-    <div style="margin-bottom: 36px; width: 100%; max-width: 480px;">
-      <div style="font-family: 'Bebas Neue', sans-serif; font-size: 30px; color: #fff; margin-bottom: 16px;">Team 1 Score</div>
-      <div style="display: flex; gap: 8px; justify-content: center;">${btns(1, 'setBlowBallTeam1Score')}</div>
-      <div id="t1-selected" style="font-family: 'Barlow', sans-serif; font-size: 16px; color: #4dd4e8; margin-top: 8px; min-height: 20px;"></div>
+    <div style="font-family: 'Barlow', sans-serif; font-size: 15px; color: rgba(255,255,255,0.5); margin-bottom: 30px;">
+      +17 points to the team who scored first
     </div>
 
-    <div style="margin-bottom: 36px; width: 100%; max-width: 480px;">
-      <div style="font-family: 'Bebas Neue', sans-serif; font-size: 30px; color: #fff; margin-bottom: 16px;">Team 2 Score</div>
-      <div style="display: flex; gap: 8px; justify-content: center;">${btns(2, 'setBlowBallTeam2Score')}</div>
-      <div id="t2-selected" style="font-family: 'Barlow', sans-serif; font-size: 16px; color: #4dd4e8; margin-top: 8px; min-height: 20px;"></div>
+    <div style="margin-bottom: 30px; width: 100%; max-width: 380px;">
+      <div style="font-family: 'Bebas Neue', sans-serif; font-size: 28px; color: #fff; margin-bottom: 6px;">Team 1</div>
+      <div id="t1-score-display" style="font-family: 'Bebas Neue', sans-serif; font-size: 72px; color: #4dd4e8; line-height: 1; margin-bottom: 8px;">0</div>
+      <input type="range" id="t1-slider" min="0" max="23" value="0"
+             oninput="onBlowBallSlider(1, this.value)"
+             style="width: 100%; height: 40px; cursor: pointer; accent-color: #4dd4e8; -webkit-appearance: none; background: transparent;">
+      <div style="display: flex; justify-content: space-between; color: rgba(255,255,255,0.35); font-family: 'Barlow', sans-serif; font-size: 12px; margin-top: 2px;">
+        <span>0 — Poor</span><span>23 — Excellent</span>
+      </div>
     </div>
 
-    <div style="font-family: 'Barlow', sans-serif; font-size: 15px; color: rgba(255,255,255,0.55);">
-      1 = Poor &nbsp;|&nbsp; 5 = Excellent
+    <div style="margin-bottom: 30px; width: 100%; max-width: 380px;">
+      <div style="font-family: 'Bebas Neue', sans-serif; font-size: 28px; color: #fff; margin-bottom: 6px;">Team 2</div>
+      <div id="t2-score-display" style="font-family: 'Bebas Neue', sans-serif; font-size: 72px; color: #d4145a; line-height: 1; margin-bottom: 8px;">0</div>
+      <input type="range" id="t2-slider" min="0" max="23" value="0"
+             oninput="onBlowBallSlider(2, this.value)"
+             style="width: 100%; height: 40px; cursor: pointer; accent-color: #d4145a; -webkit-appearance: none; background: transparent;">
+      <div style="display: flex; justify-content: space-between; color: rgba(255,255,255,0.35); font-family: 'Barlow', sans-serif; font-size: 12px; margin-top: 2px;">
+        <span>0 — Poor</span><span>23 — Excellent</span>
+      </div>
     </div>
+
+    <button id="blowball-submit-scores" onclick="submitBlowBallScores()" disabled
+            style="padding: 16px 0; width: 100%; max-width: 380px; background: rgba(255,255,255,0.12); color: rgba(255,255,255,0.35); border: none; border-radius: 14px; font-family: 'Bebas Neue', sans-serif; font-size: 28px; cursor: default; letter-spacing: 2px; -webkit-tap-highlight-color: transparent;">
+      Submit Scores
+    </button>
   `;
 
   document.body.appendChild(scoringDiv);
 }
 
-let blowBallTeam1Score = null;
-let blowBallTeam2Score = null;
+let blowBallTeam1Score = 0;
+let blowBallTeam2Score = 0;
+let _bbT1Touched = false;
+let _bbT2Touched = false;
 
-function setBlowBallTeam1Score(score) {
-  blowBallTeam1Score = score;
-  const el = document.getElementById('t1-selected');
-  if (el) el.textContent = `Selected: ${score}`;
-  if (blowBallTeam2Score !== null) submitBlowBallScores();
-}
-
-function setBlowBallTeam2Score(score) {
-  blowBallTeam2Score = score;
-  const el = document.getElementById('t2-selected');
-  if (el) el.textContent = `Selected: ${score}`;
-  if (blowBallTeam1Score !== null) submitBlowBallScores();
+function onBlowBallSlider(team, value) {
+  value = parseInt(value);
+  if (team === 1) {
+    blowBallTeam1Score = value;
+    _bbT1Touched = true;
+    const el = document.getElementById('t1-score-display');
+    if (el) el.textContent = value;
+  } else {
+    blowBallTeam2Score = value;
+    _bbT2Touched = true;
+    const el = document.getElementById('t2-score-display');
+    if (el) el.textContent = value;
+  }
+  if (_bbT1Touched && _bbT2Touched) {
+    const btn = document.getElementById('blowball-submit-scores');
+    if (btn) {
+      btn.disabled = false;
+      btn.style.background = 'linear-gradient(135deg, #4dd4e8, #ffc629)';
+      btn.style.color = '#0a1628';
+      btn.style.cursor = 'pointer';
+    }
+  }
 }
 
 function submitBlowBallScores() {
@@ -2463,8 +2507,10 @@ function submitBlowBallScores() {
   const scoringDiv = document.getElementById('player-blowball-judging');
   if (scoringDiv) scoringDiv.remove();
 
-  blowBallTeam1Score = null;
-  blowBallTeam2Score = null;
+  blowBallTeam1Score = 0;
+  blowBallTeam2Score = 0;
+  _bbT1Touched = false;
+  _bbT2Touched = false;
 
   showWaitingForBlowBallScoring();
 }
@@ -2844,11 +2890,8 @@ function showCommentaryScreen(phase) {
       else { showCommentaryWaiting('Recording in progress...', '🔴'); }
     });
   } else if (phase === 'team1Playback' || phase === 'team2Playback') {
-    const t = phase === 'team1Playback' ? 1 : 2;
-    gameRef.child(`commentary/team${t}/commentator`).once('value', (snap) => {
-      if (snap.val() === playerId && commentaryAudioBlob) { showCommentaryPlaybackOnPlayer(t); }
-      else { showCommentaryWaiting('Watch the screen!', '📺'); }
-    });
+    // Commentary audio plays on the host screen — all players just watch
+    showCommentaryWaiting('Watch the screen!', '📺');
   } else if (phase === 'team1Scoring' || phase === 'team2Scoring') {
     const t = phase === 'team1Scoring' ? 1 : 2;
     if (isCaptain1) { showCommentaryRefereeOnPlayer(t); }
@@ -2964,7 +3007,7 @@ async function startPlayerMicRecording(teamNumber) {
     <div style="font-size: 64px; margin-bottom: 20px;">🎙️</div>
     <div style="font-family: 'Bebas Neue', sans-serif; font-size: 36px; color: var(--motd-gold, #ffc629); letter-spacing: 3px; margin-bottom: 12px;">GET READY!</div>
     <div style="font-family: 'Barlow', sans-serif; font-size: 20px; color: rgba(255,255,255,0.7); line-height: 1.6; margin-bottom: 32px;">Hold your phone up to your mouth.<br>Press Ready when you're set — the video will start.</div>
-    <button id="commentary-ready-btn" onclick="signalCommentaryReady()"
+    <button id="commentary-ready-btn" onclick="signalCommentaryReady(${teamNumber})"
             style="padding: 18px 48px; background: linear-gradient(135deg, #4dd4e8, #00bcd4); color: #0a1628; border: none; border-radius: 14px; font-family: 'Bebas Neue', sans-serif; font-size: 32px; letter-spacing: 2px; cursor: pointer; box-shadow: 0 8px 30px rgba(77,212,232,0.5); -webkit-tap-highlight-color: transparent;">
       🎙️ I'm Ready!
     </button>
@@ -3009,7 +3052,7 @@ async function startPlayerMicRecording(teamNumber) {
       <div style="font-size: 48px; margin-bottom: 16px;">🚫</div>
       <div style="font-family: 'Bebas Neue', sans-serif; font-size: 28px; color: #ff4444; margin-bottom: 8px;">Mic not available</div>
       <div style="font-family: 'Barlow', sans-serif; font-size: 18px; color: rgba(255,255,255,0.6); margin-bottom: 28px;">Commentate out loud anyway!</div>
-      <button id="commentary-ready-btn" onclick="signalCommentaryReady()"
+      <button id="commentary-ready-btn" onclick="signalCommentaryReady(${teamNumber})"
               style="padding: 18px 48px; background: linear-gradient(135deg, #4dd4e8, #00bcd4); color: #0a1628; border: none; border-radius: 14px; font-family: 'Bebas Neue', sans-serif; font-size: 32px; letter-spacing: 2px; cursor: pointer; box-shadow: 0 8px 30px rgba(77,212,232,0.5); -webkit-tap-highlight-color: transparent;">
         🎙️ I'm Ready!
       </button>
@@ -3017,25 +3060,38 @@ async function startPlayerMicRecording(teamNumber) {
   }
 }
 
-// Called when the commentator presses "I'm Ready!" — tells the host to start the video
-function signalCommentaryReady() {
+// Called when the commentator presses "I'm Ready!" — starts video on their phone and signals host
+function signalCommentaryReady(teamNumber) {
   const btn = document.getElementById('commentary-ready-btn');
   if (btn) { btn.disabled = true; btn.textContent = '⏳ Starting…'; }
 
-  // Switch to LIVE screen
-  const div = document.getElementById('player-commentary-recording');
-  if (div) {
-    div.innerHTML = `
-      <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 20px;">
-        <div style="width: 18px; height: 18px; background: #ff0000; border-radius: 50%; animation: pulse 1s infinite;"></div>
-        <div style="font-family: 'Bebas Neue', sans-serif; font-size: 32px; color: #ff4444; letter-spacing: 3px;">LIVE — YOU'RE ON!</div>
-      </div>
-      <div style="font-size: 64px; margin-bottom: 20px;">🎙️</div>
-      <div style="font-family: 'Barlow', sans-serif; font-size: 22px; color: rgba(255,255,255,0.8); line-height: 1.6;">Commentate out loud!<br>Watch the screen &amp; keep talking!</div>
-    `;
-  }
-
+  // Signal host to start the hidden timing video
   gameRef.update({ commentaryCommentatorReady: true });
+
+  // Fetch the video file and play it on the commentator's phone
+  gameRef.child(`commentary/team${teamNumber}/videoFile`).once('value', (snap) => {
+    const videoFile = snap.val();
+    const div = document.getElementById('player-commentary-recording');
+    if (div && videoFile) {
+      div.innerHTML = `
+        <video id="player-commentary-video" src="${videoFile}" autoplay playsinline
+               style="width: 100%; max-height: 70vh; border-radius: 8px; display: block;"></video>
+        <div style="display: flex; align-items: center; gap: 10px; margin-top: 14px; justify-content: center;">
+          <div style="width: 14px; height: 14px; background: #ff0000; border-radius: 50%; animation: pulse 1s infinite;"></div>
+          <div style="font-family: 'Bebas Neue', sans-serif; font-size: 26px; color: #ff4444; letter-spacing: 3px;">LIVE — YOU'RE ON!</div>
+        </div>
+      `;
+    } else if (div) {
+      div.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 20px;">
+          <div style="width: 18px; height: 18px; background: #ff0000; border-radius: 50%; animation: pulse 1s infinite;"></div>
+          <div style="font-family: 'Bebas Neue', sans-serif; font-size: 32px; color: #ff4444; letter-spacing: 3px;">LIVE — YOU'RE ON!</div>
+        </div>
+        <div style="font-size: 64px; margin-bottom: 20px;">🎙️</div>
+        <div style="font-family: 'Barlow', sans-serif; font-size: 22px; color: rgba(255,255,255,0.8); line-height: 1.6;">Commentate out loud!<br>Keep talking!</div>
+      `;
+    }
+  });
 }
 
 function showCommentaryPlaybackOnPlayer(teamNumber) {
@@ -3118,7 +3174,7 @@ function showGoalPostsJudgingOnPlayer() {
 
     div.innerHTML = `
       <div style="font-family: 'Bebas Neue', sans-serif; font-size: 40px; color: #ffc629; margin-bottom: 8px; letter-spacing: 3px;">⚽ Goal Post Glory</div>
-      <div style="font-family: 'Barlow', sans-serif; font-size: 20px; color: rgba(255,255,255,0.7); margin-bottom: 30px;">Score each team's goal posts out of 5</div>
+      <div style="font-family: 'Barlow', sans-serif; font-size: 20px; color: rgba(255,255,255,0.7); margin-bottom: 30px;">Score each team's goal posts out of 11</div>
 
       <div id="gp-team1-row" style="margin-bottom: 24px; text-align: center;"></div>
       <div id="gp-team2-row" style="margin-bottom: 30px; text-align: center;"></div>
@@ -3141,7 +3197,7 @@ function showGoalPostsJudgingOnPlayer() {
             ${team ? team.flag + ' ' + team.name : 'Team ' + teamNum}
           </div>
           <div>
-            ${[1,2,3,4,5].map(n => `<button style="${btnStyle(selected, n)}" data-team="${teamNum}" data-n="${n}">${n}</button>`).join('')}
+            ${[1,2,3,4,5,6,7,8,9,10,11].map(n => `<button style="${btnStyle(selected, n)}" data-team="${teamNum}" data-n="${n}">${n}</button>`).join('')}
           </div>
         `;
       });
@@ -3478,28 +3534,8 @@ function voteForAnswer(targetPlayerId, questionIndex) {
 
     // Add haptic feedback
     if (navigator.vibrate) navigator.vibrate(50);
-
-    // Player 1 (first in list) gets the Next Question button
-    const isFirstPlayer = Object.keys(players)[0] === playerId;
-    if (isFirstPlayer) showRound3NextQuestionButton();
+    // Auto-advance is handled by the host after accept audio plays — no button needed.
   });
-}
-
-function showRound3NextQuestionButton() {
-  if (document.getElementById('round3-next-q-btn')) return;
-
-  const btn = document.createElement('button');
-  btn.id = 'round3-next-q-btn';
-  btn.style.cssText = 'position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); padding: 16px 50px; background: linear-gradient(135deg, #4dd4e8, #ffc629); color: #0a1628; border: none; border-radius: 14px; font-family: \'Bebas Neue\', sans-serif; font-size: 28px; cursor: pointer; z-index: 9999; box-shadow: 0 8px 24px rgba(255,198,41,0.4); -webkit-tap-highlight-color: transparent;';
-  btn.textContent = 'Next Question →';
-  btn.onclick = () => {
-    btn.disabled = true;
-    btn.textContent = 'Loading…';
-    gameRef.update({ round3NextQuestion: true });
-    setTimeout(() => btn.remove(), 3000);
-  };
-
-  document.body.appendChild(btn);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -3723,29 +3759,34 @@ function hideOffsideTrapButton(timer) {
 }
 
 function useOffsideTrap() {
-  // Get player's team and target the other team
-  gameRef.child('players/' + playerId + '/team').once('value', (snapshot) => {
-    const myTeam = snapshot.val();
-    const targetTeam = myTeam === 1 ? 2 : 1;
-    
-    // Trigger offside trap - steal 2 points from EACH player on other team
-    gameRef.child('offsideTrapUsed').set({
-      userId: playerId,
-      userTeam: myTeam,
-      targetTeam: targetTeam,
-      timestamp: Date.now()
-    });
-    
-    // Hide button
-    hideOffsideTrapButton(window.offsideTrapTimer);
-    
-    // Show success message
-    alert('🚩 OFFSIDE TRAP SPRUNG! -2 points from each opponent!');
-    
-    // Vibrate success
-    if (navigator.vibrate) {
-      navigator.vibrate([100, 50, 100, 50, 100]);
+  // Hide the button immediately so the player can't tap twice
+  hideOffsideTrapButton(window.offsideTrapTimer);
+
+  // Use a Firebase transaction to atomically claim the shared opportunity.
+  // Only the first team to press wins — if already claimed, the transaction aborts.
+  gameRef.child('sabotageOpportunityPlayers').transaction((current) => {
+    if (!current || current.claimed) return; // abort — already claimed or expired
+    return { ...current, claimed: true, claimedBy: playerId };
+  }, (error, committed) => {
+    if (!committed) {
+      // Opponent was faster — button already hidden, nothing more to do
+      console.log('🚩 Sabotage already claimed by opponent');
+      return;
     }
+
+    // We won the race — apply the sabotage
+    gameRef.child('players/' + playerId + '/team').once('value', (snap) => {
+      const myTeam = snap.val();
+      const targetTeam = myTeam === 1 ? 2 : 1;
+      gameRef.child('sabotageUsed').set({
+        userId: playerId,
+        userTeam: myTeam,
+        targetTeam: targetTeam,
+        timestamp: Date.now()
+      });
+    });
+
+    if (navigator.vibrate) navigator.vibrate([100, 50, 100, 50, 100]);
   });
 }
 
@@ -3836,7 +3877,7 @@ function showPlayerRound1Explainer() {
     </div>
     
     <div id="round1-wait-message" style="font-family: 'Barlow', sans-serif; font-size: 18px; color: #4dd4e8; margin-top: 20px;">
-      Waiting for first player to start...
+      Waiting for ${Object.values(players)[0]?.name || 'Player 1'} to blow the whistle...
     </div>
     
     <div id="round1-wait-spinner" class="spinner" style="margin-top: 20px;"></div>
@@ -3868,9 +3909,14 @@ function showPlayerRound1Explainer() {
           console.log('🎮 Intro finished — start button unlocked');
         }
       });
+    } else {
+      // Non-player-1: fill in the actual player 1 name now that we have fresh data
+      const p1Name = players[playerIds[0]]?.name || 'Player 1';
+      const waitMsg = document.getElementById('round1-wait-message');
+      if (waitMsg) waitMsg.textContent = `Waiting for ${p1Name} to blow the whistle...`;
     }
   });
-  
+
   // Listen for round starting
   gameRef.child('round1Started').on('value', (snapshot) => {
     if (snapshot.val() === true) {
@@ -4499,7 +4545,8 @@ function scoreMatchDrawPlayer(scoringPlayerId, score) {
 
 function startRound1() {
   console.log('🎮 Player 1 starting Round 1');
-  
+  new Audio('final_whistle.mp3?v=2').play().catch(() => {});
+
   // Hide start button
   document.getElementById('round1-start-controls').style.display = 'none';
   document.getElementById('round1-wait-message').style.display = 'block';
@@ -5304,6 +5351,283 @@ function submitRefereeScore(pid) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// TEAM TALK — PLAYER SIDE
+// ═══════════════════════════════════════════════════════════════════════════
+
+let _ttPlayerPhase = null;     // last phase we acted on (prevents duplicate shows)
+let _ttScorerRunningScore = 0; // local running total shown on scorer screen
+
+// IDs of all Team Talk screens — used for cleanup
+const TT_SCREEN_IDS = [
+  'tt-player-intro',
+  'tt-player-ready',
+  'tt-player-scoring',
+  'tt-player-waiting',
+  'tt-player-results',
+];
+
+function clearTeamTalkScreens() {
+  TT_SCREEN_IDS.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.remove();
+  });
+}
+
+// Called by the teamTalk/phase listener
+function handleTeamTalkPhase(phase) {
+  if (phase === _ttPlayerPhase) return;
+  _ttPlayerPhase = phase;
+
+  if (phase === 'intro') {
+    clearTeamTalkScreens();
+    showTeamTalkPlayerIntro();
+  } else if (phase === 'team1turn' || phase === 'team2turn') {
+    const teamNum = phase === 'team1turn' ? 1 : 2;
+    clearTeamTalkScreens();
+    _ttScorerRunningScore = 0;
+    showTeamTalkPlayerTurnScreen(teamNum);
+  } else if (phase === 'intermission') {
+    clearTeamTalkScreens();
+    showTeamTalkPlayerWaiting('Half time! Next team up soon…', '⏱️');
+  } else if (phase === 'results') {
+    clearTeamTalkScreens();
+    showTeamTalkPlayerResults();
+  }
+}
+
+// ─── Intro ───────────────────────────────────────────────────────────────────
+
+function showTeamTalkPlayerIntro() {
+  const div = document.createElement('div');
+  div.id = 'tt-player-intro';
+  div.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, #0a1628 0%, #1a2b4a 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 30px; text-align: center;';
+  div.innerHTML = `
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 72px; color: #ffc629; text-shadow: 0 0 30px rgba(255,198,41,0.6); letter-spacing: 5px; margin-bottom: 16px;">TEAM TALK</div>
+    <div style="font-family: 'Barlow', sans-serif; font-size: 22px; color: rgba(255,255,255,0.8); line-height: 1.6; max-width: 420px; margin-bottom: 30px;">
+      Race to get your guesser to say the word!<br>
+      <span style="color: #ffc629;">2 minutes</span> per team.
+    </div>
+    <div class="spinner"></div>
+  `;
+  document.body.appendChild(div);
+}
+
+// ─── Turn screen router ───────────────────────────────────────────────────────
+
+function showTeamTalkPlayerTurnScreen(teamNum) {
+  // Figure out this player's role
+  const myData = players[playerId];
+  if (!myData) {
+    // Players object not yet populated — wait briefly and retry
+    setTimeout(() => showTeamTalkPlayerTurnScreen(teamNum), 300);
+    return;
+  }
+
+  const isCaptain = myData.isCaptain === true;
+  const myTeam    = myData.team;
+
+  // Scorer = captain of the OPPOSITE team
+  const isScorer = isCaptain && myTeam !== teamNum;
+
+  if (isScorer) {
+    showTeamTalkReadyScreen(teamNum);
+  } else {
+    // Everyone else (guesser, teammates, non-captains) sees a cheer screen
+    showTeamTalkPlayerWaiting(
+      teamNum === myTeam
+        ? 'Your turn! Help your team guess!'
+        : 'Cheer on the other team!',
+      teamNum === myTeam ? '🗣️' : '👀'
+    );
+  }
+}
+
+// ─── Scorer: pre-ready screen ────────────────────────────────────────────────
+
+function showTeamTalkReadyScreen(teamNum) {
+  if (document.getElementById('tt-player-ready')) return;
+
+  const div = document.createElement('div');
+  div.id = 'tt-player-ready';
+  div.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, #0a1628 0%, #0d2137 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 30px; text-align: center;';
+  div.innerHTML = `
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 36px; color: rgba(255,255,255,0.5); letter-spacing: 3px; margin-bottom: 10px;">YOU'RE SCORING</div>
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 64px; color: #ffc629; text-shadow: 0 0 24px rgba(255,198,41,0.6); letter-spacing: 4px; margin-bottom: 30px;">
+      READY — Start Team ${teamNum}'s turn
+    </div>
+    <div style="font-family: 'Barlow', sans-serif; font-size: 20px; color: rgba(255,255,255,0.7); margin-bottom: 40px; max-width: 360px; line-height: 1.6;">
+      Tap when your team is ready to start. You'll see <strong style="color:#ffc629;">CORRECT</strong> and <strong style="color:#d4145a;">SKIP</strong> buttons — the word is NOT shown on your screen.
+    </div>
+    <button id="tt-ready-btn" onclick="pressTeamTalkReady()"
+      style="padding: 24px 60px; background: linear-gradient(135deg, #2ecc71, #27ae60); color: #fff; border: none; border-radius: 18px; font-family: 'Bebas Neue', sans-serif; font-size: 42px; letter-spacing: 3px; cursor: pointer; box-shadow: 0 10px 30px rgba(46,204,113,0.5); -webkit-tap-highlight-color: transparent;">
+      ✅ READY
+    </button>
+  `;
+  document.body.appendChild(div);
+
+  // Listen for phase to change to active turn (host confirms ready) — then show scorer UI
+  gameRef.child('teamTalk/phase').once('value', () => {});
+  // The phase listener in listenForGameStart will fire handleTeamTalkPhase again if phase changes,
+  // but since we're already on the right phase we watch scorerReady feedback via Firebase:
+  // When host advances (after receiving scorerReady:true) it will trigger the countdown.
+  // Meanwhile watch for currentWord to appear as signal that turn started.
+  const turnPhase = teamNum === 1 ? 'team1turn' : 'team2turn';
+  const currentWordListener = gameRef.child('teamTalk/currentWord').on('value', (snap) => {
+    if (snap.val() !== null) {
+      gameRef.child('teamTalk/currentWord').off('value', currentWordListener);
+      const readyScreen = document.getElementById('tt-player-ready');
+      if (readyScreen) readyScreen.remove();
+      showTeamTalkScorerActiveScreen();
+    }
+  });
+}
+
+function pressTeamTalkReady() {
+  const btn = document.getElementById('tt-ready-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Starting…'; btn.style.background = 'rgba(46,204,113,0.4)'; }
+  gameRef.child('teamTalk/scorerReady').set(true);
+}
+
+// ─── Scorer: active scoring screen ───────────────────────────────────────────
+
+function showTeamTalkScorerActiveScreen() {
+  if (document.getElementById('tt-player-scoring')) return;
+
+  const div = document.createElement('div');
+  div.id = 'tt-player-scoring';
+  div.style.cssText = 'position: fixed; inset: 0; background: #0a0a12; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 30px; z-index: 10000; padding: 30px; text-align: center;';
+  div.innerHTML = `
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 26px; color: rgba(255,255,255,0.4); letter-spacing: 3px;">SCORING</div>
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 48px; color: #ffc629;">
+      Score: <span id="tt-scorer-score">0</span>
+    </div>
+    <div style="display: flex; gap: 20px; width: 100%; max-width: 460px;">
+      <button id="tt-correct-btn" onclick="submitTeamTalkAction('correct')"
+        style="flex: 1; padding: 32px 10px; background: linear-gradient(135deg, #2ecc71, #27ae60); color: #fff; border: none; border-radius: 16px; font-family: 'Bebas Neue', sans-serif; font-size: 38px; letter-spacing: 2px; cursor: pointer; box-shadow: 0 8px 24px rgba(46,204,113,0.5); -webkit-tap-highlight-color: transparent;">
+        ✓ CORRECT
+      </button>
+      <button id="tt-skip-btn" onclick="submitTeamTalkAction('skip')"
+        style="flex: 1; padding: 32px 10px; background: linear-gradient(135deg, #d4145a, #a00040); color: #fff; border: none; border-radius: 16px; font-family: 'Bebas Neue', sans-serif; font-size: 38px; letter-spacing: 2px; cursor: pointer; box-shadow: 0 8px 24px rgba(212,20,90,0.4); -webkit-tap-highlight-color: transparent;">
+        ✗ SKIP
+      </button>
+    </div>
+    <div style="font-family: 'Barlow', sans-serif; font-size: 16px; color: rgba(255,255,255,0.35); max-width: 320px; line-height: 1.5;">
+      The word is shown on the host screen — not here.
+    </div>
+  `;
+  document.body.appendChild(div);
+
+  // Listen for team score updates from Firebase to keep score display in sync
+  gameRef.child('teamTalk/team' + (_ttCurrentScoringTeam || 1) + 'Score').on('value', (snap) => {
+    const scoreEl = document.getElementById('tt-scorer-score');
+    if (scoreEl && snap.val() !== null) scoreEl.textContent = snap.val();
+  });
+}
+
+// Which team's score to watch — set when phase fires
+let _ttCurrentScoringTeam = 1;
+
+// Override handleTeamTalkPhase to track scoring team
+const _ttOriginalHandle = window._ttHandleSetup; // unused — handled inline
+const _ttHandlePhaseOrig = (typeof handleTeamTalkPhase === 'function') ? handleTeamTalkPhase : null;
+
+// Patch: track which team is scoring
+(function() {
+  const origHandle = handleTeamTalkPhase;
+  handleTeamTalkPhase = function(phase) {
+    if (phase === 'team1turn') _ttCurrentScoringTeam = 1;
+    else if (phase === 'team2turn') _ttCurrentScoringTeam = 2;
+    origHandle(phase);
+  };
+})();
+
+function submitTeamTalkAction(action) {
+  // Briefly disable both buttons to prevent double-tap
+  const correctBtn = document.getElementById('tt-correct-btn');
+  const skipBtn    = document.getElementById('tt-skip-btn');
+  if (correctBtn) correctBtn.disabled = true;
+  if (skipBtn)    skipBtn.disabled    = true;
+
+  gameRef.child('teamTalk/currentWord').once('value', (snap) => {
+    const word = snap.val();
+    const wordId = word ? word.id : -1;
+    const points = (action === 'correct' && word) ? word.points : 0;
+
+    gameRef.child('teamTalk/wordAction').set({
+      action: action,
+      wordId: wordId,
+      points: points,
+      ts: Date.now(),
+    });
+
+    // Re-enable after a short delay (host will push a new word)
+    setTimeout(() => {
+      if (correctBtn) correctBtn.disabled = false;
+      if (skipBtn)    skipBtn.disabled    = false;
+    }, 600);
+  });
+}
+
+// ─── Waiting / cheer screen ───────────────────────────────────────────────────
+
+function showTeamTalkPlayerWaiting(message, emoji) {
+  if (document.getElementById('tt-player-waiting')) return;
+
+  const div = document.createElement('div');
+  div.id = 'tt-player-waiting';
+  div.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, #0a1628 0%, #1a2b4a 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 30px; text-align: center;';
+  div.innerHTML = `
+    <div style="font-size: 64px; margin-bottom: 20px;">${emoji}</div>
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 36px; color: rgba(255,255,255,0.8); letter-spacing: 3px; margin-bottom: 12px;">${message}</div>
+    <div class="spinner" style="margin-top: 20px;"></div>
+  `;
+  document.body.appendChild(div);
+}
+
+// ─── Results ──────────────────────────────────────────────────────────────────
+
+function showTeamTalkPlayerResults() {
+  if (document.getElementById('tt-player-results')) return;
+
+  gameRef.child('teamTalk').once('value', (snap) => {
+    const data = snap.val() || {};
+    const t1 = data.team1Score || 0;
+    const t2 = data.team2Score || 0;
+
+    const div = document.createElement('div');
+    div.id = 'tt-player-results';
+    div.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, #0a1628 0%, #1a2b4a 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 30px; text-align: center;';
+
+    gameRef.once('value', (gameSnap) => {
+      const gd = gameSnap.val() || {};
+      const team1Name = gd.team1 ? gd.team1.name : 'Team 1';
+      const team1Flag = gd.team1 ? gd.team1.flag : '⚽';
+      const team2Name = gd.team2 ? gd.team2.name : 'Team 2';
+      const team2Flag = gd.team2 ? gd.team2.flag : '⚽';
+
+      div.innerHTML = `
+        <div style="font-family: 'Bebas Neue', sans-serif; font-size: 44px; color: #ffc629; letter-spacing: 4px; margin-bottom: 30px;">TEAM TALK — SCORES</div>
+        <div style="display: flex; gap: 50px; align-items: center; justify-content: center; margin-bottom: 24px;">
+          <div style="text-align: center;">
+            <div style="font-size: 44px; margin-bottom: 6px;">${team1Flag}</div>
+            <div style="font-family: 'Bebas Neue', sans-serif; font-size: 24px; color: rgba(255,255,255,0.8);">${team1Name}</div>
+            <div style="font-family: 'Bebas Neue', sans-serif; font-size: 72px; color: #4dd4e8; text-shadow: 0 0 20px rgba(77,212,232,0.5);">${t1}</div>
+          </div>
+          <div style="font-family: 'Bebas Neue', sans-serif; font-size: 44px; color: rgba(255,255,255,0.4);">–</div>
+          <div style="text-align: center;">
+            <div style="font-size: 44px; margin-bottom: 6px;">${team2Flag}</div>
+            <div style="font-family: 'Bebas Neue', sans-serif; font-size: 24px; color: rgba(255,255,255,0.8);">${team2Name}</div>
+            <div style="font-family: 'Bebas Neue', sans-serif; font-size: 72px; color: #d4145a; text-shadow: 0 0 20px rgba(212,20,90,0.5);">${t2}</div>
+          </div>
+        </div>
+        <div style="font-family: 'Barlow', sans-serif; font-size: 20px; color: rgba(255,255,255,0.6);">Nice scoring! Waiting for results…</div>
+      `;
+      document.body.appendChild(div);
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // HEARTBEAT & PAUSE INDICATOR
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -5501,12 +5825,40 @@ function rejoinGame(savedCode, savedPid, savedName) {
   setTimeout(() => toast.remove(), 3000);
 
   document.getElementById('join-screen').classList.add('hidden');
-  document.getElementById('waiting-screen').classList.add('active');
-  document.getElementById('waiting-name').textContent = playerName;
-  document.getElementById('waiting-code').textContent = gameCode;
-
-  listenForGameStart();
   startHeartbeat();
+
+  // Read current game state once to decide where to drop back in
+  gameRef.once('value', (snap) => {
+    const data = snap.val() || {};
+
+    // Determine if this player is Player 1 (first in the players list)
+    const playerIds = Object.keys(data.players || {});
+    if (playerIds.length > 0 && playerIds[0] === playerId) {
+      window._isPlayer1 = true;
+    }
+
+    // Game is underway if any in-progress phase key is present
+    const gameUnderway = data.round || data.round2Active || data.blowBallActive ||
+                         data.blowBallComplete || data.round3IntroActive ||
+                         data.showScoresReview || data.bonusRoundPhase ||
+                         data.gameComplete;
+
+    if (gameUnderway) {
+      // Skip the waiting screen — jump straight back into the game.
+      // startPlaying() sets up all reactive Firebase listeners which will
+      // immediately fire with current values and restore the right screen.
+      window._startPlayingCalled = false; // reset guard so startPlaying() runs
+      startPlaying();
+      if (window._isPlayer1) createPlayerPauseButton();
+    } else {
+      // Game hasn't started yet — wait as normal
+      document.getElementById('waiting-screen').classList.add('active');
+      document.getElementById('waiting-name').textContent = playerName;
+      document.getElementById('waiting-code').textContent = gameCode;
+    }
+
+    listenForGameStart();
+  });
 }
 
 function startNewSession() {

@@ -25,6 +25,7 @@
     --text: #ffffff;
     --text-muted: #a8b4d0;
     --border: #3e5c8f;
+    --header-height: 100px;
   }
   
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -54,7 +55,7 @@
     height: 100vh;
     display: flex;
     flex-direction: column;
-    padding-top: 108px; /* actual header height: ~12px padding + ~84px content (code-label + code-value) + 12px padding + 3px border */
+    padding-top: var(--header-height);
   }
   
   /* HEADER — fixed so it persists above all game overlays */
@@ -888,7 +889,7 @@
     flex-shrink: 0;
   }
   .question-text {
-    font-size: clamp(15px, 2.4vh, 26px);
+    font-size: clamp(15px, 2.4vh, 32px);
     line-height: 1.3;
   }
   .answers-display {
@@ -904,7 +905,7 @@
     min-width: 30px;
   }
   .answer-text {
-    font-size: clamp(13px, 1.8vh, 20px);
+    font-size: clamp(13px, 1.8vh, 28px);
   }
   .answer-count {
     font-size: clamp(18px, 2.2vh, 28px);
@@ -920,7 +921,7 @@
     margin-top: 0;
   }
   .scoreboard-title {
-    font-size: clamp(16px, 2.2vh, 26px);
+    font-size: clamp(16px, 2.2vh, 30px);
     margin-bottom: clamp(5px, 0.7vh, 12px);
   }
   .score-list {
@@ -930,11 +931,11 @@
     padding: clamp(5px, 0.8vh, 12px) clamp(8px, 1.2vw, 16px);
   }
   .score-rank {
-    font-size: clamp(16px, 2.2vh, 26px);
+    font-size: clamp(16px, 2.2vh, 28px);
     min-width: 30px;
   }
   .score-player-name {
-    font-size: clamp(13px, 1.7vh, 20px);
+    font-size: clamp(13px, 1.7vh, 28px);
   }
   .score-points {
     font-size: clamp(18px, 2.4vh, 28px);
@@ -950,7 +951,7 @@
     margin-bottom: clamp(6px, 0.9vh, 14px);
   }
   .lobby-subtitle {
-    font-size: clamp(17px, 2.4vh, 22px);
+    font-size: clamp(17px, 2.4vh, 28px);
     margin-bottom: clamp(10px, 1.5vh, 26px);
   }
   .qr-code-container {
@@ -967,7 +968,7 @@
     max-height: clamp(160px, 23vh, 215px) !important;
   }
   .join-url {
-    font-size: clamp(17px, 2.5vh, 24px);
+    font-size: clamp(17px, 2.5vh, 28px);
     margin-bottom: clamp(10px, 1.5vh, 22px);
   }
   .players-waiting {
@@ -976,7 +977,7 @@
 
   /* ── TEAM SELECTION ── */
   .team-selection-title {
-    font-size: clamp(28px, 4.2vh, 46px);
+    font-size: clamp(28px, 4.2vh, 56px);
     margin-bottom: clamp(5px, 0.7vh, 10px);
   }
   .team-selection-subtitle {
@@ -990,7 +991,7 @@
     margin-bottom: 5px;
   }
   .team-name {
-    font-size: clamp(13px, 1.7vh, 18px);
+    font-size: clamp(13px, 1.7vh, 28px);
   }
   .selected-teams-display {
     gap: clamp(14px, 2.5vw, 32px);
@@ -1005,10 +1006,10 @@
     margin-bottom: 5px;
   }
   .selected-team-name {
-    font-size: clamp(20px, 2.8vh, 28px);
+    font-size: clamp(20px, 2.8vh, 52px);
   }
   .vs-text {
-    font-size: clamp(28px, 3.8vh, 42px);
+    font-size: clamp(28px, 3.8vh, 52px);
   }
 
   /* ── ROUND 2 - PUNNED IT ── */
@@ -1022,11 +1023,11 @@
     flex-shrink: 0;
   }
   .pun-category-title {
-    font-size: clamp(12px, 1.6vh, 18px);
+    font-size: clamp(12px, 1.6vh, 28px);
     margin-bottom: clamp(5px, 0.7vh, 10px);
   }
   .pun-category-text {
-    font-size: clamp(24px, 3.8vh, 46px);
+    font-size: clamp(24px, 3.8vh, 52px);
   }
   .countdown-display {
     width: clamp(80px, 12vh, 140px);
@@ -1046,7 +1047,7 @@
     overflow-y: auto;
   }
   .pun-content {
-    font-size: clamp(15px, 2vh, 22px);
+    font-size: clamp(15px, 2vh, 28px);
   }
 
   /* ── ROUND 3 - INTERVIEW ── */
@@ -1061,7 +1062,7 @@
     flex-shrink: 0;
   }
   .interview-question-text {
-    font-size: clamp(15px, 2.4vh, 25px);
+    font-size: clamp(15px, 2.4vh, 32px);
   }
   .submitted-answers-display {
     flex: 1;
@@ -1076,20 +1077,50 @@
     gap: clamp(7px, 1vw, 16px);
   }
   .answer-content {
-    font-size: clamp(14px, 1.9vh, 20px);
+    font-size: clamp(14px, 1.9vh, 28px);
   }
   .answer-votes {
     font-size: clamp(20px, 2.8vh, 30px);
     min-width: 50px;
   }
 
+  /* ── TEAM FLY-IN ── */
+  @keyframes flyInLeft {
+    from { transform: translateX(-100vw) rotate(-10deg); opacity: 0; }
+    to   { transform: translateX(0) rotate(0); opacity: 1; }
+  }
+  @keyframes flyInRight {
+    from { transform: translateX(100vw) rotate(10deg); opacity: 0; }
+    to   { transform: translateX(0) rotate(0); opacity: 1; }
+  }
+
+  /* ── PLAYER JOIN PULSE ── */
+  @keyframes playerPulse {
+    0%   { transform: scale(1); }
+    50%  { transform: scale(1.05); }
+    100% { transform: scale(1); }
+  }
+  .player-joining {
+    animation: playerPulse 0.4s ease forwards;
+  }
+
+  /* ── GATE ANIMATION ── */
+  #code-gate {
+    transition: transform 0.8s cubic-bezier(0.23, 1, 0.32, 1);
+  }
+  #code-gate.access-granted {
+    transform: translateY(-100%);
+  }
+
+  /* ── STADIUM AUDIO INDICATOR ── */
+
   /* ── TRANSITIONS ── */
   .transition-title {
-    font-size: clamp(36px, 5.5vh, 60px);
+    font-size: clamp(36px, 5.5vh, 72px);
     margin-bottom: clamp(8px, 1.2vh, 16px);
   }
   .transition-subtitle {
-    font-size: clamp(14px, 2vh, 20px);
+    font-size: clamp(14px, 2vh, 28px);
     margin-bottom: clamp(14px, 2.2vh, 32px);
   }
   .transition-icon {
@@ -1106,7 +1137,7 @@
     <div class="game-title">Global Soccer Trophy Quiz Cup</div>
     <div class="header-right">
       <div id="header-qr-wrap" style="display: flex; flex-direction: column; align-items: center; gap: 3px; margin-right: 4px;">
-        <img id="header-qr-img" src="" alt="QR" style="width: 48px; height: 48px; border-radius: 4px; border: 2px solid rgba(255,198,41,0.8); background: #fff; display: none;">
+        <div id="header-qr-small" style="width: 70px; height: 70px; border-radius: 4px; border: 2px solid rgba(255,198,41,0.8); background: #fff; overflow: hidden; display: none; align-items: center; justify-content: center;"></div>
         <div style="font-family: 'Bebas Neue', sans-serif; font-size: 9px; color: rgba(255,255,255,0.55); letter-spacing: 1px;">SCAN TO JOIN</div>
       </div>
       <div class="round-indicator" id="round-indicator">Lobby</div>
@@ -1137,95 +1168,6 @@
         Confirm Teams
       </button>
     </div>
-
-
-    <!-- CODE GATE OVERLAY -->
-    <div id="code-gate" style="
-        position: fixed; inset: 0; z-index: 9999;
-        background: linear-gradient(135deg, #0a1628 0%, #1a2b4a 100%);
-        display: flex; align-items: center; justify-content: center;
-        font-family: 'Barlow Condensed', sans-serif;
-    ">
-        <div style="text-align: center; padding: 2rem; max-width: 480px; width: 100%;">
-            <div style="font-size: 4rem; margin-bottom: 1rem;">⚽</div>
-            <h1 style="font-family: 'Bebas Neue', sans-serif; font-size: 3rem; color: #ffc629; letter-spacing: 0.1em; margin: 0 0 0.5rem;">GLOBAL SOCCER</h1>
-            <h2 style="font-family: 'Bebas Neue', sans-serif; font-size: 2rem; color: #4dd4e8; letter-spacing: 0.1em; margin: 0 0 2rem;">TROPHY QUIZ CUP</h2>
-            <p style="color: rgba(255,255,255,0.7); margin-bottom: 1.5rem; font-size: 1.1rem;">Enter your game code to start playing</p>
-            <input id="gate-input" type="text" placeholder="GSTQC-XXXX-XXXX"
-                style="
-                    width: 100%; padding: 1rem; font-size: 1.3rem; text-align: center;
-                    font-family: monospace; letter-spacing: 0.1em; text-transform: uppercase;
-                    background: rgba(255,255,255,0.08); border: 2px solid rgba(77,212,232,0.5);
-                    border-radius: 10px; color: white; outline: none; margin-bottom: 1rem;
-                    box-sizing: border-box;
-                "
-            />
-            <button id="gate-btn" onclick="validateGateCode()" style="
-                width: 100%; padding: 1rem; font-family: 'Bebas Neue', sans-serif;
-                font-size: 1.8rem; letter-spacing: 0.1em; color: #0a1628;
-                background: linear-gradient(135deg, #4dd4e8, #ffc629);
-                border: none; border-radius: 50px; cursor: pointer;
-            ">🎮 START GAME</button>
-            <p id="gate-error" style="color: #ff6b6b; margin-top: 1rem; display: none;"></p>
-            <p style="color: rgba(255,255,255,0.4); font-size: 0.85rem; margin-top: 1.5rem;">
-                Don't have a code? <a href="https://foulplay.games/buy.html" style="color: #4dd4e8;">Buy one here →</a>
-            </p>
-        </div>
-    </div>
-
-    <script>
-        // Pre-fill code from URL if coming from success page
-        (function() {
-            const params = new URLSearchParams(window.location.search);
-            const urlCode = params.get('code');
-            if (urlCode) {
-                document.getElementById('gate-input').value = urlCode.toUpperCase();
-                // Auto-validate if code came from success page
-                validateGateCode();
-            }
-        })();
-
-        async function validateGateCode() {
-            const input = document.getElementById('gate-input');
-            const btn = document.getElementById('gate-btn');
-            const errorEl = document.getElementById('gate-error');
-            const code = input.value.trim().toUpperCase();
-
-            if (!code) {
-                errorEl.textContent = 'Please enter your game code.';
-                errorEl.style.display = 'block';
-                return;
-            }
-
-            btn.textContent = 'Checking...';
-            btn.disabled = true;
-            errorEl.style.display = 'none';
-
-            try {
-                const res = await fetch(`https://foulplay-payments.vercel.app/api/validate-code?code=${encodeURIComponent(code)}`);
-                const data = await res.json();
-
-                if (data.valid) {
-                    document.getElementById('code-gate').style.display = 'none';
-                } else {
-                    errorEl.textContent = 'Invalid or unrecognised code. Check your email and try again.';
-                    errorEl.style.display = 'block';
-                    btn.textContent = '🎮 START GAME';
-                    btn.disabled = false;
-                }
-            } catch (err) {
-                errorEl.textContent = 'Could not verify code. Check your connection and try again.';
-                errorEl.style.display = 'block';
-                btn.textContent = '🎮 START GAME';
-                btn.disabled = false;
-            }
-        }
-
-        // Allow pressing Enter in the input
-        document.getElementById('gate-input').addEventListener('keydown', function(e) {
-            if (e.key === 'Enter') validateGateCode();
-        });
-    </script>
 
     <!-- LOBBY SCREEN -->
     <div class="lobby-screen" id="lobby-screen">
@@ -1288,10 +1230,11 @@
     </div>
 
     <!-- TRANSITION SCREENS -->
-    <div class="transition-screen" id="transition-screen">
+    <div class="transition-screen" id="transition-screen" style="font-family: 'Bebas Neue', sans-serif;">
       <div class="transition-icon" id="transition-icon">🏆</div>
       <div class="transition-title" id="transition-title">Round Complete</div>
       <div class="transition-subtitle" id="transition-subtitle">Get ready...</div>
+      <div id="transition-countdown" style="font-family: 'Bebas Neue', sans-serif; font-size: 80px; color: var(--motd-gold); text-shadow: 0 0 30px rgba(255,198,41,0.6); min-height: 96px; line-height: 1;"></div>
       <button class="host-btn" id="transition-btn" onclick="continueGame()">Continue</button>
     </div>
 
@@ -1345,7 +1288,7 @@
         <div class="score-list" id="final-score-list"></div>
       </div>
       <div class="host-controls" style="margin-top: 40px;">
-        <button class="host-btn secondary" onclick="location.reload()">New Game</button>
+        <button class="host-btn secondary" onclick="localStorage.removeItem('fp_gameCode'); location.reload()">New Game</button>
       </div>
     </div>
 
@@ -1376,6 +1319,62 @@ const firebaseConfig = {
 // Initialize Firebase
 firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FAL.AI CONFIGURATION
+// ═══════════════════════════════════════════════════════════════════════════
+// Get your key from https://fal.ai/dashboard/keys
+const FAL_AI_KEY = a820a0d0-835e-4024-85f0-e216e2016551:ae86f34bb27479c3ce6be57717c1bd79
+
+// pun_king.jpg must be publicly accessible so fal.ai can fetch it.
+// On GitHub Pages / foulplay.games this resolves correctly automatically.
+// If testing locally, replace with a full public URL, e.g. a Firebase Storage link.
+const PUN_KING_URL = window.location.origin + '/pun_king.jpg';
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FAL.AI — PUN KING FACE SWAP
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Swaps the player's face (base64 data URL) onto pun_king.jpg using fal.ai.
+ * Returns a Promise that resolves to the generated image URL (string) or null on failure.
+ */
+async function generatePunKingPortrait(playerPhotoDataUrl) {
+  if (!FAL_AI_KEY || FAL_AI_KEY === 'YOUR_FAL_AI_KEY_HERE') {
+    console.warn('⚠️  FAL_AI_KEY not set — skipping Pun King face swap');
+    return null;
+  }
+
+  try {
+    const response = await fetch('https://fal.run/fal-ai/face-swap', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Key ${FAL_AI_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        base_image_url: PUN_KING_URL,   // painting — face gets replaced
+        swap_image_url: playerPhotoDataUrl  // player's face — fal.ai accepts base64
+      })
+    });
+
+    if (!response.ok) {
+      const err = await response.text();
+      console.error('❌ fal.ai face-swap error:', response.status, err);
+      return null;
+    }
+
+    const result = await response.json();
+    // fal-ai/face-swap returns { image: { url: '...' } }
+    const url = result?.image?.url || result?.images?.[0]?.url || null;
+    console.log('✅ Pun King portrait generated:', url);
+    return url;
+
+  } catch (e) {
+    console.error('❌ fal.ai request failed:', e);
+    return null;
+  }
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // GAME DATA - ALL ROUNDS
@@ -1461,7 +1460,7 @@ function getContextualReactionFile(team1Score, team2Score) {
     return pick([
       'struggling_reaction_1.mp3',
       'struggling_reaction_3.mp3',
-      'struggling_reaction_4mp3.mp3',
+      'struggling_reaction_4.mp3',
       'struggling_reaction_5.mp3',
     ]);
   }
@@ -1584,8 +1583,9 @@ const ROUND_3_ANSWER_POOL = [
   "Cottaging Cheese",
   "Dinosaur juice",
   "Mini Golf",
-  "A communal biscuit",
-  "Huw Edwards' hard drive"
+  "A thruple with Meghan and Harry",
+  "Jehova",
+  "The fourth meat"
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1674,16 +1674,6 @@ function playAudio(src, options = {}) {
   return audio;
 }
 
-// ─── Round Intro Music ────────────────────────────────────────────────────────
-// Plays a round intro music sting then fires callback when it ends.
-// Participates in the normal pause/resume system via playAudio().
-function _playIntroMusicThen(filename, callback) {
-  let fired = false;
-  const fire = () => { if (!fired) { fired = true; callback(); } };
-  playAudio(filename + '?v=2', { volume: 0.55, onEnded: fire });
-  setTimeout(fire, 20000); // safety fallback — generous for any fanfare length
-}
-
 // ─── Audio Unlock System ────────────────────────────────────────────────────
 
 window._audioQueue   = [];
@@ -1766,7 +1756,11 @@ function generateGameCode() {
   return code;
 }
 
-const gameCode = generateGameCode();
+// localStorage persistence: resume a previous session if available
+const _savedGameCode = localStorage.getItem('fp_gameCode');
+const gameCode = (_savedGameCode && _savedGameCode.length === 4) ? _savedGameCode : generateGameCode();
+// Persist for reload recovery
+localStorage.setItem('fp_gameCode', gameCode);
 const gameRef = database.ref('games/' + gameCode);
 
 let players = {};
@@ -1787,7 +1781,8 @@ let teamsSelected = false;
 
 // Sabotage button state
 let sabotageActivated = false;
-let sabotageUsed = false; // single shared flag — only one team can win it
+let team1SabotageUsed = false;
+let team2SabotageUsed = false;
 let leadPlayerId = null;
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1796,16 +1791,30 @@ let leadPlayerId = null;
 
 document.getElementById('game-code').textContent = gameCode;
 
-const playerUrl = 'https://join.foulplay.games?code=' + encodeURIComponent(gameCode);
+const playerUrl = window.location.origin + window.location.pathname.replace(/host[^/]*\.html/, 'player-sandbox.html') + '?code=' + gameCode;
 const joinUrlEl = document.getElementById('join-url');
 joinUrlEl.textContent = playerUrl;
 joinUrlEl.href = playerUrl;
 
-// Populate mini header QR
-const headerQrImg = document.getElementById('header-qr-img');
-if (headerQrImg) {
-  headerQrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=48x48&data=${encodeURIComponent(playerUrl)}`;
-  headerQrImg.style.display = 'block';
+// Populate mini header QR using the QRCode library (same as lobby)
+const headerQrSmall = document.getElementById('header-qr-small');
+if (headerQrSmall) {
+  // Wait for QRCode library (loaded alongside the lobby QR timeout)
+  setTimeout(() => {
+    try {
+      headerQrSmall.innerHTML = '';
+      new QRCode(headerQrSmall, {
+        text: playerUrl,
+        width: 70,
+        height: 70,
+        colorDark: '#000000',
+        colorLight: '#ffffff'
+      });
+      headerQrSmall.style.display = 'flex';
+    } catch (e) {
+      console.warn('Header QR generation failed:', e);
+    }
+  }, 1100);
 }
 
 console.log('Player URL:', playerUrl);
@@ -1929,11 +1938,9 @@ function showTeamSelection() {
   // Hide lobby, show "waiting for team selection" message
   document.getElementById('lobby-screen').classList.add('hidden');
   
-  // Stop intro_music if playing (also purge from resume queue so pause/resume can't restart it)
+  // Stop intro_music if playing
   if (window.introMusicAudio) {
-    const _ima = window.introMusicAudio;
-    _ima.pause();
-    if (window._pausedAudioRefs) window._pausedAudioRefs = window._pausedAudioRefs.filter(a => a !== _ima);
+    window.introMusicAudio.pause();
     window.introMusicAudio = null;
   }
   
@@ -1981,15 +1988,12 @@ function showTeamSelection() {
 
 function confirmTeams() {
   if (!team1 || !team2) return;
-  if (teamsSelected) return; // guard — playerTeamSelections listener can fire multiple times
-
+  
   teamsSelected = true;
   
-  // Stop intro_music if playing (also purge from resume queue so pause/resume can't restart it)
+  // Stop intro_music if playing
   if (window.introMusicAudio) {
-    const _ima = window.introMusicAudio;
-    _ima.pause();
-    if (window._pausedAudioRefs) window._pausedAudioRefs = window._pausedAudioRefs.filter(a => a !== _ima);
+    window.introMusicAudio.pause();
     window.introMusicAudio = null;
   }
   
@@ -2032,13 +2036,13 @@ function showMatchCard() {
   matchCard.innerHTML = `
     <div style="font-family: 'Bebas Neue', sans-serif; font-size: 26px; color: var(--motd-gold); letter-spacing: 8px; margin-bottom: 50px; opacity: 0.85; text-transform: uppercase;">Today's Match</div>
     <div style="display: flex; align-items: center; justify-content: center; gap: 60px; width: 100%; max-width: 1000px;">
-      <div style="display: flex; flex-direction: column; align-items: center; gap: 24px; flex: 1;">
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 24px; flex: 1; animation: flyInLeft 0.7s cubic-bezier(0.23, 1, 0.32, 1) forwards;">
         <div style="font-size: 110px; line-height: 1; filter: drop-shadow(0 0 20px rgba(255,255,255,0.3));">${team1.flag}</div>
         <div style="font-family: 'Bebas Neue', sans-serif; font-size: 46px; color: var(--text); letter-spacing: 3px; text-shadow: 0 0 20px ${team1.color}88;">${team1.name}</div>
         <div style="width: 80px; height: 4px; background: ${team1.color}; border-radius: 2px;"></div>
       </div>
       <div style="font-family: 'Bebas Neue', sans-serif; font-size: 90px; color: var(--motd-gold); text-shadow: 0 0 40px rgba(255,198,41,0.6); line-height: 1;">VS</div>
-      <div style="display: flex; flex-direction: column; align-items: center; gap: 24px; flex: 1;">
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 24px; flex: 1; animation: flyInRight 0.7s cubic-bezier(0.23, 1, 0.32, 1) forwards;">
         <div style="font-size: 110px; line-height: 1; filter: drop-shadow(0 0 20px rgba(255,255,255,0.3));">${team2.flag}</div>
         <div style="font-family: 'Bebas Neue', sans-serif; font-size: 46px; color: var(--text); letter-spacing: 3px; text-shadow: 0 0 20px ${team2.color}88;">${team2.name}</div>
         <div style="width: 80px; height: 4px; background: ${team2.color}; border-radius: 2px;"></div>
@@ -2051,8 +2055,8 @@ function showMatchCard() {
 }
 
 function proceedToVoiceGeneration() {
-  // Generate and play ElevenLabs voice
-  generateIntroVoiceDirectly();
+  // SANDBOX TEST: goes straight to Team Talk. Change back to generateIntroVoiceDirectly() for full game.
+  showTeamTalkIntro();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -2060,11 +2064,6 @@ function proceedToVoiceGeneration() {
 // ═══════════════════════════════════════════════════════════════════════════
 
 function showRound1Explainer() {
-  // Guard: never show if the game is already underway
-  if (gameStarted) return;
-  // Guard: never create a second explainer if one already exists
-  if (document.getElementById('round1-explainer')) return;
-
   // Remove match card if still showing
   const matchCardEl = document.getElementById('match-card-screen');
   if (matchCardEl) matchCardEl.remove();
@@ -2092,77 +2091,75 @@ function showRound1Explainer() {
     </div>
     
     <div style="font-family: 'Barlow', sans-serif; font-size: 22px; color: var(--motd-cyan); margin-bottom: 40px;">
-      Waiting for ${getRefereeName()} to blow the whistle...
+      Waiting for first player to start...
     </div>
     
     <div class="spinner"></div>
   `;
   
   document.body.appendChild(explainerDiv);
+  
+  // Play round_1_intro audio
+  console.log('🎵 Playing round_1_intro.mp3');
+  
+  // Use preloaded audio if available, otherwise create new
+  // NOTE: never call .load() on a preloaded Audio — it clears the buffer
+  //       and causes audio to stall after ~2 s while the file re-fetches.
+  const round1Audio = window.round1IntroPreload || new Audio('round_1_intro.mp3?v=2');
+  if (!window.round1IntroPreload) {
+    round1Audio.preload = 'auto';
+    round1Audio.load();
+  }
+  round1Audio.volume = 0.6;
 
-  // Notify players to show explainer on their screens immediately
+  // Keep a window reference so GC can't collect it mid-play
+  window.round1IntroAudio = round1Audio;
+
+  round1Audio.addEventListener('error', (e) => {
+    console.error('❌ round_1_intro.mp3 failed to load:', round1Audio.error);
+  });
+
+  round1Audio.play()
+    .then(() => console.log('🔊 Playing round_1_intro'))
+    .catch(err => {
+      if (err.name === 'NotAllowedError') {
+        console.log('⚠️ round_1_intro blocked — queued for unlock');
+        window._audioQueue = window._audioQueue || [];
+        window._audioQueue.push({ audio: round1Audio, options: {}, release: () => {} });
+        showAudioUnlockButton();
+      } else {
+        console.error('round_1_intro play failed:', err);
+        // If audio can't play at all, unblock the start button immediately
+        gameRef.update({ round1IntroReady: true });
+      }
+    });
+
+  // Unlock the start button on players' phones when audio finishes
+  let introReadySet = false;
+  round1Audio.addEventListener('ended', () => {
+    if (!introReadySet) {
+      introReadySet = true;
+      console.log('✅ round_1_intro finished — unlocking start button');
+      gameRef.update({ round1IntroReady: true });
+    }
+  });
+
+  // Fallback: unlock after 30s if audio never ends (e.g. very long file)
+  setTimeout(() => {
+    if (!introReadySet) {
+      introReadySet = true;
+      console.log('⚠️ round_1_intro timeout — unlocking start button anyway');
+      gameRef.update({ round1IntroReady: true });
+    }
+  }, 30000);
+
+  // Notify players to show explainer on their screens
   gameRef.update({
     showRound1Explainer: true,
     round1IntroReady: false
   });
-  console.log('📱 Round 1 explainer shown — playing intro music, then voice');
 
-  // Play intro music sting first, then voice explainer
-  _playIntroMusicThen('round_1_intro_music.mp3', () => {
-    // Play round_1_intro audio
-    console.log('🎵 Playing round_1_intro.mp3');
-
-    // Use preloaded audio if available, otherwise create new
-    // NOTE: never call .load() on a preloaded Audio — it clears the buffer
-    //       and causes audio to stall after ~2 s while the file re-fetches.
-    const round1Audio = window.round1IntroPreload || new Audio('round_1_intro.mp3?v=2');
-    if (!window.round1IntroPreload) {
-      round1Audio.preload = 'auto';
-      round1Audio.load();
-    }
-    round1Audio.volume = 0.6;
-
-    // Keep a window reference so GC can't collect it mid-play
-    window.round1IntroAudio = round1Audio;
-
-    round1Audio.addEventListener('error', (e) => {
-      console.error('❌ round_1_intro.mp3 failed to load:', round1Audio.error);
-    });
-
-    round1Audio.play()
-      .then(() => console.log('🔊 Playing round_1_intro'))
-      .catch(err => {
-        if (err.name === 'NotAllowedError') {
-          console.log('⚠️ round_1_intro blocked — queued for unlock');
-          window._audioQueue = window._audioQueue || [];
-          window._audioQueue.push({ audio: round1Audio, options: {}, release: () => {} });
-          showAudioUnlockButton();
-        } else {
-          console.error('round_1_intro play failed:', err);
-          // If audio can't play at all, unblock the start button immediately
-          gameRef.update({ round1IntroReady: true });
-        }
-      });
-
-    // Unlock the start button on players' phones when audio finishes
-    let introReadySet = false;
-    round1Audio.addEventListener('ended', () => {
-      if (!introReadySet) {
-        introReadySet = true;
-        console.log('✅ round_1_intro finished — unlocking start button');
-        gameRef.update({ round1IntroReady: true });
-      }
-    });
-
-    // Fallback: unlock after 30s if audio never ends (e.g. very long file)
-    setTimeout(() => {
-      if (!introReadySet) {
-        introReadySet = true;
-        console.log('⚠️ round_1_intro timeout — unlocking start button anyway');
-        gameRef.update({ round1IntroReady: true });
-      }
-    }, 30000);
-  });
+  console.log('📱 Round 1 explainer shown, waiting for audio to finish before allowing start');
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -2240,6 +2237,15 @@ gameRef.child('players').on('value', (snapshot) => {
         })
         .catch(err => console.log('Will play on button click'));
     }
+  }
+
+  // Stadium ambience: start once when playerCount reaches 3
+  if (playerCount >= 3 && !window.stadiAmbienceAudio) {
+    console.log('🏟️ Starting stadium ambience audio');
+    window.stadiAmbienceAudio = new Audio('stadium_ambience.mp3');
+    window.stadiAmbienceAudio.loop = true;
+    window.stadiAmbienceAudio.volume = 0.08;
+    window.stadiAmbienceAudio.play().catch(e => console.log('Stadium ambience blocked:', e));
   }
   
   // Assign players to teams if teams are selected
@@ -2379,7 +2385,6 @@ gameRef.child('round1Started').on('value', (snapshot) => {
     if (explainerDiv) {
       explainerDiv.remove();
     }
-    createPauseButton();
     startGamePlay();
     gameRef.child('round1Started').remove(); // Clear trigger
   }
@@ -2387,7 +2392,7 @@ gameRef.child('round1Started').on('value', (snapshot) => {
 
 // Listen for reveal answer command
 gameRef.child('revealAnswer').on('value', (snapshot) => {
-  if (snapshot.val() === true && !answerRevealed && gameStarted) {
+  if (snapshot.val() === true && !answerRevealed) {
     revealAnswer();
     gameRef.update({ revealAnswer: false });
   }
@@ -2422,11 +2427,15 @@ gameRef.child('answers').on('value', (snapshot) => {
   }
 });
 
+// Track which player IDs have already appeared in the lobby grid
+window._knownPlayerIds = window._knownPlayerIds || new Set();
+
 function updatePlayersList() {
   const grid = document.getElementById('players-grid');
   const count = document.getElementById('player-count');
-  
+
   const playerArray = Object.values(players);
+  const currentIds = Object.keys(players);
   count.textContent = playerArray.length;
 
   const refereeNotice = document.getElementById('referee-notice');
@@ -2437,19 +2446,26 @@ function updatePlayersList() {
       : 'The first player will also act as the referee, they will kick off once all players are ready';
   }
 
-  grid.innerHTML = playerArray.map(player => {
+  // Determine which player IDs are newly joining
+  const newIds = new Set(currentIds.filter(id => !window._knownPlayerIds.has(id)));
+  currentIds.forEach(id => window._knownPlayerIds.add(id));
+
+  grid.innerHTML = playerArray.map((player, idx) => {
+    const playerId = Object.keys(players)[idx];
     const teamClass = player.team === 1 ? 'team1' : player.team === 2 ? 'team2' : '';
     const teamFlag = player.team === 1 ? team1?.flag : player.team === 2 ? team2?.flag : '';
     const captainBadge = player.isCaptain ? '<div style="font-size:11px;color:#ffc629;font-weight:700;letter-spacing:1px;margin-bottom:2px;">⚽ CAPTAIN</div>' : '';
+    const refereeBadge = idx === 0 ? '<span title="Match Referee" style="display:inline-block;margin-left:4px;font-size:14px;vertical-align:middle;">🦺</span>' : '';
+    const joiningClass = newIds.has(playerId) ? ' player-joining' : '';
 
     return `
-      <div class="player-card ${teamClass}" style="${player.isCaptain ? 'border:2px solid #ffc629;box-shadow:0 0 12px rgba(255,198,41,0.4);' : ''}">
+      <div class="player-card ${teamClass}${joiningClass}" style="${player.isCaptain ? 'border:2px solid #ffc629;box-shadow:0 0 12px rgba(255,198,41,0.4);' : ''}">
         ${captainBadge}
         ${teamFlag ? `<div class="player-team-badge">${teamFlag}</div>` : ''}
         ${player.photo
           ? `<img src="${player.photo}" class="player-avatar" style="object-fit:cover;">`
           : `<div class="player-avatar">${player.name.charAt(0).toUpperCase()}</div>`}
-        <div class="player-name">${player.name}</div>
+        <div class="player-name">${player.name}${refereeBadge}</div>
       </div>
     `;
   }).join('');
@@ -2506,20 +2522,15 @@ function updateScoreboard() {
 // GAME FLOW
 // ═══════════════════════════════════════════════════════════════════════════
 
-// Module-level flag — survives across any accidental double-calls of generateIntroVoiceDirectly
-let _explainerShown = false;
-
 async function generateIntroVoiceDirectly() {
-  if (_explainerShown) return; // already running or done — don't start again
-
   const text = `Thanks Clyde!... It's looking like an interesting game.. We've got ${team1.name} up against ${team2.name}! Certainly one to watch! (given you're already here).`;
-
+  
   console.log('🎙️ Generating intro voice:', text);
-
+  
   // Your ElevenLabs API credentials
   const ELEVENLABS_API_KEY = 'sk_eb4900ceb7e4366087590c2b906743504ba8c844524ddcc4';
   const VOICE_ID = 'rfkTsdZrVWEVhDycUYn9';
-
+  
   let explainerShown = false; // Move outside try so catch can access
   
   try {
@@ -2559,7 +2570,7 @@ async function generateIntroVoiceDirectly() {
       window._introVoiceAudio = null;
       if (!explainerShown) {
         console.log('✅ Intro voice finished, showing explainer');
-        explainerShown = true; _explainerShown = true;
+        explainerShown = true;
         showRound1Explainer();
       }
     });
@@ -2575,16 +2586,16 @@ async function generateIntroVoiceDirectly() {
         } else {
           console.error('❌ ElevenLabs error:', err);
           if (!explainerShown) {
-            setTimeout(() => { explainerShown = true; _explainerShown = true; showRound1Explainer(); }, 2000);
+            setTimeout(() => { explainerShown = true; showRound1Explainer(); }, 2000);
           }
         }
       });
 
     // Fallback if audio doesn't play or unlock never happens
     setTimeout(() => {
-      if (!explainerShown && !_explainerShown && (!window._introVoiceAudio || window._introVoiceAudio.paused)) {
+      if (!explainerShown && (!window._introVoiceAudio || window._introVoiceAudio.paused)) {
         console.log('⚠️ Audio not playing, showing explainer anyway');
-        explainerShown = true; _explainerShown = true;
+        explainerShown = true;
         showRound1Explainer();
       }
     }, 15000);
@@ -2594,7 +2605,7 @@ async function generateIntroVoiceDirectly() {
     // Show explainer even if voice fails
     if (!explainerShown) {
       setTimeout(() => {
-        explainerShown = true; _explainerShown = true;
+        explainerShown = true;
         showRound1Explainer();
       }, 2000);
     }
@@ -2603,14 +2614,8 @@ async function generateIntroVoiceDirectly() {
 
 function startGamePlay() {
   document.getElementById('lobby-screen').classList.add('hidden');
-  // Clear "Selecting Teams" overlay if it's still in the container
-  const tsw = document.getElementById('team-select-waiting');
-  if (tsw) tsw.remove();
   gameRef.update({ started: true });
-  gameStarted = true;
-  document.getElementById('game-screen').classList.add('active');
-  loadQuestion(0);
-  scheduleSabotageButtons();
+  showRound1Explainer();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -2619,74 +2624,75 @@ function startGamePlay() {
 
 function scheduleSabotageButtons() {
   if (!teamsSelected || !team1 || !team2) return;
-
-  // Single shared timer — both teams race for the same opportunity
-  const delay = Math.random() * 30000 + 15000;
+  
+  // Random time between 15-45 seconds for team 1
+  const team1Delay = Math.random() * 30000 + 15000;
+  
+  // Random time between 15-45 seconds for team 2 (different from team 1)
+  const team2Delay = Math.random() * 30000 + 15000;
+  
   setTimeout(() => {
-    if (!sabotageUsed) activateSharedSabotage();
-  }, delay);
+    if (!team1SabotageUsed) {
+      activateSabotageForTeam(1);
+    }
+  }, team1Delay);
+  
+  setTimeout(() => {
+    if (!team2SabotageUsed) {
+      activateSabotageForTeam(2);
+    }
+  }, team2Delay);
 }
 
-function activateSharedSabotage() {
-  // Pick one random player from each team
-  const team1Players = Object.entries(players).filter(([, p]) => p.team === 1);
-  const team2Players = Object.entries(players).filter(([, p]) => p.team === 2);
-  if (!team1Players.length || !team2Players.length) return;
-
-  const [t1Id, t1Player] = team1Players[Math.floor(Math.random() * team1Players.length)];
-  const [t2Id, t2Player] = team2Players[Math.floor(Math.random() * team2Players.length)];
-
-  const now = Date.now();
-  // Show the button on both phones at the same moment
-  gameRef.update({
-    [`sabotage/${t1Id}`]: { active: true, timestamp: now },
-    [`sabotage/${t2Id}`]: { active: true, timestamp: now },
-    sabotageOpportunityPlayers: { team1: t1Id, team2: t2Id }
+function activateSabotageForTeam(teamNumber) {
+  // Pick a random player from this team
+  const teamPlayers = Object.entries(players).filter(([id, player]) => player.team === teamNumber);
+  
+  if (teamPlayers.length === 0) return;
+  
+  const randomIndex = Math.floor(Math.random() * teamPlayers.length);
+  const [selectedPlayerId, selectedPlayer] = teamPlayers[randomIndex];
+  
+  // Notify this player via Firebase
+  gameRef.child('sabotage/' + selectedPlayerId).set({
+    active: true,
+    timestamp: Date.now(),
+    teamNumber: teamNumber
   });
-
-  console.log(`🚩 Shared sabotage: ${t1Player.name} (T1) vs ${t2Player.name} (T2) — fastest wins!`);
-
-  // Auto-expire after 10 s if nobody claims it
+  
+  console.log(`Sabotage button activated for ${selectedPlayer.name} (Team ${teamNumber})`);
+  
+  // Auto-deactivate after 10 seconds
   setTimeout(() => {
-    if (!sabotageUsed) {
-      gameRef.update({
-        [`sabotage/${t1Id}`]: null,
-        [`sabotage/${t2Id}`]: null,
-        sabotageOpportunityPlayers: null
-      });
-      console.log('🚩 Shared sabotage expired unclaimed');
-    }
+    gameRef.child('sabotage/' + selectedPlayerId).remove();
   }, 10000);
 }
 
-// Listen for sabotage usage — only the first team to press wins
+// Listen for sabotage usage
 gameRef.child('sabotageUsed').on('value', (snapshot) => {
   const sabotageData = snapshot.val();
-  if (sabotageData && !sabotageUsed) {
-    sabotageUsed = true;
+  if (sabotageData) {
     const { userId, targetTeam } = sabotageData;
-
-    // Deduct 5 points from every player on the target team
-    Object.entries(players).forEach(([pid, player]) => {
+    
+    // Deduct 5 points from target team
+    Object.entries(players).forEach(([playerId, player]) => {
       if (player.team === targetTeam) {
-        const newScore = (player.score || 0) - 5;
-        gameRef.child('players/' + pid).update({ score: newScore });
+        const currentScore = player.score || 0;
+        const newScore = Math.max(0, currentScore - 5); // Don't go below 0
+        gameRef.child('players/' + playerId).update({ score: newScore });
       }
     });
-
-    // Clear both players' buttons and the opportunity record
-    gameRef.child('sabotageOpportunityPlayers').once('value', (snap) => {
-      const opp = snap.val();
-      if (opp) {
-        if (opp.team1) gameRef.child('sabotage/' + opp.team1).remove();
-        if (opp.team2) gameRef.child('sabotage/' + opp.team2).remove();
-      }
-      gameRef.child('sabotageOpportunityPlayers').remove();
+    
+    // Mark as used
+    gameRef.child('players/' + userId).once('value', (snap) => {
+      const userTeam = snap.val()?.team;
+      if (userTeam === 1) team1SabotageUsed = true;
+      if (userTeam === 2) team2SabotageUsed = true;
     });
-
+    
     // Clear the trigger
     gameRef.child('sabotageUsed').remove();
-
+    
     updateScoreboard();
   }
 });
@@ -2733,9 +2739,8 @@ function loadQuestion(index) {
     .then(() => console.log(`🔊 Question ${questionNumber} audio playing`))
     .catch(err => console.error('Question audio play failed:', err));
   
-  // Store reference to stop if needed, and add to generic pool so pauseAllAudio() catches it
+  // Store reference to stop if needed
   window.currentQuestionAudio = questionAudio;
-  window._audioRefs.push(questionAudio);
 }
 
 function updateAnswerCounts(answers) {
@@ -2764,7 +2769,6 @@ function revealAnswer() {
   
   for (let i = 0; i < q.answers.length; i++) {
     const el = document.getElementById('answer-' + i);
-    if (!el) continue;
     if (i === q.correct) {
       el.classList.add('revealed-correct');
     } else {
@@ -2795,9 +2799,8 @@ function revealAnswer() {
     answerAudio.volume = 0.6;
   }
 
-  // Keep GC-safe reference, and add to generic pool so pauseAllAudio() catches it
+  // Keep GC-safe reference
   window.currentAnswerAudio = answerAudio;
-  window._audioRefs.push(answerAudio);
 
   console.log(`🎵 Playing ${answerAudioFile}`);
 
@@ -3215,7 +3218,7 @@ function routeAfterScoresReview() {
 
   switch (source) {
     case 'round1':      startRound2();            break;
-    case 'round2':      showTeamTalkIntro();       break; // → Team Talk → Interview Round
+    case 'round2':      startRound3();            break; // → Interview Round
     case 'interview':   checkForMatchDraw();       break; // → Match Draw
     case 'matchdraw':   startCommentaryRound();    break;
     case 'commentary':  showToiletPaperAlert();    break;
@@ -3279,53 +3282,50 @@ function showRound2Explainer() {
   `;
   
   document.body.appendChild(explainerDiv);
+  
+  // Play round_2_intro audio
+  // NOTE: no .load() before .play() — calling .load() first resets the buffer
+  //       and causes audio to stall after a few seconds.
+  console.log('🎵 Playing round_2_intro.mp3');
+  window.round2IntroAudio = new Audio('round_2_intro.mp3?v=2');
+  window.round2IntroAudio.volume = 0.6;
 
-  // Notify players to show explainer immediately
+  window.round2IntroAudio.addEventListener('error', (e) => {
+    console.error('❌ round_2_intro.mp3 failed to load:', window.round2IntroAudio.error);
+  });
+
+  window.round2IntroAudio.play()
+    .then(() => console.log('🔊 Playing round_2_intro'))
+    .catch(err => console.error('round_2_intro play failed:', err));
+  
+  // Notify players to show explainer
   gameRef.update({
     showRound2Explainer: true
   });
-
-  // Play intro music sting first, then voice explainer
-  _playIntroMusicThen('punned_it_intro_music.mp3', () => {
-    // Play round_2_intro audio
-    // NOTE: no .load() before .play() — calling .load() first resets the buffer
-    //       and causes audio to stall after a few seconds.
-    console.log('🎵 Playing round_2_intro.mp3');
-    window.round2IntroAudio = new Audio('round_2_intro.mp3?v=2');
-    window.round2IntroAudio.volume = 0.6;
-
-    window.round2IntroAudio.addEventListener('error', (e) => {
-      console.error('❌ round_2_intro.mp3 failed to load:', window.round2IntroAudio.error);
-    });
-
-    window.round2IntroAudio.play()
-      .then(() => console.log('🔊 Playing round_2_intro'))
-      .catch(err => console.error('round_2_intro play failed:', err));
-
-    let gameplayStarted = false;
-
-    // Wait for audio to finish, then start round
-    window.round2IntroAudio.addEventListener('ended', () => {
-      window.round2IntroAudio = null;
-      if (!gameplayStarted) {
-        console.log('✅ Round 2 intro finished, starting round');
-        gameplayStarted = true;
-        explainerDiv.remove();
-        startRound2Gameplay();
-      }
-    });
-
-    // Fallback: start after 10 seconds if audio doesn't play
-    setTimeout(() => {
-      const r2a = window.round2IntroAudio;
-      if (!gameplayStarted && (!r2a || r2a.paused || r2a.currentTime === 0)) {
-        console.log('⚠️ Audio timeout, starting round anyway');
-        gameplayStarted = true;
-        explainerDiv.remove();
-        startRound2Gameplay();
-      }
-    }, 10000);
+  
+  let gameplayStarted = false;
+  
+  // Wait for audio to finish, then start round
+  window.round2IntroAudio.addEventListener('ended', () => {
+    window.round2IntroAudio = null;
+    if (!gameplayStarted) {
+      console.log('✅ Round 2 intro finished, starting round');
+      gameplayStarted = true;
+      explainerDiv.remove();
+      startRound2Gameplay();
+    }
   });
+
+  // Fallback: start after 10 seconds if audio doesn't play
+  setTimeout(() => {
+    const r2a = window.round2IntroAudio;
+    if (!gameplayStarted && (!r2a || r2a.paused || r2a.currentTime === 0)) {
+      console.log('⚠️ Audio timeout, starting round anyway');
+      gameplayStarted = true;
+      explainerDiv.remove();
+      startRound2Gameplay();
+    }
+  }, 10000);
 }
 
 function startRound2Gameplay() {
@@ -3334,17 +3334,19 @@ function startRound2Gameplay() {
   document.getElementById('round2-screen').classList.add('active');
   document.getElementById('round-indicator').textContent = 'Round 2 - Punned It';
   
-  // Pick one shared category — every player gets the same topic
-  const category = ROUND_2_CATEGORIES[Math.floor(Math.random() * ROUND_2_CATEGORIES.length)];
+  // Assign each player a unique random category (shuffle categories, cycle if more players than categories)
+  const shuffledCats = [...ROUND_2_CATEGORIES].sort(() => Math.random() - 0.5);
   const playerIds = Object.keys(players);
   const playerCategoryUpdates = {};
-  playerIds.forEach((pid) => {
-    playerCategoryUpdates[`players/${pid}/punCategory`] = category;
+  playerIds.forEach((pid, i) => {
+    const cat = shuffledCats[i % shuffledCats.length];
+    playerCategoryUpdates[`players/${pid}/punCategory`] = cat;
   });
   gameRef.update(playerCategoryUpdates);
 
-  // Show the shared category on the host screen
-  document.getElementById('pun-category').textContent = category;
+  // Host screen shows "Multiple Categories" (players each have their own)
+  const category = shuffledCats[0]; // fallback for host display / legacy field
+  document.getElementById('pun-category').textContent = 'See your phone!';
 
   // Reset timer
   round2TimeLeft = 60;
@@ -3637,7 +3639,7 @@ function showPunReviewIntro() {
 
 async function reviewNextPun() {
   if (currentPunIndex >= allPuns.length) {
-    // All puns reviewed → show Pun King then Scores Review #2
+    // All puns reviewed → show Pun Champion then Scores Review #2
     console.log('✅ All puns reviewed, showing Scores Review #2');
     const reviewScreen = document.getElementById('pun-review-screen');
     if (reviewScreen) reviewScreen.remove();
@@ -3805,19 +3807,29 @@ function showPunChampionScreen(championId, acceptCount, onDone) {
   const player = players[championId] || {};
   const teamColor = player.team === 1 ? '#4dd4e8' : '#d4145a';
   const initial = (player.name || '?')[0].toUpperCase();
-  const photoContent = player.photo
-    ? `<img src="${player.photo}" style="width:140px;height:140px;border-radius:50%;object-fit:cover;border:5px solid ${teamColor};box-shadow:0 0 40px ${teamColor}88;">`
-    : `<div style="width:140px;height:140px;border-radius:50%;border:5px solid ${teamColor};background:${teamColor};display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:72px;color:#0a1628;">${initial}</div>`;
 
   // Find their best accepted pun
   const bestPun = allPuns.filter(p => p.playerId === championId)[0];
+
+  // Portrait placeholder — replaced with fal.ai result when ready
+  const placeholderPortrait = `
+    <div id="pun-king-portrait-wrap" style="position:relative;width:220px;height:220px;margin-bottom:20px;">
+      <img id="pun-king-portrait-img" src="pun_king.jpg"
+        style="width:220px;height:220px;object-fit:cover;border-radius:16px;border:5px solid var(--motd-gold);box-shadow:0 0 50px rgba(255,198,41,0.6);display:block;">
+      <div id="pun-king-loading-overlay"
+        style="position:absolute;inset:0;border-radius:16px;background:rgba(10,22,40,0.75);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;">
+        <div style="font-size:28px;animation:spin 1s linear infinite;">👑</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:16px;color:var(--motd-gold);letter-spacing:2px;">Painting portrait…</div>
+      </div>
+    </div>`;
 
   const div = document.createElement('div');
   div.id = 'pun-champion-screen';
   div.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, #0a1628, #1a2b4a); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10001; padding: 40px; text-align: center;';
   div.innerHTML = `
-    <div style="font-family:'Bebas Neue',sans-serif;font-size:52px;color:var(--motd-gold);letter-spacing:4px;margin-bottom:24px;text-shadow:0 0 40px rgba(255,198,41,0.8);">🏅 THE PUN KING!</div>
-    <div style="margin-bottom:20px;">${photoContent}</div>
+    <style>@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }</style>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:52px;color:var(--motd-gold);letter-spacing:4px;margin-bottom:20px;text-shadow:0 0 40px rgba(255,198,41,0.8);">👑 PUN KING!</div>
+    ${placeholderPortrait}
     <div style="font-family:'Bebas Neue',sans-serif;font-size:48px;color:${teamColor};margin-bottom:10px;letter-spacing:2px;">${player.name || 'Unknown'}</div>
     <div style="font-family:'Barlow',sans-serif;font-size:26px;color:rgba(255,255,255,0.75);font-style:italic;max-width:700px;margin-bottom:18px;">"${bestPun ? bestPun.pun : ''}"</div>
     <div style="font-family:'Bebas Neue',sans-serif;font-size:32px;color:var(--motd-gold);">${acceptCount} pun${acceptCount === 1 ? '' : 's'} accepted ✅</div>
@@ -3825,10 +3837,61 @@ function showPunChampionScreen(championId, acceptCount, onDone) {
   document.body.appendChild(div);
 
   window.playPunReactionAudio('accept');
+
+  // Kick off face swap in the background — no await, screen shows immediately
+  // Helper: apply player photo as circular fallback portrait
+  const applyPhotoFallback = () => {
+    const img = document.getElementById('pun-king-portrait-img');
+    const overlay = document.getElementById('pun-king-loading-overlay');
+    if (overlay) overlay.remove();
+    if (!img) return;
+    if (player.photo) {
+      img.src = player.photo;
+      img.style.borderRadius = '50%';
+    } else {
+      // No photo at all — replace img with an initial-letter circle
+      const wrap = document.getElementById('pun-king-portrait-wrap');
+      if (wrap) {
+        wrap.innerHTML = `<div style="width:220px;height:220px;border-radius:50%;background:${teamColor};display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:110px;color:#fff;border:5px solid var(--motd-gold);box-shadow:0 0 50px rgba(255,198,41,0.6);">${initial}</div>`;
+      }
+    }
+  };
+
+  if (player.photo) {
+    generatePunKingPortrait(player.photo)
+      .then(generatedUrl => {
+        if (!generatedUrl) {
+          // fal.ai returned null — fall back to player photo
+          applyPhotoFallback();
+          return;
+        }
+        const img = document.getElementById('pun-king-portrait-img');
+        const overlay = document.getElementById('pun-king-loading-overlay');
+        if (!img) return; // screen already removed
+        // Swap in the generated portrait with a smooth fade
+        const newImg = new Image();
+        newImg.onload = () => {
+          img.src = generatedUrl;
+          img.style.transition = 'opacity 0.6s';
+          img.style.opacity = '0';
+          if (overlay) overlay.remove();
+          requestAnimationFrame(() => { img.style.opacity = '1'; });
+        };
+        newImg.onerror = () => applyPhotoFallback();
+        newImg.src = generatedUrl;
+      })
+      .catch(() => applyPhotoFallback());
+  } else {
+    // No photo — show initial letter circle
+    applyPhotoFallback();
+  }
+
+  // Screen stays up until the face swap arrives OR 12s, whichever comes first
+  const CHAMPION_DURATION = 12000;
   setTimeout(() => {
     div.remove();
     onDone();
-  }, 5000);
+  }, CHAMPION_DURATION);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -3893,8 +3956,11 @@ function startRound3() {
   `;
   document.body.appendChild(introDiv);
 
-  // Signal players to show their interview round intro screen immediately
+  // Signal players to show their interview round intro screen
   gameRef.update({ round3IntroActive: true });
+
+  const introAudio = new Audio('interview_round_intro.mp3?v=2');
+  introAudio.volume = 0.7;
 
   const launchRound = () => {
     introDiv.remove();
@@ -3902,27 +3968,30 @@ function startRound3() {
     document.getElementById('round3-screen').classList.add('active');
     round3CurrentQ = 0;
 
-    // Auto-advance is handled by the accept-audio callback in checkRound3Votes().
-    // No Firebase listener needed — questions advance automatically once all votes are in.
+    // Set up a SINGLE 'next question' listener — only here, never inside loadRound3Question.
+    // Flush any stale value first so it doesn't fire immediately on attach.
+    gameRef.child('round3NextQuestion').remove();
+    gameRef.child('round3NextQuestion').off();
+    gameRef.child('round3NextQuestion').on('value', (snap) => {
+      if (snap.val() === true) {
+        gameRef.child('round3NextQuestion').remove();
+        nextRound3Question();
+      }
+    });
+
     loadRound3Question(0);
   };
 
-  // Play intro music sting first, then voice explainer
-  _playIntroMusicThen('interview_round_intro_music.mp3', () => {
-    const introAudio = new Audio('interview_round_intro.mp3?v=2');
-    introAudio.volume = 0.7;
-
-    introAudio.addEventListener('ended', launchRound);
-    introAudio.play().catch(() => {
-      // Audio not found — fallback after 3 s
-      setTimeout(launchRound, 3000);
-    });
-
-    // Safety fallback: never wait more than 30 s
-    setTimeout(() => {
-      if (document.getElementById('round3-intro')) launchRound();
-    }, 30000);
+  introAudio.addEventListener('ended', launchRound);
+  introAudio.play().catch(() => {
+    // Audio not found — fallback after 3 s
+    setTimeout(launchRound, 3000);
   });
+
+  // Safety fallback: never wait more than 30 s
+  setTimeout(() => {
+    if (document.getElementById('round3-intro')) launchRound();
+  }, 30000);
 }
 
 // Track whether names are revealed yet for each question, and the latest submissions
@@ -4113,12 +4182,9 @@ function awardRound3Points(votes, questionIndex) {
     window._round3NamesRevealed[questionIndex] = true;
     displaySubmittedAnswers(window._round3LastSubmissions[questionIndex] || {}, questionIndex);
 
-    console.log('🎵 Playing accept audio — all votes in for question', questionIndex);
-    const advance = () => setTimeout(() => nextRound3Question(), 1500);
     if (window.playPunReactionAudio) {
-      window.playPunReactionAudio('accept', advance);
-    } else {
-      advance();
+      window.playPunReactionAudio('accept');
+      console.log('🎵 Playing accept audio — all votes in for question', questionIndex);
     }
   }
 }
@@ -4452,7 +4518,7 @@ function bonusJudgement(teamNum, passed) {
   // Award/deduct points for all players on the team
   Object.entries(players).forEach(([pid, player]) => {
     if (player.team === teamNum) {
-      const newScore = (player.score || 0) + pointChange;
+      const newScore = Math.max(0, (player.score || 0) + pointChange);
       gameRef.child('players/' + pid + '/score').set(newScore);
     }
   });
@@ -4588,21 +4654,18 @@ function showMatchDrawIntro() {
   document.body.appendChild(introDiv);
   gameRef.update({ matchDrawIntroActive: true });
 
-  // Play intro music sting first, then explainer voice
-  _playIntroMusicThen('match_draw_intro_music.mp3', () => {
-    window.matchDrawExplainerAudio = new Audio('matchdraw_explainer.mp3?v=2');
-    window.matchDrawExplainerAudio.volume = 0.6;
-    window.matchDrawExplainerAudio.play().catch(e => console.log('Explainer audio optional:', e));
+  window.matchDrawExplainerAudio = new Audio('matchdraw_explainer.mp3?v=2');
+  window.matchDrawExplainerAudio.volume = 0.6;
+  window.matchDrawExplainerAudio.play().catch(e => console.log('Explainer audio optional:', e));
 
-    let started = false;
-    window.matchDrawExplainerAudio.addEventListener('ended', () => {
-      window.matchDrawExplainerAudio = null;
-      if (!started) { started = true; introDiv.remove(); startMatchDrawRound(1); }
-    });
-    setTimeout(() => {
-      if (!started) { started = true; window.matchDrawExplainerAudio = null; if (document.getElementById('match-draw-intro')) introDiv.remove(); startMatchDrawRound(1); }
-    }, 12000);
+  let started = false;
+  window.matchDrawExplainerAudio.addEventListener('ended', () => {
+    window.matchDrawExplainerAudio = null;
+    if (!started) { started = true; introDiv.remove(); startMatchDrawRound(1); }
   });
+  setTimeout(() => {
+    if (!started) { started = true; window.matchDrawExplainerAudio = null; if (document.getElementById('match-draw-intro')) introDiv.remove(); startMatchDrawRound(1); }
+  }, 12000);
 }
 
 function startMatchDrawRound(roundNumber) {
@@ -5026,7 +5089,6 @@ function startCommentaryRound() {
 
   const explainerAudio = new Audio('commentary_explainer.mp3?v=2');
   explainerAudio.volume = 0.7;
-  window._audioRefs.push(explainerAudio);
   explainerAudio.play().catch(e => console.log('commentary_explainer not found:', e));
 
   let explainerTransitioned = false;
@@ -5065,7 +5127,6 @@ function startCommentaryTeamSelection(teamNumber) {
 
   const selectionAudio = new Audio(teamNumber === 1 ? 'commentary_intro_home.mp3?v=2' : 'commentary_intro_away.mp3?v=2');
   selectionAudio.volume = 0.7;
-  window._audioRefs.push(selectionAudio);
   selectionAudio.play().catch(e => console.log('Commentary selection audio not found:', e));
 
   let selectionTimeout = null;
@@ -5095,7 +5156,7 @@ function startCommentaryTeamSelection(teamNumber) {
     const updates = {};
     Object.entries(players).forEach(([pid, player]) => {
       if (player.team === teamNumber) {
-        const newScore = (player.score || 0) - 5;
+        const newScore = Math.max(0, (player.score || 0) - 5);
         updates['players/' + pid + '/score'] = newScore;
         if (players[pid]) players[pid].score = newScore;
       }
@@ -5141,16 +5202,19 @@ function startCommentaryRecording(teamNumber, commentatorId, videoFile) {
   recordingDiv.id = recId;
   recordingDiv.style.cssText = 'position: fixed; inset: 0; background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 20px;';
   recordingDiv.innerHTML = `
-    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 30px;">
+    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
       <div style="width: 16px; height: 16px; background: #ff0000; border-radius: 50%; animation: pulse 1s infinite;"></div>
       <div style="font-family: 'Bebas Neue', sans-serif; font-size: 36px; color: #ff4444; letter-spacing: 3px;">● RECORDING</div>
     </div>
-    <div style="font-size: 80px; margin-bottom: 20px;">🎙️</div>
-    <div id="commentary-recording-status-${teamNumber}" style="font-family: 'Bebas Neue', sans-serif; font-size: 40px; color: var(--motd-gold); letter-spacing: 3px; text-align: center;">Waiting for commentator…</div>
-    <div style="font-family: 'Barlow', sans-serif; font-size: 20px; color: rgba(255,255,255,0.6); margin-top: 10px;">Video playing on their phone</div>
-    <div class="spinner" style="margin-top: 24px;"></div>
-    <!-- Hidden video: not shown on screen — used only for timing the recording end -->
-    <video id="commentary-video-${teamNumber}" src="${videoFile}" style="display:none;" playsinline muted></video>
+    <div style="position: relative; width: 100%; max-width: 900px;">
+      <video id="commentary-video-${teamNumber}" src="${videoFile}" style="width: 100%; max-height: 65vh; border-radius: 8px; display: block;" playsinline></video>
+      <div id="commentary-waiting-overlay-${teamNumber}" style="position: absolute; inset: 0; background: rgba(0,0,0,0.75); display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 8px;">
+        <div style="font-size: 48px; margin-bottom: 16px;">🎙️</div>
+        <div style="font-family: 'Bebas Neue', sans-serif; font-size: 36px; color: var(--motd-gold); letter-spacing: 3px;">Waiting for commentator…</div>
+        <div style="font-family: 'Barlow', sans-serif; font-size: 20px; color: rgba(255,255,255,0.6); margin-top: 10px;">Video starts when they press Ready</div>
+        <div class="spinner" style="margin-top: 24px;"></div>
+      </div>
+    </div>
   `;
   document.body.appendChild(recordingDiv);
   gameRef.update({ commentaryPhase: `team${teamNumber}Recording`, [`commentary/team${teamNumber}/commentatorRecording`]: true });
@@ -5158,10 +5222,9 @@ function startCommentaryRecording(teamNumber, commentatorId, videoFile) {
   const video = document.getElementById(`commentary-video-${teamNumber}`);
 
   const startVideo = () => {
-    const statusEl = document.getElementById(`commentary-recording-status-${teamNumber}`);
-    if (statusEl) statusEl.textContent = '🎬 VIDEO LIVE ON THEIR PHONE';
-    // Play hidden timing video so its 'ended' event fires when the clip finishes
-    video.play().catch(e => console.log('Commentary timing video play failed:', e));
+    const overlay = document.getElementById(`commentary-waiting-overlay-${teamNumber}`);
+    if (overlay) overlay.remove();
+    video.play().catch(e => console.log('Commentary video play failed:', e));
   };
 
   // Flush any stale ready signal, then wait for commentator to press Ready
@@ -5222,7 +5285,6 @@ function startCommentaryPlayback(teamNumber, commentatorId, videoFile) {
       v.play().catch(e => console.log('Playback video play failed:', e));
       if (recordingURL) {
         const recordingAudio = new Audio(recordingURL);
-        window._audioRefs.push(recordingAudio);
         recordingAudio.play().catch(e => console.log('Commentary recording play failed:', e));
         console.log('🎙️ Playing player mic recording for Team', teamNumber);
       } else {
@@ -5233,7 +5295,6 @@ function startCommentaryPlayback(teamNumber, commentatorId, videoFile) {
     // Play commentary_review.mp3 first, then start video + mic in sync
     const reviewAudio = new Audio('commentary_review.mp3?v=2');
     reviewAudio.volume = 0.7;
-    window._audioRefs.push(reviewAudio);
     let reviewPlayed = false;
     const onReviewDone = () => {
       if (reviewPlayed) return;
@@ -5328,7 +5389,7 @@ function showToiletPaperAlert() {
 
   const alertDiv = document.createElement('div');
   alertDiv.id = 'toilet-paper-alert';
-  alertDiv.style.cssText = 'position: fixed; top: 108px; left: 0; right: 0; bottom: 0; background: linear-gradient(135deg, var(--motd-dark-navy) 0%, var(--motd-navy) 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 40px;';
+  alertDiv.style.cssText = 'position: fixed; top: var(--header-height); left: 0; right: 0; bottom: 0; background: linear-gradient(135deg, var(--motd-dark-navy) 0%, var(--motd-navy) 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 40px;';
   alertDiv.innerHTML = `
     <div style="font-family: 'Bebas Neue', sans-serif; font-size: 80px; color: #ffc629; text-shadow: 0 0 40px rgba(255,198,41,0.8); margin-bottom: 40px; letter-spacing: 6px;">
       ⚠️ IMPORTANT! ⚠️
@@ -5427,8 +5488,8 @@ function assignSabotageTasks() {
     },
     {
       id: 'offside_trap',
-      name: 'Quick Pass',
-      description: 'Give somebody as many individual pieces of toilet paper as possible (with or without them knowing). You get one point per piece of toilet paper they still have on them at the end of the game. No points if they smell something fishy.',
+      name: 'Offside Trap',
+      description: 'Challenge someone on the opposing team to use a piece of toilet paper creatively on their person without them noticing it came from you. For every piece they accept and keep, you score a point. Tell no one.',
       pointsPerPiece: 1
     },
     {
@@ -5573,9 +5634,7 @@ function startBogRollingTimer() {
       clearInterval(interval);
 
       if (window.bogRollingMusic) {
-        const _brm = window.bogRollingMusic;
-        _brm.pause();
-        if (window._pausedAudioRefs) window._pausedAudioRefs = window._pausedAudioRefs.filter(a => a !== _brm);
+        window.bogRollingMusic.pause();
         window.bogRollingMusic = null;
       }
 
@@ -5660,9 +5719,7 @@ function startGoalPostsTimer() {
       clearInterval(interval);
 
       if (window.goalPostsMusic) {
-        const _gpm = window.goalPostsMusic;
-        _gpm.pause();
-        if (window._pausedAudioRefs) window._pausedAudioRefs = window._pausedAudioRefs.filter(a => a !== _gpm);
+        window.goalPostsMusic.pause();
         window.goalPostsMusic = null;
       }
 
@@ -6152,7 +6209,7 @@ function showCaptionContestIntro() {
 
     const div = document.createElement('div');
     div.id = 'caption-contest-intro';
-    div.style.cssText = 'position:fixed;top:108px;left:0;right:0;bottom:0;background:linear-gradient(135deg,var(--motd-dark-navy) 0%,var(--motd-navy) 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:10000;padding:40px;text-align:center;';
+    div.style.cssText = 'position:fixed;top:var(--header-height);left:0;right:0;bottom:0;background:linear-gradient(135deg,var(--motd-dark-navy) 0%,var(--motd-navy) 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:10000;padding:40px;text-align:center;';
     div.innerHTML = `
       <div style="font-family:'Bebas Neue',sans-serif;font-size:100px;color:var(--motd-gold);letter-spacing:8px;text-shadow:0 0 60px rgba(255,198,41,0.8);margin-bottom:20px;line-height:1;">
         CAPTION<br>CONTEST
@@ -6200,7 +6257,7 @@ function startCaptionRound(roundIndex) {
 
   const div = document.createElement('div');
   div.id = 'caption-round-screen';
-  div.style.cssText = 'position:fixed;top:108px;left:0;right:0;bottom:0;background:linear-gradient(135deg,var(--motd-dark-navy) 0%,var(--motd-navy) 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:10000;padding:40px;text-align:center;';
+  div.style.cssText = 'position:fixed;top:var(--header-height);left:0;right:0;bottom:0;background:linear-gradient(135deg,var(--motd-dark-navy) 0%,var(--motd-navy) 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:10000;padding:40px;text-align:center;';
   div.innerHTML = `
     <div style="margin-bottom:24px;">
       <img src="${photoUrl}" style="width:360px;height:270px;object-fit:cover;border-radius:16px;border:4px solid var(--motd-gold);box-shadow:0 0 40px rgba(255,198,41,0.4);">
@@ -6309,7 +6366,7 @@ function showCaptionReviewHost(roundIndex, submissions) {
 
   const div = document.createElement('div');
   div.id = 'caption-review-screen';
-  div.style.cssText = 'position:fixed;top:108px;left:0;right:0;bottom:0;background:linear-gradient(135deg,#0a0a14 0%,#0a1628 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:10000;padding:40px;text-align:center;overflow-y:auto;';
+  div.style.cssText = 'position:fixed;top:var(--header-height);left:0;right:0;bottom:0;background:linear-gradient(135deg,#0a0a14 0%,#0a1628 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:10000;padding:40px;text-align:center;overflow-y:auto;';
   div.innerHTML = `
     <div id="caption-mockup-container" style="margin-bottom:24px;"></div>
     <div id="caption-reader-name" style="font-family:'Bebas Neue',sans-serif;font-size:28px;color:var(--motd-cyan);margin-bottom:6px;min-height:36px;"></div>
@@ -6561,7 +6618,7 @@ function startCaptionVoting(roundIndex) {
 
   const div = document.createElement('div');
   div.id = 'caption-voting-screen';
-  div.style.cssText = 'position:fixed;top:108px;left:0;right:0;bottom:0;background:linear-gradient(135deg,var(--motd-dark-navy) 0%,var(--motd-navy) 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:10000;padding:40px;text-align:center;';
+  div.style.cssText = 'position:fixed;top:var(--header-height);left:0;right:0;bottom:0;background:linear-gradient(135deg,var(--motd-dark-navy) 0%,var(--motd-navy) 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:10000;padding:40px;text-align:center;';
   div.innerHTML = `
     <div id="caption-vote-mockup" style="margin-bottom:24px;"></div>
     <div style="font-family:'Bebas Neue',sans-serif;font-size:40px;color:var(--motd-gold);">📱 Players are voting…</div>
@@ -6619,7 +6676,7 @@ function showCaptionWinner(roundIndex, votes) {
 
   const winDiv = document.createElement('div');
   winDiv.id = 'caption-winner-screen';
-  winDiv.style.cssText = 'position:fixed;top:108px;left:0;right:0;bottom:0;background:linear-gradient(135deg,#0a0a14 0%,#1a1a2e 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:10000;padding:40px;text-align:center;';
+  winDiv.style.cssText = 'position:fixed;top:var(--header-height);left:0;right:0;bottom:0;background:linear-gradient(135deg,#0a0a14 0%,#1a1a2e 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:10000;padding:40px;text-align:center;';
   winDiv.innerHTML = `
     <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;color:var(--motd-gold);letter-spacing:4px;margin-bottom:16px;">🏆 THE CROWD VOTES FOR…</div>
     <div style="font-family:'Bebas Neue',sans-serif;font-size:80px;color:#fff;line-height:1;margin-bottom:20px;">${winner.playerName}</div>
@@ -6744,7 +6801,7 @@ function showExtraTimeScreen() {
 
   const div = document.createElement('div');
   div.id = 'extra-time-screen';
-  div.style.cssText = 'position: fixed; top: 108px; left: 0; right: 0; bottom: 0; background: linear-gradient(135deg, var(--motd-dark-navy) 0%, var(--motd-navy) 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 40px; text-align: center;';
+  div.style.cssText = 'position: fixed; top: var(--header-height); left: 0; right: 0; bottom: 0; background: linear-gradient(135deg, var(--motd-dark-navy) 0%, var(--motd-navy) 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 40px; text-align: center;';
   div.innerHTML = `
     <div style="font-family:'Bebas Neue',sans-serif;font-size:120px;color:var(--motd-gold);letter-spacing:10px;text-shadow:0 0 60px rgba(255,198,41,0.8);margin-bottom:30px;line-height:1;">
       EXTRA TIME
@@ -6810,7 +6867,7 @@ function showSabotagePlayerReveal(index) {
 
   const card = document.createElement('div');
   card.id = 'sabotage-reveal-card';
-  card.style.cssText = 'position: fixed; top: 108px; left: 0; right: 0; bottom: 0; background: linear-gradient(135deg, var(--motd-dark-navy) 0%, var(--motd-navy) 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 40px; text-align: center;';
+  card.style.cssText = 'position: fixed; top: var(--header-height); left: 0; right: 0; bottom: 0; background: linear-gradient(135deg, var(--motd-dark-navy) 0%, var(--motd-navy) 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 40px; text-align: center;';
   card.innerHTML = `
     <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;color:rgba(255,255,255,0.3);letter-spacing:3px;margin-bottom:32px;">
       🕵️ SABOTAGE REVEALS &nbsp;—&nbsp; ${index + 1} / ${entries.length}
@@ -7150,6 +7207,8 @@ function showVictoryScreen() {
       finalScore: `${team1Total} - ${team2Total}`,
       mvp: mvp.name
     });
+    // Clear saved game code so a fresh game starts on next load
+    localStorage.removeItem('fp_gameCode');
   });
 }
 
@@ -7190,6 +7249,371 @@ function loadPhotoAlbum() {
     `;
   });
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// NOTES (UPDATED)
+// ═══════════════════════════════════════════════════════════════════════════
+/*
+  FULL GAME FLOW (v8.0):
+  Round 1 Quiz → Bonus Round (Karaoke) → Scores Review #1
+  → Round 2 Puns (30s) → Pun Review → [Match Draw if 4+ players]
+  → Round 3 Interview → Victory Screen
+
+  Phases 3 (Commentary) and 4 (Toilet Paper) are deferred.
+*/
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PERSISTENT QR CODE (draggable, size S/M/L)
+// ═══════════════════════════════════════════════════════════════════════════
+
+function createPersistentQRCode() {
+  const existing = document.getElementById('persistent-qr-code');
+  if (existing) existing.remove();
+
+  const savedSize = localStorage.getItem('qr-size') || 'medium';
+  const sizes = { small: 80, medium: 110, large: 150 };
+  const qrSize = sizes[savedSize];
+
+  const playerUrl = window.location.href.replace('host-sandbox.html', 'player-sandbox.html') + '?code=' + gameCode;
+  const qrImgUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${qrSize}x${qrSize}&data=${encodeURIComponent(playerUrl)}`;
+
+  const qrDiv = document.createElement('div');
+  qrDiv.id = 'persistent-qr-code';
+  qrDiv.style.cssText = 'position: fixed; bottom: 20px; right: 20px; z-index: 19995; cursor: move; user-select: none;';
+
+  qrDiv.innerHTML = `
+    <div style="background: linear-gradient(135deg, rgba(77,212,232,0.95), rgba(26,43,74,0.95)); padding: 10px; border-radius: 14px; border: 2px solid rgba(255,198,41,0.7); box-shadow: 0 6px 20px rgba(0,0,0,0.6);">
+      <img src="${qrImgUrl}" style="display: block; width: ${qrSize}px; height: ${qrSize}px; border-radius: 6px; background: white;">
+      <div style="font-family: 'Bebas Neue', sans-serif; font-size: 12px; color: #fff; text-align: center; margin-top: 6px; letter-spacing: 1px;">SCAN TO JOIN</div>
+      <div style="display: flex; gap: 3px; justify-content: center; margin-top: 5px;">
+        <button onclick="setQRSize('small')"  style="padding: 3px 7px; background: ${savedSize==='small'  ? '#ffc629' : 'rgba(255,255,255,0.2)'}; border: none; border-radius: 3px; font-size: 9px; cursor: pointer; color: #fff;">S</button>
+        <button onclick="setQRSize('medium')" style="padding: 3px 7px; background: ${savedSize==='medium' ? '#ffc629' : 'rgba(255,255,255,0.2)'}; border: none; border-radius: 3px; font-size: 9px; cursor: pointer; color: #fff;">M</button>
+        <button onclick="setQRSize('large')"  style="padding: 3px 7px; background: ${savedSize==='large'  ? '#ffc629' : 'rgba(255,255,255,0.2)'}; border: none; border-radius: 3px; font-size: 9px; cursor: pointer; color: #fff;">L</button>
+      </div>
+      <div style="font-family: 'Barlow', sans-serif; font-size: 9px; color: rgba(255,255,255,0.5); text-align: center; margin-top: 3px;">drag to move</div>
+    </div>
+  `;
+
+  document.body.appendChild(qrDiv);
+  makeQRCodeDraggable(qrDiv);
+}
+
+function makeQRCodeDraggable(el) {
+  let dragging = false, startX, startY, origRight, origBottom;
+
+  el.addEventListener('mousedown', (e) => {
+    if (e.target.tagName === 'BUTTON') return;
+    dragging = true;
+    startX = e.clientX;
+    startY = e.clientY;
+    origRight  = parseInt(el.style.right)  || 20;
+    origBottom = parseInt(el.style.bottom) || 20;
+    e.preventDefault();
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!dragging) return;
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    el.style.right  = Math.max(0, origRight  - dx) + 'px';
+    el.style.bottom = Math.max(0, origBottom + dy) + 'px';
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (!dragging) return;
+    dragging = false;
+    localStorage.setItem('qr-pos-right',  el.style.right);
+    localStorage.setItem('qr-pos-bottom', el.style.bottom);
+  });
+}
+
+function setQRSize(size) {
+  localStorage.setItem('qr-size', size);
+  createPersistentQRCode();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PAUSE SYSTEM
+// ═══════════════════════════════════════════════════════════════════════════
+
+let _gamePaused = false;
+
+// All named window.* audio variables that might be playing at any point
+const _AUDIO_VAR_NAMES = [
+  'introMusicAudio', 'intro2Audio', 'round1IntroAudio', '_introVoiceAudio',
+  'currentQuestionAudio', 'currentAnswerAudio',
+  'scoresIntroAudio', '_commentaryAudio', 'scoresReactionAudio',
+  'round2IntroAudio', 'round2MusicAudio',
+  '_punReactionAudio', 'reviewIntroAudio', '_punVoiceAudio',
+  'bonusAlertAudio', 'bonusExplainerAudio', 'bonusSetupAudio',
+  'karaokeAudio',
+  'matchDrawExplainerAudio', 'matchDrawMusic',
+  'bogExplainerAudio', 'bogRollingMusic',
+  'goalPostExplainerAudio', 'goalPostsMusic',
+  '_currentTTSAudio',  // ElevenLabs TTS — caption readings, sabotage questions, winner announcements
+];
+window._currentTTSAudio = null;
+
+function pauseAllAudio() {
+  window._pausedAudioRefs = [];
+
+  const seen = new Set();
+  const maybePause = (a) => {
+    if (!a || typeof a.pause !== 'function' || seen.has(a)) return;
+    seen.add(a);
+    if (!a.paused) {
+      a.pause();
+      window._pausedAudioRefs.push(a);
+    }
+  };
+
+  // 1. Named window audio variables
+  _AUDIO_VAR_NAMES.forEach(name => maybePause(window[name]));
+
+  // 2. Generic audio pool (playAudio() references)
+  (window._audioRefs || []).forEach(maybePause);
+
+  // 3. Any <video> elements currently playing in the DOM
+  document.querySelectorAll('video').forEach(v => {
+    if (!v.paused) { v.pause(); window._pausedAudioRefs.push(v); }
+  });
+
+  console.log(`⏸️ Paused ${window._pausedAudioRefs.length} audio/video source(s)`);
+}
+
+function resumeAllAudio() {
+  (window._pausedAudioRefs || []).forEach(a => {
+    if (a && typeof a.play === 'function' && a.paused) {
+      a.play().catch(() => {});
+    }
+  });
+  console.log(`▶️ Resumed ${(window._pausedAudioRefs || []).length} audio/video source(s)`);
+  window._pausedAudioRefs = [];
+}
+
+// Listen to Firebase 'paused' — reacts to Player 1's pause button on their phone
+(function setupHostPauseListener() {
+  const check = setInterval(() => {
+    if (!gameRef) return;
+    clearInterval(check);
+    gameRef.child('paused').on('value', (snap) => {
+      const shouldBePaused = snap.val() === true;
+      if (shouldBePaused && !_gamePaused) {
+        _gamePaused = true;
+        // Pause caption timer if running
+        clearInterval(window._captionTimerInterval);
+        window._captionTimerInterval = null;
+        showPauseOverlay();
+      } else if (!shouldBePaused && _gamePaused) {
+        _gamePaused = false;
+        resumeAllAudio();
+        // Restart caption timer if caption round is still on screen
+        if (window._captionTimeLeft > 0 && document.getElementById('caption-round-screen')) {
+          const ri = window._captionActiveRoundIndex;
+          window._captionTimerInterval = setInterval(() => {
+            window._captionTimeLeft--;
+            const el = document.getElementById('caption-timer-display');
+            if (el) el.textContent = `:${String(window._captionTimeLeft).padStart(2, '0')}`;
+            gameRef.child('captionContest/timeLeft').set(window._captionTimeLeft);
+            if (window._captionTimeLeft <= 0) {
+              clearInterval(window._captionTimerInterval);
+              window._captionTimerInterval = null;
+              advanceCaptionToReview(ri);
+            }
+          }, 1000);
+        }
+        const overlay = document.getElementById('host-pause-overlay');
+        if (overlay) overlay.remove();
+      }
+    });
+  }, 500);
+})();
+
+function createPauseButton() {
+  if (document.getElementById('pause-button')) return;
+
+  const btn = document.createElement('button');
+  btn.id = 'pause-button';
+  btn.innerHTML = '⏸️ Pause';
+  btn.style.cssText = 'position: fixed; top: 16px; right: 16px; z-index: 9998; padding: 10px 20px; background: rgba(255,198,41,0.9); color: #0a1628; border: none; border-radius: 8px; font-family: \'Bebas Neue\', sans-serif; font-size: 18px; cursor: pointer; letter-spacing: 1px;';
+  btn.onclick = togglePause;
+  document.body.appendChild(btn);
+}
+
+function togglePause() {
+  // Drive everything through Firebase — the listener above handles the UI response
+  gameRef.child('paused').set(!_gamePaused);
+}
+
+function showPauseOverlay() {
+  if (document.getElementById('host-pause-overlay')) return;
+  pauseAllAudio();
+
+  const now = Date.now();
+  const timeout = 60000;
+  const disconnected = Object.values(players).filter(p => p.lastActive && (now - p.lastActive > timeout));
+
+  const overlay = document.createElement('div');
+  overlay.id = 'host-pause-overlay';
+  overlay.style.cssText = 'position: fixed; inset: 0; background: rgba(10,22,40,0.92); display: flex; align-items: center; justify-content: center; z-index: 19500; padding: 40px;';
+
+  const disconnectedHtml = disconnected.length > 0
+    ? `<div style="margin: 24px 0; font-family: 'Barlow', sans-serif; font-size: 18px; color: rgba(255,255,255,0.8);">
+        Missing: ${disconnected.map(p => `<span style="color:${p.team===1?'#4dd4e8':'#d4145a'}">${p.name}</span>`).join(', ')}
+       </div>`
+    : '';
+
+  overlay.innerHTML = `
+    <div style="text-align: center; max-width: 600px;">
+      <div style="font-size: 100px; margin-bottom: 20px;">⏸️</div>
+      <h1 style="font-family: 'Bebas Neue', sans-serif; font-size: 72px; color: #ffc629; margin-bottom: 20px;">GAME PAUSED</h1>
+      ${disconnectedHtml}
+      <button onclick="togglePause()" style="padding: 18px 56px; background: linear-gradient(135deg, #2ecc71, #27ae60); color: #fff; border: none; border-radius: 12px; font-family: 'Bebas Neue', sans-serif; font-size: 28px; cursor: pointer; margin-top: 16px;">
+        ▶️ Resume Game
+      </button>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CHAMPIONS LEAGUE TEAM PHOTO
+// ═══════════════════════════════════════════════════════════════════════════
+
+function downloadChampionsPhoto() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 1200;
+  canvas.height = 675;
+  const ctx = canvas.getContext('2d');
+
+  // Background
+  const bg = ctx.createLinearGradient(0, 0, 1200, 675);
+  bg.addColorStop(0, '#001e3c');
+  bg.addColorStop(1, '#0a2f5c');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, 1200, 675);
+
+  // Subtle line pattern
+  ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i < 20; i++) {
+    ctx.beginPath(); ctx.moveTo(i * 60, 0); ctx.lineTo(1200, 675 - i * 34); ctx.stroke();
+  }
+
+  // Score header
+  const team1Score = Object.values(players).filter(p => p.team === 1).reduce((s, p) => s + (p.score || 0), 0);
+  const team2Score = Object.values(players).filter(p => p.team === 2).reduce((s, p) => s + (p.score || 0), 0);
+  const winLabel = team1Score > team2Score ? (team1 ? team1.name + ' WIN' : 'HOME WIN')
+                 : team2Score > team1Score ? (team2 ? team2.name + ' WIN' : 'AWAY WIN')
+                 : "IT'S A DRAW";
+
+  ctx.fillStyle = '#ffc629';
+  ctx.font = 'bold 64px Arial';
+  ctx.textAlign = 'center';
+  ctx.fillText(`🏆 ${winLabel} 🏆`, 600, 80);
+
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 48px Arial';
+  ctx.fillText(`FINAL SCORE: ${team1Score} – ${team2Score}`, 600, 145);
+
+  // Draw all player photos
+  const allPlayers = Object.values(players);
+  const photoSize = 140;
+  const spacing = 180;
+  const startX = (1200 - (allPlayers.length * spacing - (spacing - photoSize))) / 2 + photoSize / 2;
+  const photoY = 200;
+
+  let loadedCount = 0;
+  const finalize = () => {
+    // Footer
+    ctx.fillStyle = '#4dd4e8';
+    ctx.font = 'bold 22px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('foulplay.games', 600, 650);
+
+    const link = document.createElement('a');
+    link.href = canvas.toDataURL('image/png');
+    link.download = `foul-play-victory-${Date.now()}.png`;
+    link.click();
+  };
+
+  if (allPlayers.length === 0) { finalize(); return; }
+
+  allPlayers.forEach((player, i) => {
+    const x = startX + i * spacing;
+    const tilt = i % 2 === 0 ? -4 : 4;
+    const teamColor = player.team === 1 ? '#4dd4e8' : '#d4145a';
+
+    const drawPlayer = () => {
+      ctx.save();
+      ctx.translate(x, photoY + photoSize / 2);
+      ctx.rotate((tilt * Math.PI) / 180);
+
+      // White polaroid border
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(-photoSize / 2 - 5, -photoSize / 2 - 5, photoSize + 10, photoSize + 10);
+
+      // Team colour bar at bottom of polaroid
+      ctx.fillStyle = teamColor;
+      ctx.fillRect(-photoSize / 2 - 5, photoSize / 2 - 5, photoSize + 10, 10);
+
+      ctx.restore();
+
+      // Name label
+      ctx.save();
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 18px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText(player.name || '', x, photoY + photoSize + 30);
+      ctx.restore();
+
+      loadedCount++;
+      if (loadedCount === allPlayers.length) finalize();
+    };
+
+    if (player.photo) {
+      const img = new Image();
+      img.onload = () => {
+        ctx.save();
+        ctx.translate(x, photoY + photoSize / 2);
+        ctx.rotate(((i % 2 === 0 ? -4 : 4) * Math.PI) / 180);
+        ctx.drawImage(img, -photoSize / 2, -photoSize / 2, photoSize, photoSize);
+        ctx.restore();
+        drawPlayer();
+      };
+      img.onerror = drawPlayer;
+      img.src = player.photo;
+    } else {
+      // Initials placeholder
+      ctx.fillStyle = teamColor;
+      ctx.fillRect(x - photoSize / 2 - 5, photoY - 5, photoSize + 10, photoSize + 10);
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 64px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText((player.name || '?')[0].toUpperCase(), x, photoY + photoSize / 2 + 22);
+      drawPlayer();
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SOCIAL SHARING
+// ═══════════════════════════════════════════════════════════════════════════
+
+function copyGameLink() {
+  navigator.clipboard.writeText('https://foulplay.games').catch(() => {});
+
+  const toast = document.createElement('div');
+  toast.style.cssText = 'position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 11000; background: #2ecc71; color: #fff; padding: 14px 30px; border-radius: 8px; font-family: \'Bebas Neue\', sans-serif; font-size: 20px; letter-spacing: 1px;';
+  toast.textContent = '✓ Link Copied!';
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 2500);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// HOST EMAIL SIGN-UP (on victory screen)
+// ═══════════════════════════════════════════════════════════════════════════
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TEAM TALK ROUND
@@ -7531,23 +7955,21 @@ function showTeamTalkIntro() {
     scorerReady: false,
   });
 
-  // Play intro music sting first, then voice explainer, then start first turn
-  _playIntroMusicThen('team_talk_intro_music.mp3', () => {
-    let advanced = false;
-    const advance = () => {
-      if (advanced) return;
-      advanced = true;
-      const introEl = document.getElementById('team-talk-intro');
-      if (introEl) introEl.remove();
-      startTeamTalkTurn(1);
-    };
+  // Play intro audio, then advance after it ends (or after 4s fallback)
+  let advanced = false;
+  const advance = () => {
+    if (advanced) return;
+    advanced = true;
+    const introEl = document.getElementById('team-talk-intro');
+    if (introEl) introEl.remove();
+    startTeamTalkTurn(1);
+  };
 
-    playAudio('team_talk_intro.mp3', {
-      onEnded: advance,
-      onError: () => setTimeout(advance, 0),
-    });
-    setTimeout(advance, 4000);
+  playAudio('team_talk_intro.mp3', {
+    onEnded: advance,
+    onError: () => setTimeout(advance, 0),
   });
+  setTimeout(advance, 4000);
 }
 
 // ─── Turn start ──────────────────────────────────────────────────────────────
@@ -7586,10 +8008,11 @@ function startTeamTalkTurn(teamNumber) {
 // ─── Waiting screen (host) ───────────────────────────────────────────────────
 
 function showTeamTalkWaitingScreen(teamNumber) {
+  // Remove any existing Team Talk screen
   document.querySelectorAll('[id^="team-talk-"]').forEach(el => el.remove());
 
   const teamData = teamNumber === 1 ? team1 : team2;
-  const scoringTeam = teamNumber === 1 ? team2 : team1;
+  const scoringTeam = teamNumber === 1 ? team2 : team1; // opposite captain scores
 
   const div = document.createElement('div');
   div.id = 'team-talk-waiting';
@@ -7610,6 +8033,7 @@ function showTeamTalkWaitingScreen(teamNumber) {
 // ─── Countdown + active turn ──────────────────────────────────────────────────
 
 function startTeamTalkCountdown() {
+  // Clear waiting screen
   const waitEl = document.getElementById('team-talk-waiting');
   if (waitEl) waitEl.remove();
 
@@ -7619,6 +8043,7 @@ function startTeamTalkCountdown() {
     gameRef.child('teamTalk/currentWord').set(_ttCurrentWord);
   }
 
+  // Render the active turn screen
   renderTeamTalkActiveScreen();
 
   // Reset per-turn flags
@@ -7644,6 +8069,7 @@ function startTeamTalkCountdown() {
     }
   }, 1000);
 
+  // Listen for word actions (correct / skip) from scorer's phone
   listenForTeamTalkWordActions();
 }
 
@@ -7714,6 +8140,7 @@ function updateTeamTalkTimerDisplay() {
   if (!timerEl) return;
   timerEl.textContent = _ttTimeLeft;
 
+  // Colour: green → amber → red
   if (_ttTimeLeft > 60) {
     timerEl.style.color = '#2ecc71';
     timerEl.style.textShadow = '0 0 40px rgba(46,204,113,0.6)';
@@ -7738,6 +8165,7 @@ function updateTeamTalkInstructions() {
   } else if (elapsed >= 50 && mainEl) {
     mainEl.textContent = '🔢 Only three words';
   }
+  // elapsed 0–50 stays as "❌ You cannot say the selected word"
 
   // ── Vocal instruction appears at elapsed 30s (once) ──────────────────────
   if (elapsed === 30) {
@@ -7767,6 +8195,7 @@ function updateTeamTalkInstructions() {
   if (elapsed === 90) {
     const physEl = document.getElementById('tt-instr-physical');
     if (physEl && _ttPhysicalA) {
+      // Pick a different item from the list
       const available = TT_PHYSICAL_LIST_B.filter(p => p !== _ttPhysicalA);
       _ttPhysicalB = available[Math.floor(Math.random() * available.length)];
       physEl.textContent = '🏃 ' + _ttPhysicalB;
@@ -7778,15 +8207,19 @@ function updateTeamTalkInstructions() {
 
 function pickNextTeamTalkWord() {
   const usedIds = _ttCurrentTeam === 1 ? _ttUsedIdsTeam1 : _ttUsedIdsTeam2;
+  const elapsed = 120 - _ttTimeLeft;
 
   let pool;
   if (_ttTimeLeft > 105) {
+    // First 15 seconds: football only
     pool = TEAM_TALK_WORDS.filter(w => w.category === 'football' && !usedIds.includes(w.id));
     if (pool.length === 0) pool = TEAM_TALK_WORDS.filter(w => !usedIds.includes(w.id));
   } else if (_ttTimeLeft > 90) {
+    // 15–30 seconds: football or sports
     pool = TEAM_TALK_WORDS.filter(w => (w.category === 'football' || w.category === 'sports') && !usedIds.includes(w.id));
     if (pool.length === 0) pool = TEAM_TALK_WORDS.filter(w => !usedIds.includes(w.id));
   } else {
+    // After 30 seconds: any word
     pool = TEAM_TALK_WORDS.filter(w => !usedIds.includes(w.id));
   }
 
@@ -7799,10 +8232,12 @@ function pickNextTeamTalkWord() {
 function advanceToNextWord() {
   _ttCurrentWord = pickNextTeamTalkWord();
   if (!_ttCurrentWord) {
+    // Ran out of words — show placeholder
     _ttCurrentWord = { id: -1, word: '(No more words!)', difficulty: 1, points: 0 };
   }
   gameRef.child('teamTalk/currentWord').set(_ttCurrentWord);
 
+  // Update word on screen
   const wordEl = document.getElementById('tt-word');
   if (wordEl) wordEl.textContent = _ttCurrentWord.word;
 
@@ -7816,6 +8251,7 @@ function advanceToNextWord() {
 // ─── Word action listener ────────────────────────────────────────────────────
 
 function listenForTeamTalkWordActions() {
+  // Detach any previous listener
   if (_ttWordActionRef) {
     _ttWordActionRef.off();
     _ttWordActionRef = null;
@@ -7838,6 +8274,7 @@ function listenForTeamTalkWordActions() {
         _ttTeam2Score += pts;
         gameRef.child('teamTalk/team2Score').set(_ttTeam2Score);
       }
+      // Update score display
       const scoreEl = document.getElementById('tt-score-display');
       if (scoreEl) scoreEl.textContent = _ttCurrentTeam === 1 ? _ttTeam1Score : _ttTeam2Score;
       advanceToNextWord();
@@ -7850,15 +8287,18 @@ function listenForTeamTalkWordActions() {
 // ─── End of turn ─────────────────────────────────────────────────────────────
 
 function endTeamTalkTurn() {
+  // Detach word action listener
   if (_ttWordActionRef) {
     _ttWordActionRef.off();
     _ttWordActionRef = null;
   }
 
+  // Remove active screen
   const activeEl = document.getElementById('team-talk-active');
   if (activeEl) activeEl.remove();
 
   if (_ttCurrentTeam === 1) {
+    // Play ding then next_team, then start Team 2
     playTeamTalkDing({
       onEnded: () => {
         gameRef.child('teamTalk').update({ phase: 'intermission' });
@@ -7873,6 +8313,7 @@ function endTeamTalkTurn() {
       },
     });
   } else {
+    // Both teams done — play ding then results
     playTeamTalkDing({
       onEnded: () => showTeamTalkResults(),
       onError: () => setTimeout(() => showTeamTalkResults(), 500),
@@ -7885,6 +8326,7 @@ function endTeamTalkTurn() {
 async function showTeamTalkResults() {
   gameRef.child('teamTalk').update({ phase: 'results', active: false });
 
+  // Show results screen
   document.querySelectorAll('[id^="team-talk-"]').forEach(el => el.remove());
 
   const winner = _ttTeam1Score > _ttTeam2Score ? team1 :
@@ -7915,6 +8357,7 @@ async function showTeamTalkResults() {
   `;
   document.body.appendChild(resultsDiv);
 
+  // Play scores intro audio, then generate voice
   const ELEVENLABS_API_KEY = 'sk_eb4900ceb7e4366087590c2b906743504ba8c844524ddcc4';
   const VOICE_ID = 'rfkTsdZrVWEVhDycUYn9';
 
@@ -7928,17 +8371,18 @@ async function showTeamTalkResults() {
   const afterVoice = () => {
     if (voicePlayed) return;
     voicePlayed = true;
+    // Spinner stays — host can proceed from here manually (sandbox test end)
     const spinnerEl = resultsDiv.querySelector('.spinner');
     if (spinnerEl) spinnerEl.remove();
-    // Short pause then move on to the Interview Round
-    setTimeout(() => {
-      resultsDiv.remove();
-      startRound3();
-    }, 2000);
+    const doneEl = document.createElement('div');
+    doneEl.style.cssText = 'margin-top: 30px; font-family: \'Barlow\', sans-serif; font-size: 20px; color: var(--text-muted);';
+    doneEl.textContent = 'Team Talk complete.';
+    resultsDiv.appendChild(doneEl);
   };
 
   playAudio('team_talk_scores_intro.mp3', {
     onEnded: async () => {
+      // Generate ElevenLabs voice for scores
       try {
         const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`, {
           method: 'POST',
@@ -7969,386 +8413,50 @@ async function showTeamTalkResults() {
     },
     onError: () => setTimeout(afterVoice, 500),
   });
+  // If scores_intro audio never plays, fall through after 5s
   setTimeout(() => { if (!voicePlayed) afterVoice(); }, 20000);
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// NOTES (UPDATED)
-// ═══════════════════════════════════════════════════════════════════════════
-/*
-  FULL GAME FLOW (v8.1):
-  Round 1 Quiz → Bonus Round (Karaoke) → Scores Review #1
-  → Round 2 Puns (30s) → Pun Review → Team Talk
-  → Round 3 Interview → [Match Draw if 4+ players] → Victory Screen
+// ─── Transition Screen Countdown ────────────────────────────────────────────
 
-  Phases 3 (Commentary) and 4 (Toilet Paper) are deferred.
-*/
+let _transitionCountdownTimer = null;
 
-// ═══════════════════════════════════════════════════════════════════════════
-// PERSISTENT QR CODE (draggable, size S/M/L)
-// ═══════════════════════════════════════════════════════════════════════════
-
-function createPersistentQRCode() {
-  const existing = document.getElementById('persistent-qr-code');
-  if (existing) existing.remove();
-
-  const savedSize = localStorage.getItem('qr-size') || 'medium';
-  const sizes = { small: 80, medium: 110, large: 150 };
-  const qrSize = sizes[savedSize];
-
-  const playerUrl = 'https://join.foulplay.games?code=' + encodeURIComponent(gameCode);
-  const qrImgUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${qrSize}x${qrSize}&data=${encodeURIComponent(playerUrl)}`;
-
-  const qrDiv = document.createElement('div');
-  qrDiv.id = 'persistent-qr-code';
-  qrDiv.style.cssText = 'position: fixed; bottom: 20px; right: 20px; z-index: 19995; cursor: move; user-select: none;';
-
-  qrDiv.innerHTML = `
-    <div style="background: linear-gradient(135deg, rgba(77,212,232,0.95), rgba(26,43,74,0.95)); padding: 10px; border-radius: 14px; border: 2px solid rgba(255,198,41,0.7); box-shadow: 0 6px 20px rgba(0,0,0,0.6);">
-      <img src="${qrImgUrl}" style="display: block; width: ${qrSize}px; height: ${qrSize}px; border-radius: 6px; background: white;">
-      <div style="font-family: 'Bebas Neue', sans-serif; font-size: 12px; color: #fff; text-align: center; margin-top: 6px; letter-spacing: 1px;">SCAN TO JOIN</div>
-      <div style="display: flex; gap: 3px; justify-content: center; margin-top: 5px;">
-        <button onclick="setQRSize('small')"  style="padding: 3px 7px; background: ${savedSize==='small'  ? '#ffc629' : 'rgba(255,255,255,0.2)'}; border: none; border-radius: 3px; font-size: 9px; cursor: pointer; color: #fff;">S</button>
-        <button onclick="setQRSize('medium')" style="padding: 3px 7px; background: ${savedSize==='medium' ? '#ffc629' : 'rgba(255,255,255,0.2)'}; border: none; border-radius: 3px; font-size: 9px; cursor: pointer; color: #fff;">M</button>
-        <button onclick="setQRSize('large')"  style="padding: 3px 7px; background: ${savedSize==='large'  ? '#ffc629' : 'rgba(255,255,255,0.2)'}; border: none; border-radius: 3px; font-size: 9px; cursor: pointer; color: #fff;">L</button>
-      </div>
-      <div style="font-family: 'Barlow', sans-serif; font-size: 9px; color: rgba(255,255,255,0.5); text-align: center; margin-top: 3px;">drag to move</div>
-    </div>
-  `;
-
-  document.body.appendChild(qrDiv);
-  makeQRCodeDraggable(qrDiv);
-}
-
-function makeQRCodeDraggable(el) {
-  let dragging = false, startX, startY, origRight, origBottom;
-
-  el.addEventListener('mousedown', (e) => {
-    if (e.target.tagName === 'BUTTON') return;
-    dragging = true;
-    startX = e.clientX;
-    startY = e.clientY;
-    origRight  = parseInt(el.style.right)  || 20;
-    origBottom = parseInt(el.style.bottom) || 20;
-    e.preventDefault();
-  });
-
-  document.addEventListener('mousemove', (e) => {
-    if (!dragging) return;
-    const dx = e.clientX - startX;
-    const dy = e.clientY - startY;
-    el.style.right  = Math.max(0, origRight  - dx) + 'px';
-    el.style.bottom = Math.max(0, origBottom + dy) + 'px';
-  });
-
-  document.addEventListener('mouseup', () => {
-    if (!dragging) return;
-    dragging = false;
-    localStorage.setItem('qr-pos-right',  el.style.right);
-    localStorage.setItem('qr-pos-bottom', el.style.bottom);
-  });
-}
-
-function setQRSize(size) {
-  localStorage.setItem('qr-size', size);
-  createPersistentQRCode();
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// PAUSE SYSTEM
-// ═══════════════════════════════════════════════════════════════════════════
-
-let _gamePaused = false;
-
-// All named window.* audio variables that might be playing at any point
-const _AUDIO_VAR_NAMES = [
-  'introMusicAudio', 'intro2Audio', 'round1IntroAudio', '_introVoiceAudio',
-  'currentQuestionAudio', 'currentAnswerAudio',
-  'scoresIntroAudio', '_commentaryAudio', 'scoresReactionAudio',
-  'round2IntroAudio', 'round2MusicAudio',
-  '_punReactionAudio', 'reviewIntroAudio', '_punVoiceAudio',
-  'bonusAlertAudio', 'bonusExplainerAudio', 'bonusSetupAudio',
-  'karaokeAudio',
-  'matchDrawExplainerAudio', 'matchDrawMusic',
-  'bogExplainerAudio', 'bogRollingMusic',
-  'goalPostExplainerAudio', 'goalPostsMusic',
-  '_currentTTSAudio',  // ElevenLabs TTS — caption readings, sabotage questions, winner announcements
-];
-window._currentTTSAudio = null;
-
-function pauseAllAudio() {
-  window._pausedAudioRefs = [];
-
-  const seen = new Set();
-  const maybePause = (a) => {
-    if (!a || typeof a.pause !== 'function' || seen.has(a)) return;
-    seen.add(a);
-    if (!a.paused) {
-      a.pause();
-      window._pausedAudioRefs.push(a);
-    }
-  };
-
-  // 1. Named window audio variables
-  _AUDIO_VAR_NAMES.forEach(name => maybePause(window[name]));
-
-  // 2. Generic audio pool (playAudio() references)
-  (window._audioRefs || []).forEach(maybePause);
-
-  // 3. Any <video> elements currently playing in the DOM
-  document.querySelectorAll('video').forEach(v => {
-    if (!v.paused) { v.pause(); window._pausedAudioRefs.push(v); }
-  });
-
-  // 4. Preloaded R1 question/answer audio objects (used directly, not via playAudio())
-  if (window.r1AudioPreload) {
-    Object.values(window.r1AudioPreload).forEach(maybePause);
+/**
+ * Starts a 5-to-1 countdown in #transition-countdown.
+ * Call this whenever a .transition-screen is shown.
+ */
+function startTransitionCountdown() {
+  const el = document.getElementById('transition-countdown');
+  if (!el) return;
+  if (_transitionCountdownTimer) {
+    clearInterval(_transitionCountdownTimer);
+    _transitionCountdownTimer = null;
   }
-
-  console.log(`⏸️ Paused ${window._pausedAudioRefs.length} audio/video source(s)`);
-}
-
-function resumeAllAudio() {
-  (window._pausedAudioRefs || []).forEach(a => {
-    if (a && typeof a.play === 'function' && a.paused) {
-      a.play().catch(() => {});
-    }
-  });
-  console.log(`▶️ Resumed ${(window._pausedAudioRefs || []).length} audio/video source(s)`);
-  window._pausedAudioRefs = [];
-}
-
-// Listen to Firebase 'paused' — reacts to Player 1's pause button on their phone
-(function setupHostPauseListener() {
-  const check = setInterval(() => {
-    if (!gameRef) return;
-    clearInterval(check);
-    gameRef.child('paused').on('value', (snap) => {
-      const shouldBePaused = snap.val() === true;
-      if (shouldBePaused && !_gamePaused) {
-        _gamePaused = true;
-        // Pause caption timer if running
-        clearInterval(window._captionTimerInterval);
-        window._captionTimerInterval = null;
-        showPauseOverlay();
-      } else if (!shouldBePaused && _gamePaused) {
-        _gamePaused = false;
-        resumeAllAudio();
-        // Restart caption timer if caption round is still on screen
-        if (window._captionTimeLeft > 0 && document.getElementById('caption-round-screen')) {
-          const ri = window._captionActiveRoundIndex;
-          window._captionTimerInterval = setInterval(() => {
-            window._captionTimeLeft--;
-            const el = document.getElementById('caption-timer-display');
-            if (el) el.textContent = `:${String(window._captionTimeLeft).padStart(2, '0')}`;
-            gameRef.child('captionContest/timeLeft').set(window._captionTimeLeft);
-            if (window._captionTimeLeft <= 0) {
-              clearInterval(window._captionTimerInterval);
-              window._captionTimerInterval = null;
-              advanceCaptionToReview(ri);
-            }
-          }, 1000);
-        }
-        const overlay = document.getElementById('host-pause-overlay');
-        if (overlay) overlay.remove();
-      }
-    });
-  }, 500);
-})();
-
-function createPauseButton() {
-  if (document.getElementById('pause-button')) return;
-
-  const btn = document.createElement('button');
-  btn.id = 'pause-button';
-  btn.innerHTML = '⏸️ Pause';
-  btn.style.cssText = 'padding: 6px 14px; background: rgba(255,198,41,0.9); color: #0a1628; border: none; border-radius: 6px; font-family: \'Bebas Neue\', sans-serif; font-size: 16px; cursor: pointer; letter-spacing: 1px; white-space: nowrap;';
-  btn.onclick = togglePause;
-
-  // Insert into header right, between the QR code and the round indicator
-  const headerRight = document.querySelector('.header-right');
-  const roundIndicator = document.getElementById('round-indicator');
-  if (headerRight && roundIndicator) {
-    headerRight.insertBefore(btn, roundIndicator);
-  } else {
-    document.body.appendChild(btn);
-  }
-}
-
-function togglePause() {
-  // Drive everything through Firebase — the listener above handles the UI response
-  gameRef.child('paused').set(!_gamePaused);
-}
-
-function showPauseOverlay() {
-  if (document.getElementById('host-pause-overlay')) return;
-  pauseAllAudio();
-
-  const now = Date.now();
-  const timeout = 60000;
-  const disconnected = Object.values(players).filter(p => p.lastActive && (now - p.lastActive > timeout));
-
-  const overlay = document.createElement('div');
-  overlay.id = 'host-pause-overlay';
-  overlay.style.cssText = 'position: fixed; inset: 0; background: rgba(10,22,40,0.92); display: flex; align-items: center; justify-content: center; z-index: 19500; padding: 40px;';
-
-  const disconnectedHtml = disconnected.length > 0
-    ? `<div style="margin: 24px 0; font-family: 'Barlow', sans-serif; font-size: 18px; color: rgba(255,255,255,0.8);">
-        Missing: ${disconnected.map(p => `<span style="color:${p.team===1?'#4dd4e8':'#d4145a'}">${p.name}</span>`).join(', ')}
-       </div>`
-    : '';
-
-  overlay.innerHTML = `
-    <div style="text-align: center; max-width: 600px;">
-      <div style="font-size: 100px; margin-bottom: 20px;">⏸️</div>
-      <h1 style="font-family: 'Bebas Neue', sans-serif; font-size: 72px; color: #ffc629; margin-bottom: 20px;">GAME PAUSED</h1>
-      ${disconnectedHtml}
-      <button onclick="togglePause()" style="padding: 18px 56px; background: linear-gradient(135deg, #2ecc71, #27ae60); color: #fff; border: none; border-radius: 12px; font-family: 'Bebas Neue', sans-serif; font-size: 28px; cursor: pointer; margin-top: 16px;">
-        ▶️ Resume Game
-      </button>
-    </div>
-  `;
-
-  document.body.appendChild(overlay);
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// CHAMPIONS LEAGUE TEAM PHOTO
-// ═══════════════════════════════════════════════════════════════════════════
-
-function downloadChampionsPhoto() {
-  const canvas = document.createElement('canvas');
-  canvas.width = 1200;
-  canvas.height = 675;
-  const ctx = canvas.getContext('2d');
-
-  // Background
-  const bg = ctx.createLinearGradient(0, 0, 1200, 675);
-  bg.addColorStop(0, '#001e3c');
-  bg.addColorStop(1, '#0a2f5c');
-  ctx.fillStyle = bg;
-  ctx.fillRect(0, 0, 1200, 675);
-
-  // Subtle line pattern
-  ctx.strokeStyle = 'rgba(255,255,255,0.04)';
-  ctx.lineWidth = 1;
-  for (let i = 0; i < 20; i++) {
-    ctx.beginPath(); ctx.moveTo(i * 60, 0); ctx.lineTo(1200, 675 - i * 34); ctx.stroke();
-  }
-
-  // Score header
-  const team1Score = Object.values(players).filter(p => p.team === 1).reduce((s, p) => s + (p.score || 0), 0);
-  const team2Score = Object.values(players).filter(p => p.team === 2).reduce((s, p) => s + (p.score || 0), 0);
-  const winLabel = team1Score > team2Score ? (team1 ? team1.name + ' WIN' : 'HOME WIN')
-                 : team2Score > team1Score ? (team2 ? team2.name + ' WIN' : 'AWAY WIN')
-                 : "IT'S A DRAW";
-
-  ctx.fillStyle = '#ffc629';
-  ctx.font = 'bold 64px Arial';
-  ctx.textAlign = 'center';
-  ctx.fillText(`🏆 ${winLabel} 🏆`, 600, 80);
-
-  ctx.fillStyle = '#fff';
-  ctx.font = 'bold 48px Arial';
-  ctx.fillText(`FINAL SCORE: ${team1Score} – ${team2Score}`, 600, 145);
-
-  // Draw all player photos
-  const allPlayers = Object.values(players);
-  const photoSize = 140;
-  const spacing = 180;
-  const startX = (1200 - (allPlayers.length * spacing - (spacing - photoSize))) / 2 + photoSize / 2;
-  const photoY = 200;
-
-  let loadedCount = 0;
-  const finalize = () => {
-    // Footer
-    ctx.fillStyle = '#4dd4e8';
-    ctx.font = 'bold 22px Arial';
-    ctx.textAlign = 'center';
-    ctx.fillText('foulplay.games', 600, 650);
-
-    const link = document.createElement('a');
-    link.href = canvas.toDataURL('image/png');
-    link.download = `foul-play-victory-${Date.now()}.png`;
-    link.click();
-  };
-
-  if (allPlayers.length === 0) { finalize(); return; }
-
-  allPlayers.forEach((player, i) => {
-    const x = startX + i * spacing;
-    const tilt = i % 2 === 0 ? -4 : 4;
-    const teamColor = player.team === 1 ? '#4dd4e8' : '#d4145a';
-
-    const drawPlayer = () => {
-      ctx.save();
-      ctx.translate(x, photoY + photoSize / 2);
-      ctx.rotate((tilt * Math.PI) / 180);
-
-      // White polaroid border
-      ctx.fillStyle = '#fff';
-      ctx.fillRect(-photoSize / 2 - 5, -photoSize / 2 - 5, photoSize + 10, photoSize + 10);
-
-      // Team colour bar at bottom of polaroid
-      ctx.fillStyle = teamColor;
-      ctx.fillRect(-photoSize / 2 - 5, photoSize / 2 - 5, photoSize + 10, 10);
-
-      ctx.restore();
-
-      // Name label
-      ctx.save();
-      ctx.fillStyle = '#fff';
-      ctx.font = 'bold 18px Arial';
-      ctx.textAlign = 'center';
-      ctx.fillText(player.name || '', x, photoY + photoSize + 30);
-      ctx.restore();
-
-      loadedCount++;
-      if (loadedCount === allPlayers.length) finalize();
-    };
-
-    if (player.photo) {
-      const img = new Image();
-      img.onload = () => {
-        ctx.save();
-        ctx.translate(x, photoY + photoSize / 2);
-        ctx.rotate(((i % 2 === 0 ? -4 : 4) * Math.PI) / 180);
-        ctx.drawImage(img, -photoSize / 2, -photoSize / 2, photoSize, photoSize);
-        ctx.restore();
-        drawPlayer();
-      };
-      img.onerror = drawPlayer;
-      img.src = player.photo;
+  let count = 5;
+  el.textContent = count;
+  _transitionCountdownTimer = setInterval(() => {
+    count--;
+    if (count >= 1) {
+      el.textContent = count;
     } else {
-      // Initials placeholder
-      ctx.fillStyle = teamColor;
-      ctx.fillRect(x - photoSize / 2 - 5, photoY - 5, photoSize + 10, photoSize + 10);
-      ctx.fillStyle = '#fff';
-      ctx.font = 'bold 64px Arial';
-      ctx.textAlign = 'center';
-      ctx.fillText((player.name || '?')[0].toUpperCase(), x, photoY + photoSize / 2 + 22);
-      drawPlayer();
+      el.textContent = '';
+      clearInterval(_transitionCountdownTimer);
+      _transitionCountdownTimer = null;
+    }
+  }, 1000);
+}
+
+// Observe #transition-screen for class changes and start countdown when it becomes active
+(function() {
+  const ts = document.getElementById('transition-screen');
+  if (!ts) return;
+  const obs = new MutationObserver(() => {
+    if (ts.classList.contains('active')) {
+      startTransitionCountdown();
     }
   });
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// SOCIAL SHARING
-// ═══════════════════════════════════════════════════════════════════════════
-
-function copyGameLink() {
-  navigator.clipboard.writeText('https://foulplay.games').catch(() => {});
-
-  const toast = document.createElement('div');
-  toast.style.cssText = 'position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 11000; background: #2ecc71; color: #fff; padding: 14px 30px; border-radius: 8px; font-family: \'Bebas Neue\', sans-serif; font-size: 20px; letter-spacing: 1px;';
-  toast.textContent = '✓ Link Copied!';
-  document.body.appendChild(toast);
-  setTimeout(() => toast.remove(), 2500);
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// HOST EMAIL SIGN-UP (on victory screen)
-// ═══════════════════════════════════════════════════════════════════════════
+  obs.observe(ts, { attributes: true, attributeFilter: ['class'] });
+})();
 
 async function submitHostEmail() {
   const input = document.getElementById('host-email-input');
