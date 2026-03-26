@@ -1963,7 +1963,7 @@ teamsGrid.innerHTML = WORLD_CUP_FINALISTS.map((country, index) => `
 
 function selectTeam(index) {
   const country = WORLD_CUP_FINALISTS[index];
-  
+
   if (!team1) {
     team1 = country;
     document.getElementById('team-opt-' + index).classList.add('selected');
@@ -1973,9 +1973,12 @@ function selectTeam(index) {
     document.getElementById('team-opt-' + index).classList.add('selected');
     updateSelectedTeamsDisplay();
     document.getElementById('confirm-teams-btn').disabled = false;
+    // Both teams known — start fetching intro voice in background immediately
+    prefetchIntroVoice();
   } else if (team1 && country.name === team1.name) {
     // Deselect team 1
     team1 = null;
+    window._introVoiceCachePromise = null; // invalidate cache
     document.getElementById('team-opt-' + index).classList.remove('selected');
     if (team2) {
       team1 = team2;
@@ -1986,10 +1989,35 @@ function selectTeam(index) {
   } else if (team2 && country.name === team2.name) {
     // Deselect team 2
     team2 = null;
+    window._introVoiceCachePromise = null; // invalidate cache
     document.getElementById('team-opt-' + index).classList.remove('selected');
     updateSelectedTeamsDisplay();
     document.getElementById('confirm-teams-btn').disabled = true;
   }
+}
+
+function prefetchIntroVoice() {
+  const text = `(excited) Thanks Clyde!... It's looking like an interesting game.. We've got ${team1.name} up against ${team2.name}! Certainly one to watch! (given you're already here).`;
+  console.log('🔄 Prefetching intro voice:', team1.name, 'vs', team2.name);
+  window._introVoiceCachePromise = fetch('https://api.elevenlabs.io/v1/text-to-speech/rfkTsdZrVWEVhDycUYn9', {
+    method: 'POST',
+    headers: { 'Accept': 'audio/mpeg', 'Content-Type': 'application/json', 'xi-api-key': 'sk_eb4900ceb7e4366087590c2b906743504ba8c844524ddcc4' },
+    body: JSON.stringify({
+      text,
+      model_id: 'eleven_turbo_v2_5',
+      voice_settings: { stability: 0.4, similarity_boost: 0.75, style: 0.5, use_speaker_boost: true }
+    })
+  }).then(r => {
+    if (!r.ok) throw new Error(`ElevenLabs prefetch error: ${r.status}`);
+    return r.blob();
+  }).then(blob => {
+    console.log('✅ Intro voice prefetched and ready');
+    return blob;
+  }).catch(err => {
+    console.warn('⚠️ Intro voice prefetch failed, will generate on demand:', err);
+    window._introVoiceCachePromise = null;
+    return null;
+  });
 }
 
 function updateSelectedTeamsDisplay() {
@@ -2614,44 +2642,38 @@ function updateScoreboard() {
 // ═══════════════════════════════════════════════════════════════════════════
 
 async function generateIntroVoiceDirectly() {
-  const text = `(excited) Thanks Clyde!... It's looking like an interesting game.. We've got ${team1.name} up against ${team2.name}! Certainly one to watch! (given you're already here).`;
-  
-  console.log('🎙️ Generating intro voice:', text);
-  
-  // Your ElevenLabs API credentials
-  const ELEVENLABS_API_KEY = 'sk_eb4900ceb7e4366087590c2b906743504ba8c844524ddcc4';
-  const VOICE_ID = 'rfkTsdZrVWEVhDycUYn9';
-  
-  let explainerShown = false; // Move outside try so catch can access
-  
+  let explainerShown = false;
+
   try {
-    const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`, {
-      method: 'POST',
-      headers: {
-        'Accept': 'audio/mpeg',
-        'Content-Type': 'application/json',
-        'xi-api-key': ELEVENLABS_API_KEY
-      },
-      body: JSON.stringify({
-        text: text,
-        model_id: 'eleven_turbo_v2_5',
-        voice_settings: {
-          stability: 0.4,
-          similarity_boost: 0.75,
-          style: 0.5,
-          use_speaker_boost: true
-        }
-      })
-    });
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`ElevenLabs API error: ${response.status} - ${errorText}`);
+    let audioBlob = null;
+
+    if (window._introVoiceCachePromise) {
+      console.log('🎙️ Awaiting prefetched intro voice…');
+      audioBlob = await window._introVoiceCachePromise;
     }
-    
-    console.log('✅ Voice generated successfully');
-    
-    const audioBlob = await response.blob();
+
+    if (!audioBlob) {
+      // Cache missed or failed — generate fresh
+      const text = `(excited) Thanks Clyde!... It's looking like an interesting game.. We've got ${team1.name} up against ${team2.name}! Certainly one to watch! (given you're already here).`;
+      console.log('🎙️ Generating intro voice fresh:', text);
+      const response = await fetch('https://api.elevenlabs.io/v1/text-to-speech/rfkTsdZrVWEVhDycUYn9', {
+        method: 'POST',
+        headers: { 'Accept': 'audio/mpeg', 'Content-Type': 'application/json', 'xi-api-key': 'sk_eb4900ceb7e4366087590c2b906743504ba8c844524ddcc4' },
+        body: JSON.stringify({
+          text,
+          model_id: 'eleven_turbo_v2_5',
+          voice_settings: { stability: 0.4, similarity_boost: 0.75, style: 0.5, use_speaker_boost: true }
+        })
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`ElevenLabs API error: ${response.status} - ${errorText}`);
+      }
+      audioBlob = await response.blob();
+    }
+
+    console.log('✅ Intro voice ready');
+
     const audioUrl = URL.createObjectURL(audioBlob);
     window._introVoiceAudio = new Audio(audioUrl);
 
@@ -3020,30 +3042,53 @@ function showScoresReview() {
   const scoresDiv = document.createElement('div');
   scoresDiv.id = 'scores-review';
   scoresDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, var(--motd-dark-navy) 0%, var(--motd-navy) 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 40px;';
+  // Build per-team player rows sorted by score descending
+  const buildPlayerRows = (teamNum, accentColor) =>
+    Object.values(players)
+      .filter(p => p.team === teamNum)
+      .sort((a, b) => (b.score || 0) - (a.score || 0))
+      .map(p => {
+        const initial = (p.name || '?').charAt(0).toUpperCase();
+        const avatar = p.photo
+          ? `<img src="${p.photo}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;border:2px solid ${accentColor};flex-shrink:0;">`
+          : `<div style="width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.1);border:2px solid ${accentColor};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:${accentColor};flex-shrink:0;">${initial}</div>`;
+        return `
+          <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:8px;background:rgba(255,255,255,0.05);margin-bottom:6px;">
+            ${avatar}
+            <span style="font-family:'Barlow Condensed',sans-serif;font-size:20px;color:#fff;flex:1;text-align:left;">${p.name || ''}</span>
+            <span style="font-family:'Bebas Neue',sans-serif;font-size:24px;color:${accentColor};min-width:36px;text-align:right;">${p.score || 0}</span>
+          </div>`;
+      }).join('');
+
   scoresDiv.innerHTML = `
-    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 60px; color: var(--motd-gold); text-shadow: 0 0 40px rgba(255,198,41,0.8); margin-bottom: 60px; letter-spacing: 6px;">
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 54px; color: var(--motd-gold); text-shadow: 0 0 40px rgba(255,198,41,0.8); margin-bottom: 30px; letter-spacing: 6px;">
       ${scoresHeading}
     </div>
-    
-    <div style="display: flex; gap: 80px; margin-bottom: 60px;">
-      <div style="text-align: center;">
-        <div style="font-family: 'Barlow Condensed', sans-serif; font-size: 32px; color: var(--text-muted); margin-bottom: 20px;">${team1.flag} ${team1.name}</div>
-        <div style="font-family: 'Bebas Neue', sans-serif; font-size: 120px; color: var(--motd-cyan); text-shadow: 0 0 40px rgba(77,212,232,0.6);">${team1Score}</div>
+
+    <div style="display: flex; gap: 60px; align-items: flex-start; margin-bottom: 40px; width: 100%; max-width: 900px;">
+
+      <!-- Team 1 -->
+      <div style="flex: 1; text-align: center;">
+        <div style="font-family: 'Barlow Condensed', sans-serif; font-size: 26px; color: var(--text-muted); margin-bottom: 8px;">${team1.flag} ${team1.name}</div>
+        <div style="font-family: 'Bebas Neue', sans-serif; font-size: 100px; color: var(--motd-cyan); text-shadow: 0 0 40px rgba(77,212,232,0.6); line-height: 1;">${team1Score}</div>
+        <div style="margin-top: 16px;">${buildPlayerRows(1, '#4dd4e8')}</div>
       </div>
-      
-      <div style="font-family: 'Bebas Neue', sans-serif; font-size: 80px; color: var(--text-muted); align-self: center;">-</div>
-      
-      <div style="text-align: center;">
-        <div style="font-family: 'Barlow Condensed', sans-serif; font-size: 32px; color: var(--text-muted); margin-bottom: 20px;">${team2.flag} ${team2.name}</div>
-        <div style="font-family: 'Bebas Neue', sans-serif; font-size: 120px; color: var(--motd-magenta); text-shadow: 0 0 40px rgba(212,20,90,0.6);">${team2Score}</div>
+
+      <!-- Divider -->
+      <div style="font-family: 'Bebas Neue', sans-serif; font-size: 70px; color: var(--text-muted); padding-top: 30px;">-</div>
+
+      <!-- Team 2 -->
+      <div style="flex: 1; text-align: center;">
+        <div style="font-family: 'Barlow Condensed', sans-serif; font-size: 26px; color: var(--text-muted); margin-bottom: 8px;">${team2.flag} ${team2.name}</div>
+        <div style="font-family: 'Bebas Neue', sans-serif; font-size: 100px; color: var(--motd-magenta); text-shadow: 0 0 40px rgba(212,20,90,0.6); line-height: 1;">${team2Score}</div>
+        <div style="margin-top: 16px;">${buildPlayerRows(2, '#d4145a')}</div>
       </div>
+
     </div>
-    
-    <div id="scores-commentary" style="font-family: 'Barlow', sans-serif; font-size: 28px; color: var(--text); max-width: 900px; text-align: center; line-height: 1.6; font-style: italic; margin-bottom: 40px; min-height: 80px;">
-      
-    </div>
-    
-    <div class="spinner" style="margin-top: 20px;"></div>
+
+    <div id="scores-commentary" style="font-family: 'Barlow', sans-serif; font-size: 24px; color: var(--text); max-width: 900px; text-align: center; line-height: 1.6; font-style: italic; margin-bottom: 30px; min-height: 60px;"></div>
+
+    <div class="spinner" style="margin-top: 10px;"></div>
   `;
   
   document.body.appendChild(scoresDiv);
@@ -3073,10 +3118,12 @@ function showScoresReview() {
     console.log(`🎵 Playing generic reaction: ${genericFile}`);
     const genericAudio = new Audio(`${genericFile}?v=2`);
     genericAudio.volume = 0.6;
+    window._audioRefs.push(genericAudio);
     let genericDone = false;
     const onGenericDone = () => {
       if (genericDone) return;
       genericDone = true;
+      window._audioRefs = window._audioRefs.filter(a => a !== genericAudio);
       // 2. Now generate + play ElevenLabs commentary
       generateScoresCommentary(leadText, team1Score, team2Score);
     };
@@ -3092,15 +3139,19 @@ function showScoresReview() {
     console.log('🎵 Playing full_time_whistle.mp3');
     const whistleAudio = new Audio('full_time_whistle.mp3?v=2');
     whistleAudio.volume = 0.8;
+    window._audioRefs.push(whistleAudio);
 
     let introStarted = false; // guard against double-calling playFinalIntro
     const playFinalIntro = () => {
+      window._audioRefs = window._audioRefs.filter(a => a !== whistleAudio);
       if (introStarted) return;
       introStarted = true;
       console.log('🎵 Playing final_scores_intro.mp3');
       const finalIntroAudio = new Audio('final_scores_intro.mp3?v=2');
       finalIntroAudio.volume = 0.6;
+      window._audioRefs.push(finalIntroAudio);
       finalIntroAudio.addEventListener('ended', () => {
+        window._audioRefs = window._audioRefs.filter(a => a !== finalIntroAudio);
         console.log('✅ final_scores_intro finished, generating commentary');
         triggerCommentary(true); // skip generic reaction for final scores
       });
@@ -3232,6 +3283,7 @@ function playContextualReaction(team1Score, team2Score) {
 
   const reactionAudio = new Audio(`${reactionFile}?v=2`);
   reactionAudio.volume = 0.6;
+  window._audioRefs.push(reactionAudio);
   reactionAudio.play()
     .then(() => console.log('🔊 Playing contextual scores reaction'))
     .catch(err => console.error('contextual_reaction play failed:', err));
@@ -3239,6 +3291,7 @@ function playContextualReaction(team1Score, team2Score) {
   let reactionEnded = false;
 
   reactionAudio.addEventListener('ended', () => {
+    window._audioRefs = window._audioRefs.filter(a => a !== reactionAudio);
     if (!reactionEnded) {
       reactionEnded = true;
       console.log('✅ Contextual reaction finished');
