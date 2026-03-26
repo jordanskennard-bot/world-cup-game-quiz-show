@@ -2552,8 +2552,8 @@ function updatePlayersList() {
         ${teamFlag ? `<div class="player-team-badge">${teamFlag}</div>` : ''}
         ${player.photo
           ? `<img src="${player.photo}" class="player-avatar" style="object-fit:cover;">`
-          : `<div class="player-avatar">${player.name.charAt(0).toUpperCase()}</div>`}
-        <div class="player-name">${player.name}${refereeBadge}</div>
+          : `<div class="player-avatar">${(player.name || '?').charAt(0).toUpperCase()}</div>`}
+        <div class="player-name">${player.name || ''}${refereeBadge}</div>
       </div>
     `;
   }).join('');
