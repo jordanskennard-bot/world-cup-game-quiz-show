@@ -1311,6 +1311,14 @@ function listenForGameStart() {
     }
   });
 
+  // ── TEAM TALK — must be active BEFORE 'started:true' because team talk
+  //    is the pre-game intro that runs while players are on the waiting screen ──
+  gameRef.child('teamTalk/phase').on('value', (snap) => {
+    const phase = snap.val();
+    if (!phase) return;
+    handleTeamTalkPhase(phase);
+  });
+
   // Listen for Round 1 explainer
   // Guard: skip on rejoin — player is already mid-game
   gameRef.child('showRound1Explainer').on('value', (snapshot) => {
@@ -1545,12 +1553,6 @@ function listenForGameStart() {
     }
   });
 
-  // ── TEAM TALK LISTENERS ──
-  gameRef.child('teamTalk/phase').on('value', (snap) => {
-    const phase = snap.val();
-    if (!phase) return;
-    handleTeamTalkPhase(phase);
-  });
 }
 
 function showPlayerToiletPaperAlert() {
