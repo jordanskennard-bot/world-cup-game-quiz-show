@@ -824,7 +824,7 @@
     </div>
     
     <div class="lead-controls" id="waiting-lead-controls">
-      <button class="lead-btn primary" onclick="startGameAsLead()">🎮 Start Game</button>
+      <button class="lead-btn primary" onclick="startGameAsLead()">📯 Blow Whistle</button>
     </div>
     
     <div style="display: none; text-align: center; font-family: 'Barlow', sans-serif; font-size: 14px; color: var(--text-muted); margin-top: 10px; font-style: italic;" id="start-game-note">
@@ -1696,7 +1696,12 @@ function startGameAsLead() {
     console.log('⚠️ Start already triggered, ignoring');
     return;
   }
-  
+
+  // Play whistle sound immediately on button press
+  const whistleAudio = new Audio('full_time_whistle.mp3');
+  whistleAudio.volume = 0.9;
+  whistleAudio.play().catch(() => {});
+
   gameStartTriggered = true;
   console.log('Start Game button clicked!');
   console.log('Game ref:', gameRef);

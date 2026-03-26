@@ -824,7 +824,7 @@
     </div>
     
     <div class="lead-controls" id="waiting-lead-controls">
-      <button class="lead-btn primary" onclick="startGameAsLead()">⚽ Kick Off</button>
+      <button class="lead-btn primary" onclick="startGameAsLead()">📯 Blow Whistle</button>
     </div>
     
     <div style="display: none; text-align: center; font-family: 'Barlow', sans-serif; font-size: 14px; color: var(--text-muted); margin-top: 10px; font-style: italic;" id="start-game-note">
@@ -1556,7 +1556,9 @@ function listenForGameStart() {
 function showPlayerToiletPaperAlert() {
   if (document.getElementById('player-tp-alert')) return;
 
-  const isCaptain = players[playerId]?.isCaptain === true && players[playerId]?.team === 1;
+  // In sandbox, no teams are selected so nobody gets isCaptain — fall back to player 1
+  const isCaptain = (players[playerId]?.isCaptain === true && players[playerId]?.team === 1)
+                    || window._isPlayer1 === true;
 
   const alertDiv = document.createElement('div');
   alertDiv.id = 'player-tp-alert';
@@ -1694,7 +1696,12 @@ function startGameAsLead() {
     console.log('⚠️ Start already triggered, ignoring');
     return;
   }
-  
+
+  // Play whistle sound immediately on button press
+  const whistleAudio = new Audio('full_time_whistle.mp3');
+  whistleAudio.volume = 0.9;
+  whistleAudio.play().catch(() => {});
+
   gameStartTriggered = true;
   console.log('Start Game button clicked!');
   console.log('Game ref:', gameRef);
@@ -1796,11 +1803,6 @@ function startPlaying() {
     if (snapshot.val() === true) showBlowBallGetReadyScreen();
   });
 
-  // After 20 s, the referee gets a Full Time button
-  gameRef.child('blowBallFullTimeAvailable').on('value', (snapshot) => {
-    if (snapshot.val() === true) showBlowBallFullTimeButton();
-  });
-
   gameRef.child('blowBallJudgingActive').on('value', (snapshot) => {
     if (snapshot.val() === true) {
       showPlayerBlowBallJudging();
@@ -1872,9 +1874,7 @@ function showSabotageTask(sabotageData) {
       <div style="font-family: 'Barlow', sans-serif; font-size: 17px; color: rgba(255,255,255,0.9); margin-bottom: 18px; line-height: 1.6;">
         ${sabotageData.description}
       </div>
-      <div style="font-family: 'Barlow', sans-serif; font-size: 15px; color: rgba(255,255,255,0.65); margin-bottom: 20px; font-style: italic;">
-        ${sabotageData.pointsPerPiece} point per piece — don't get caught!
-      </div>
+      ${(sabotageData.pointsDisplay || sabotageData.pointsPerPiece) ? `<div style="font-family: 'Barlow', sans-serif; font-size: 15px; color: rgba(255,255,255,0.65); margin-bottom: 20px; font-style: italic;">${sabotageData.pointsDisplay || sabotageData.pointsPerPiece + ' point per piece'} — don't get caught!</div>` : ''}
       <button id="sabotage-understood-btn" onclick="acknowledgeSabotage()"
               style="width: 100%; padding: 15px; background: linear-gradient(135deg, #4dd4e8, #ffc629); color: #0a1628; border: none; border-radius: 12px; font-family: 'Bebas Neue', sans-serif; font-size: 24px; cursor: default; box-shadow: 0 8px 20px rgba(77,212,232,0.4); -webkit-tap-highlight-color: transparent; opacity: 0.4;"
               disabled>
@@ -1893,7 +1893,7 @@ function showSabotageTask(sabotageData) {
       understoodBtn.style.opacity = '1';
       understoodBtn.style.cursor = 'pointer';
     }
-  }, 5000);
+  }, 10000);
 }
 
 function createStandaloneSabotageDisplay(sabotageData) {
@@ -1913,9 +1913,7 @@ function createStandaloneSabotageDisplay(sabotageData) {
       <div style="font-family: 'Barlow', sans-serif; font-size: 17px; color: rgba(255,255,255,0.9); margin-bottom: 18px; line-height: 1.6;">
         ${sabotageData.description}
       </div>
-      <div style="font-family: 'Barlow', sans-serif; font-size: 15px; color: rgba(255,255,255,0.65); margin-bottom: 24px; font-style: italic;">
-        ${sabotageData.pointsPerPiece} point per piece!
-      </div>
+      ${(sabotageData.pointsDisplay || sabotageData.pointsPerPiece) ? `<div style="font-family: 'Barlow', sans-serif; font-size: 15px; color: rgba(255,255,255,0.65); margin-bottom: 24px; font-style: italic;">${sabotageData.pointsDisplay || sabotageData.pointsPerPiece + ' point per piece'}!</div>` : ''}
       <button id="sabotage-understood-btn" onclick="acknowledgeSabotage()"
               style="width: 100%; padding: 15px; background: linear-gradient(135deg, #4dd4e8, #ffc629); color: #0a1628; border: none; border-radius: 12px; font-family: 'Bebas Neue', sans-serif; font-size: 24px; cursor: default; -webkit-tap-highlight-color: transparent; opacity: 0.4;"
               disabled>
@@ -1934,7 +1932,7 @@ function createStandaloneSabotageDisplay(sabotageData) {
       understoodBtn.style.opacity = '1';
       understoodBtn.style.cursor = 'pointer';
     }
-  }, 5000);
+  }, 10000);
 }
 
 function acknowledgeSabotage() {
@@ -2122,10 +2120,15 @@ function volunteerAsPhotographer() {
   console.log('📸 Volunteering as photographer');
 
   const playerTeam = players[playerId]?.team;
-  if (!playerTeam) return;
 
-  // Only first volunteer per team wins (Firebase will silently overwrite but that's fine here)
-  gameRef.child(`blowBall/photographers/team${playerTeam}`).set(playerId);
+  if (!playerTeam) {
+    // Sandbox: no teams assigned — fill both slots so the host can proceed
+    gameRef.child('blowBall/photographers/team1').set(playerId);
+    gameRef.child('blowBall/photographers/team2').set(playerId);
+  } else {
+    // Only first volunteer per team wins (Firebase will silently overwrite but that's fine here)
+    gameRef.child(`blowBall/photographers/team${playerTeam}`).set(playerId);
+  }
 
   const selectionDiv = document.getElementById('player-photographer-selection');
   if (selectionDiv) selectionDiv.remove();
@@ -2176,118 +2179,45 @@ function revealBlowBallEmotion(emotion) {
   if (hiddenEl) hiddenEl.style.display = 'none';
 }
 
-// Photographer screen during the hidden snap phase — live camera + Take Photo button beneath it
+// Photographer screen during the hidden snap phase — camera ready, no emotion shown
 function showPhotographerSnapScreen(roundNumber) {
-  _stopBlowBallCamera(); // clean up any previous stream
   let emotionDiv = document.getElementById('player-blowball-emotion');
   if (!emotionDiv) {
     emotionDiv = document.createElement('div');
     emotionDiv.id = 'player-blowball-emotion';
-    emotionDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, #0a1628 0%, #1a2b4a 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 20px; text-align: center; overflow-y: auto;';
+    emotionDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, #0a1628 0%, #1a2b4a 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 30px; text-align: center;';
     document.body.appendChild(emotionDiv);
   }
 
   emotionDiv.innerHTML = `
-    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 28px; color: rgba(255,255,255,0.6); margin-bottom: 6px; letter-spacing: 3px;">
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 32px; color: rgba(255,255,255,0.6); margin-bottom: 6px; letter-spacing: 3px;">
       ROUND ${roundNumber}
     </div>
-    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 34px; color: #fff; margin-bottom: 10px;">
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 36px; color: #fff; margin-bottom: 12px;">
       📸 You're the Photographer!
     </div>
-    <div id="blowball-player-hidden" style="font-family: 'Bebas Neue', sans-serif; font-size: 52px; color: #ffc629; opacity: 0.3; letter-spacing: 10px; margin-bottom: 10px;">
+    <div id="blowball-player-hidden" style="font-family: 'Bebas Neue', sans-serif; font-size: 56px; color: #ffc629; opacity: 0.3; letter-spacing: 10px; margin-bottom: 12px;">
       ? ? ?
     </div>
-    <div id="blowball-player-reveal" style="display: none; font-family: 'Bebas Neue', sans-serif; font-size: 52px; color: #ffc629; text-shadow: 0 0 30px rgba(255,198,41,0.8); margin-bottom: 10px;"></div>
-
-    <!-- Live camera view -->
-    <div id="camera-wrapper" style="width: 100%; max-width: 340px; border-radius: 14px; overflow: hidden; border: 3px solid rgba(77,212,232,0.5); background: #000; margin-bottom: 14px; position: relative; min-height: 200px;">
-      <video id="camera-stream" autoplay playsinline muted
-             style="width: 100%; display: block; border-radius: 10px;"></video>
-      <div id="camera-loading" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.5);font-family:'Barlow',sans-serif;font-size:16px;">
-        Loading camera…
-      </div>
+    <div id="blowball-player-reveal" style="display: none; font-family: 'Bebas Neue', sans-serif; font-size: 56px; color: #ffc629; text-shadow: 0 0 40px rgba(255,198,41,0.8); margin-bottom: 12px;"></div>
+    <div id="blowball-viewfinder-wrap" style="position:relative;width:200px;height:200px;margin:0 auto 14px;flex-shrink:0;">
+      <video id="blowball-camera-video" autoplay playsinline muted
+             style="width:200px;height:200px;object-fit:cover;border-radius:50%;border:4px solid #4dd4e8;display:block;background:#000;box-shadow:0 0 28px rgba(77,212,232,0.4);">
+      </video>
+      <div style="position:absolute;inset:-4px;border-radius:50%;box-shadow:0 0 0 300px #0a1628;pointer-events:none;"></div>
+      <div style="position:absolute;inset:-4px;border-radius:50%;border:4px solid #4dd4e8;pointer-events:none;"></div>
     </div>
-
-    <!-- Take Photo button — beneath the camera -->
-    <button id="take-photo-btn" onclick="captureBlowBallPhoto()"
-            style="padding: 16px 44px; background: linear-gradient(135deg, #4dd4e8, #ffc629); color: #0a1628; border: none; border-radius: 14px; font-family: 'Bebas Neue', sans-serif; font-size: 28px; cursor: pointer; box-shadow: 0 8px 24px rgba(255,198,41,0.4); -webkit-tap-highlight-color: transparent; margin-bottom: 16px;">
+    <canvas id="blowball-camera-canvas" style="display:none;"></canvas>
+    <div id="blowball-photo-preview" style="display:none;margin-bottom:12px;">
+      <img id="blowball-preview-img" style="width:110px;height:110px;object-fit:cover;border-radius:50%;border:3px solid #4dd4e8;box-shadow:0 0 20px rgba(77,212,232,0.4);">
+    </div>
+    <button id="blowball-capture-btn" onclick="captureBlowBallPhoto()"
+            style="padding: 16px 44px; background: linear-gradient(135deg, #4dd4e8, #ffc629); color: #0a1628; border: none; border-radius: 15px; font-family: 'Bebas Neue', sans-serif; font-size: 28px; cursor: pointer; box-shadow: 0 10px 30px rgba(255,198,41,0.4); -webkit-tap-highlight-color: transparent;">
       📸 Take Photo
     </button>
-
-    <!-- Preview shown after capture -->
-    <div id="photo-preview" style="display: none; text-align: center;">
-      <img id="preview-img" style="max-width: 240px; border-radius: 10px; border: 3px solid #4dd4e8;">
-      <div style="font-family: 'Barlow', sans-serif; font-size: 15px; color: #4dd4e8; margin-top: 6px;">✅ Photo saved!</div>
-    </div>
-
-    <!-- Hidden canvas for frame capture -->
-    <canvas id="photo-canvas" style="display: none;"></canvas>
   `;
 
-  _startBlowBallCamera();
-}
-
-function _startBlowBallCamera() {
-  navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false })
-    .then(stream => {
-      window._blowBallCameraStream = stream;
-      const video = document.getElementById('camera-stream');
-      const loading = document.getElementById('camera-loading');
-      if (video) {
-        video.srcObject = stream;
-        video.play().catch(() => {});
-        video.addEventListener('loadedmetadata', () => { if (loading) loading.style.display = 'none'; });
-      }
-    })
-    .catch(err => {
-      console.warn('📷 Camera unavailable — falling back to file input:', err);
-      const wrapper = document.getElementById('camera-wrapper');
-      if (wrapper) wrapper.style.display = 'none';
-      // Reroute Take Photo button to file-input fallback
-      const btn = document.getElementById('take-photo-btn');
-      if (btn) {
-        const inp = document.createElement('input');
-        inp.type = 'file'; inp.accept = 'image/*'; inp.capture = 'user';
-        inp.id = 'photo-capture'; inp.style.display = 'none';
-        inp.onchange = () => handlePhotoCapture(inp);
-        btn.parentNode.insertBefore(inp, btn);
-        btn.onclick = () => inp.click();
-      }
-    });
-}
-
-function captureBlowBallPhoto() {
-  const video = document.getElementById('camera-stream');
-  const canvas = document.getElementById('photo-canvas');
-  const btn = document.getElementById('take-photo-btn');
-  if (!video || !canvas) return;
-
-  canvas.width  = video.videoWidth  || 640;
-  canvas.height = video.videoHeight || 480;
-  canvas.getContext('2d').drawImage(video, 0, 0);
-  const base64 = canvas.toDataURL('image/jpeg', 0.75);
-
-  // Show preview
-  const preview = document.getElementById('photo-preview');
-  const previewImg = document.getElementById('preview-img');
-  if (preview && previewImg) { previewImg.src = base64; preview.style.display = 'block'; }
-
-  // Change button to Retake
-  if (btn) btn.textContent = '🔄 Retake';
-
-  // Upload to Firebase
-  gameRef.child('blowBallPhotoRound').once('value', snap => {
-    const roundNumber = snap.val() || 1;
-    gameRef.child(`blowBall/photos/${playerId}`).push({ photo: base64, round: roundNumber, timestamp: Date.now() });
-    console.log('✅ Photo captured and uploaded');
-  });
-}
-
-function _stopBlowBallCamera() {
-  if (window._blowBallCameraStream) {
-    window._blowBallCameraStream.getTracks().forEach(t => t.stop());
-    window._blowBallCameraStream = null;
-  }
+  startBlowBallCamera();
 }
 
 // Spectator screen during the hidden snap phase — emotion not shown yet
@@ -2314,41 +2244,6 @@ function showSpectatorSnapScreen(roundNumber) {
   `;
 }
 
-// Shows the Full Time button on the referee's screen after 20 s
-function showBlowBallFullTimeButton() {
-  // Only the first player (referee) gets this button
-  const playerIds = Object.keys(players);
-  const refereeId = playerIds[0];
-  if (playerId !== refereeId) return;
-
-  if (document.getElementById('blowball-full-time-container')) return;
-
-  // Container holds button + subtitle
-  const container = document.createElement('div');
-  container.id = 'blowball-full-time-container';
-  container.style.cssText = 'position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 10px; z-index: 11000;';
-
-  const btn = document.createElement('button');
-  btn.id = 'blowball-full-time-btn';
-  btn.textContent = '🏁 Full Time';
-  btn.style.cssText = 'padding: 18px 44px; background: linear-gradient(135deg, #d4145a, #ff4d4d); color: #fff; border: none; border-radius: 14px; font-family: "Bebas Neue", sans-serif; font-size: 30px; letter-spacing: 2px; cursor: pointer; box-shadow: 0 8px 30px rgba(212,20,90,0.5); -webkit-tap-highlight-color: transparent;';
-  btn.onclick = () => {
-    btn.disabled = true;
-    btn.textContent = '⏳ Ending…';
-    gameRef.update({ blowBallFullTime: true });
-    setTimeout(() => { if (container.parentNode) container.remove(); }, 3000);
-  };
-
-  const subtitle = document.createElement('p');
-  subtitle.style.cssText = 'font-family: "Barlow", sans-serif; font-size: 14px; color: rgba(255,255,255,0.7); text-align: center; margin: 0; max-width: 280px; line-height: 1.4;';
-  subtitle.textContent = 'Blow the whistle once both teams have scored (or you\'ve had enough)';
-
-  container.appendChild(btn);
-  container.appendChild(subtitle);
-  document.body.appendChild(container);
-  console.log('🏁 Full Time button shown to referee');
-}
-
 // Shows a "Get Ready" full-screen before the blow ball round starts
 // Player 1 (referee) gets the "Ready" button; everyone else sees a waiting spinner
 function showBlowBallGetReadyScreen() {
@@ -2364,10 +2259,10 @@ function showBlowBallGetReadyScreen() {
   if (isPlayer1) {
     div.innerHTML = `
       <div style="font-family: 'Bebas Neue', sans-serif; font-size: 72px; color: #ffc629; letter-spacing: 6px; margin-bottom: 16px;">GET READY</div>
-      <div style="font-family: 'Barlow', sans-serif; font-size: 20px; color: rgba(255,255,255,0.7); margin-bottom: 40px;">You're the referee! Press Ready when everyone is set.</div>
+      <div style="font-family: 'Barlow', sans-serif; font-size: 20px; color: rgba(255,255,255,0.7); margin-bottom: 40px;">You're the referee! Press Blow Whistle when everyone is set.</div>
       <button id="blowball-ready-btn" onclick="pressBlowBallReady()"
               style="padding: 20px 50px; background: linear-gradient(135deg, #4dd4e8, #00bcd4); color: #0a1628; border: none; border-radius: 16px; font-family: 'Bebas Neue', sans-serif; font-size: 36px; letter-spacing: 2px; cursor: pointer; box-shadow: 0 8px 30px rgba(77,212,232,0.5); -webkit-tap-highlight-color: transparent;">
-        ✅ Ready
+        📣 Blow Whistle
       </button>
     `;
   } else {
@@ -2433,8 +2328,75 @@ function convertToBase64(file) {
   });
 }
 
+// ── Blow-ball live-camera helpers ────────────────────────────────────────────
+
+async function startBlowBallCamera() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+    const video = document.getElementById('blowball-camera-video');
+    if (video) video.srcObject = stream;
+  } catch (err) {
+    console.warn('Blow-ball camera not available:', err);
+    // Hide viewfinder and fall back to file-input
+    const wrap = document.getElementById('blowball-viewfinder-wrap');
+    if (wrap) wrap.style.display = 'none';
+    const btn = document.getElementById('blowball-capture-btn');
+    if (btn) {
+      const input = document.createElement('input');
+      input.type = 'file'; input.accept = 'image/*'; input.capture = 'user';
+      input.id = 'photo-capture-fallback'; input.style.display = 'none';
+      input.onchange = () => handlePhotoCapture(input);
+      btn.parentNode.insertBefore(input, btn);
+      btn.textContent = '📂 Choose Photo';
+      btn.onclick = () => input.click();
+    }
+  }
+}
+
+async function captureBlowBallPhoto() {
+  const video  = document.getElementById('blowball-camera-video');
+  const canvas = document.getElementById('blowball-camera-canvas');
+  const btn    = document.getElementById('blowball-capture-btn');
+  if (!video || !canvas || !video.srcObject) return;
+
+  // Freeze the capture — crop to square to preserve aspect ratio
+  canvas.width  = 600;
+  canvas.height = 600;
+  const ctx = canvas.getContext('2d');
+  const ar = video.videoWidth / video.videoHeight;
+  let sx, sy, sw, sh;
+  if (ar > 1) { sh = video.videoHeight; sw = sh; sx = (video.videoWidth - sw) / 2; sy = 0; }
+  else        { sw = video.videoWidth;  sh = sw; sx = 0; sy = (video.videoHeight - sh) / 2; }
+  ctx.drawImage(video, sx, sy, sw, sh, 0, 0, 600, 600);
+  const base64 = canvas.toDataURL('image/jpeg', 0.85);
+
+  // Stop the live stream
+  video.srcObject.getTracks().forEach(t => t.stop());
+
+  // Hide the viewfinder — don't show the photo back to the player
+  const wrap = document.getElementById('blowball-viewfinder-wrap');
+  if (wrap) wrap.style.display = 'none';
+
+  if (btn) { btn.textContent = '✅ Photo Taken!'; btn.disabled = true; }
+
+  // Upload to Firebase
+  try {
+    const snap = await gameRef.child('blowBallPhotoRound').once('value');
+    const roundNumber = snap.val() || 1;
+    gameRef.child(`blowBall/photos/${playerId}`).push({
+      photo: base64,
+      round: roundNumber,
+      timestamp: Date.now()
+    });
+    console.log('✅ Blow-ball photo uploaded');
+  } catch (err) {
+    console.error('❌ Blow-ball photo upload failed:', err);
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+
 function showPlayerBlowBallJudging() {
-  _stopBlowBallCamera(); // stop live camera stream if still running
   const emotionDiv = document.getElementById('player-blowball-emotion');
   if (emotionDiv) emotionDiv.remove();
   // Remove Full Time button/container if still present
@@ -2568,248 +2530,6 @@ function showWaitingForBlowBallScoring() {
   `;
 
   document.body.appendChild(waitDiv);
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// CAPTION CONTEST — PLAYER SIDE
-// ═══════════════════════════════════════════════════════════════════════════
-
-(function setupCaptionContestListener() {
-  const check = setInterval(() => {
-    if (!gameRef) return;
-    clearInterval(check);
-
-    gameRef.child('captionContest/phase').on('value', (snap) => {
-      const phase = snap.val();
-
-      // Remove all blow ball screens as soon as caption contest starts
-      if (phase) {
-        ['player-blowball-emotion', 'waiting-blowball-scoring', 'player-blowball-judging',
-         'blowball-full-time-container'].forEach(id => {
-          const el = document.getElementById(id);
-          if (el) el.remove();
-        });
-      }
-
-      // Always clean up Player 1 reading-ready listener + button when phase changes
-      if (window._captionReadingReadyOff) {
-        window._captionReadingReadyOff();
-        window._captionReadingReadyOff = null;
-      }
-      const nextBtnEl = document.getElementById('caption-next-btn-player');
-      if (nextBtnEl) nextBtnEl.remove();
-
-      // Clear UI when contest ends or moves to winner/reviewing
-      if (!phase || phase === 'winner' || phase === 'reviewing') {
-        ['caption-input-screen', 'caption-voting-screen-player'].forEach(id => {
-          const el = document.getElementById(id);
-          if (el) el.remove();
-        });
-
-        // Player 1: watch for reading-ready signal during review phase
-        if (phase === 'reviewing' && window._isPlayer1) {
-          const readingReadyRef = gameRef.child('captionContest/readingReady');
-          const handler = (s) => {
-            const d = s.val();
-            const existing = document.getElementById('caption-next-btn-player');
-            if (existing) existing.remove();
-            if (d) showCaptionNextPlayerButton(d.canVote);
-          };
-          readingReadyRef.on('value', handler);
-          window._captionReadingReadyOff = () => readingReadyRef.off('value', handler);
-        }
-        return;
-      }
-
-      if (phase === 'captioning') {
-        const voteEl = document.getElementById('caption-voting-screen-player');
-        if (voteEl) voteEl.remove();
-        if (document.getElementById('caption-input-screen')) return;
-        gameRef.child('captionContest').once('value', (s) => {
-          const d = s.val();
-          if (d && d.phase === 'captioning') showCaptionInput(d);
-        });
-      }
-
-      if (phase === 'voting') {
-        const stale = document.getElementById('caption-voting-screen-player');
-        if (stale) stale.remove();
-        gameRef.child('captionContest').once('value', (s) => {
-          const d = s.val();
-          if (d && d.phase === 'voting') showCaptionVotingPlayer(d);
-        });
-      }
-    });
-  }, 500);
-})();
-
-function showCaptionInput(d) {
-  const existing = document.getElementById('caption-input-screen');
-  if (existing) existing.remove();
-
-  const isDraw = d.style === 'draw';
-  const div = document.createElement('div');
-  div.id = 'caption-input-screen';
-  div.style.cssText = 'position:fixed;inset:0;background:linear-gradient(135deg,#0a1628 0%,#1a2b4a 100%);display:flex;flex-direction:column;align-items:center;z-index:10000;padding:16px;overflow-y:auto;';
-
-  div.innerHTML = `
-    <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;color:rgba(255,255,255,0.3);letter-spacing:2px;margin-bottom:12px;text-align:center;">
-      📸 CAPTION CONTEST
-    </div>
-    <div style="position:relative;width:100%;max-width:360px;margin-bottom:12px;flex-shrink:0;">
-      <img id="caption-photo-player" src="${d.photoUrl}" style="width:100%;height:200px;object-fit:cover;border-radius:12px;border:3px solid #ffc629;display:block;">
-      ${isDraw ? `<canvas id="caption-draw-canvas" style="position:absolute;inset:0;width:100%;height:100%;border-radius:12px;cursor:crosshair;touch-action:none;"></canvas>` : ''}
-    </div>
-    <div style="font-family:'Bebas Neue',sans-serif;font-size:26px;color:#ffc629;text-align:center;margin-bottom:12px;letter-spacing:1px;max-width:360px;">
-      ${d.instruction}
-    </div>
-    <div style="font-family:'Bebas Neue',sans-serif;font-size:52px;color:#fff;margin-bottom:12px;" id="player-caption-timer">:45</div>
-    ${isDraw ? `
-      <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-bottom:12px;">
-        <button onclick="setCaptionDrawColor('#ffffff')" style="width:36px;height:36px;background:#fff;border-radius:50%;border:3px solid rgba(255,255,255,0.5);cursor:pointer;"></button>
-        <button onclick="setCaptionDrawColor('#ff0000')" style="width:36px;height:36px;background:#f00;border-radius:50%;border:3px solid rgba(255,255,255,0.3);cursor:pointer;"></button>
-        <button onclick="setCaptionDrawColor('#00dd00')" style="width:36px;height:36px;background:#0d0;border-radius:50%;border:3px solid rgba(255,255,255,0.3);cursor:pointer;"></button>
-        <button onclick="setCaptionDrawColor('#ffc629')" style="width:36px;height:36px;background:#ffc629;border-radius:50%;border:3px solid rgba(255,255,255,0.3);cursor:pointer;"></button>
-        <button onclick="setCaptionDrawColor('#4dd4e8')" style="width:36px;height:36px;background:#4dd4e8;border-radius:50%;border:3px solid rgba(255,255,255,0.3);cursor:pointer;"></button>
-        <button onclick="clearCaptionCanvas()" style="padding:6px 14px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.3);color:#fff;border-radius:8px;font-family:'Barlow',sans-serif;font-size:13px;cursor:pointer;">Clear</button>
-      </div>
-    ` : `
-      <textarea id="caption-text-input" placeholder="Your caption…" maxlength="140"
-        style="width:100%;max-width:360px;height:80px;background:rgba(255,255,255,0.08);border:2px solid rgba(255,255,255,0.3);border-radius:12px;color:#fff;font-family:'Barlow',sans-serif;font-size:18px;padding:12px;resize:none;outline:none;box-sizing:border-box;margin-bottom:12px;-webkit-tap-highlight-color:transparent;"></textarea>
-    `}
-    <button id="caption-submit-btn" onclick="submitCaption('${d.style}')"
-      style="padding:14px 0;background:linear-gradient(135deg,#4dd4e8,#ffc629);color:#0a1628;border:none;border-radius:14px;font-family:'Bebas Neue',sans-serif;font-size:26px;cursor:pointer;box-shadow:0 8px 24px rgba(255,198,41,0.4);width:100%;max-width:360px;-webkit-tap-highlight-color:transparent;">
-      Submit
-    </button>
-    <div id="caption-submitted-msg" style="display:none;font-family:'Bebas Neue',sans-serif;font-size:26px;color:var(--motd-gold);margin-top:20px;text-align:center;">
-      ✅ Caption submitted!<br>
-      <span style="font-size:17px;color:rgba(255,255,255,0.5);">Waiting for others…</span>
-    </div>
-  `;
-  document.body.appendChild(div);
-
-  window._captionPlayerTimeLeft = 45;
-  window._captionPlayerStyle = d.style;
-  window._captionPlayerTimerInterval = setInterval(() => {
-    window._captionPlayerTimeLeft--;
-    const el = document.getElementById('player-caption-timer');
-    if (el) el.textContent = `:${String(window._captionPlayerTimeLeft).padStart(2, '0')}`;
-    if (window._captionPlayerTimeLeft <= 0) {
-      clearInterval(window._captionPlayerTimerInterval);
-      window._captionPlayerTimerInterval = null;
-      submitCaption(window._captionPlayerStyle);
-    }
-  }, 1000);
-
-  gameRef.child('captionContest/timeLeft').on('value', (snap) => {
-    const host = snap.val();
-    if (host !== null && host < window._captionPlayerTimeLeft) {
-      window._captionPlayerTimeLeft = host;
-      const el = document.getElementById('player-caption-timer');
-      if (el) el.textContent = `:${String(host).padStart(2, '0')}`;
-    }
-  });
-
-  if (isDraw) setupCaptionCanvas();
-}
-
-window._captionDrawColor = '#ffffff';
-
-function setupCaptionCanvas() {
-  requestAnimationFrame(() => {
-    const img    = document.getElementById('caption-photo-player');
-    const canvas = document.getElementById('caption-draw-canvas');
-    if (!canvas || !img) return;
-    const rect = img.getBoundingClientRect();
-    canvas.width  = rect.width  * window.devicePixelRatio;
-    canvas.height = rect.height * window.devicePixelRatio;
-    canvas.style.width  = rect.width  + 'px';
-    canvas.style.height = rect.height + 'px';
-    const ctx = canvas.getContext('2d');
-    ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
-    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    let drawing = false, lastX = 0, lastY = 0;
-    const pos = (e) => { const r = canvas.getBoundingClientRect(); const t = e.touches ? e.touches[0] : e; return { x: t.clientX - r.left, y: t.clientY - r.top }; };
-    canvas.addEventListener('pointerdown', (e) => { drawing = true; const p = pos(e); lastX = p.x; lastY = p.y; e.preventDefault(); });
-    canvas.addEventListener('pointermove', (e) => { if (!drawing) return; const p = pos(e); ctx.strokeStyle = window._captionDrawColor; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(lastX, lastY); ctx.lineTo(p.x, p.y); ctx.stroke(); lastX = p.x; lastY = p.y; e.preventDefault(); });
-    canvas.addEventListener('pointerup',    () => { drawing = false; });
-    canvas.addEventListener('pointerleave', () => { drawing = false; });
-  });
-}
-
-function setCaptionDrawColor(color) { window._captionDrawColor = color; }
-
-function clearCaptionCanvas() {
-  const canvas = document.getElementById('caption-draw-canvas');
-  if (!canvas) return;
-  canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
-}
-
-function submitCaption(style) {
-  const btn = document.getElementById('caption-submit-btn');
-  if (btn && btn.disabled) return;
-  if (btn) btn.disabled = true;
-  clearInterval(window._captionPlayerTimerInterval);
-  gameRef.child('captionContest/timeLeft').off();
-  let text = '', drawing = null;
-  if (style === 'draw') {
-    const canvas = document.getElementById('caption-draw-canvas');
-    if (canvas) drawing = canvas.toDataURL('image/png', 0.6);
-    text = '(Drawing)';
-  } else {
-    const input = document.getElementById('caption-text-input');
-    text = (input?.value || '').trim() || '(No caption)';
-  }
-  gameRef.child(`captionContest/submissions/${playerId}`).set({ text, drawing, submitted: true, timestamp: Date.now() });
-  if (btn) btn.style.display = 'none';
-  const msg = document.getElementById('caption-submitted-msg');
-  if (msg) msg.style.display = 'block';
-}
-
-function showCaptionVotingPlayer(d) {
-  const existing = document.getElementById('caption-voting-screen-player');
-  if (existing) existing.remove();
-  const captions = d.captions || {};
-  const isDraw   = d.style === 'draw';
-  const photoUrl = d.photoUrl || '';
-  const entries  = Object.entries(captions).map(([pid, c]) => ({ pid, text: c.text || '', drawing: c.drawing || null }));
-  if (entries.length === 0) { gameRef.child(`captionContest/votes/${playerId}`).set(playerId); return; }
-  const div = document.createElement('div');
-  div.id = 'caption-voting-screen-player';
-  div.style.cssText = 'position:fixed;inset:0;background:linear-gradient(135deg,#0a1628 0%,#1a2b4a 100%);display:flex;flex-direction:column;align-items:center;z-index:10000;padding:20px;overflow-y:auto;';
-  const photoHtml = (!isDraw && photoUrl) ? `<img src="${photoUrl}" style="width:140px;height:105px;object-fit:cover;border-radius:10px;border:3px solid var(--motd-gold);margin-bottom:16px;">` : '';
-  const optionsHtml = entries.map(e => {
-    if (isDraw && e.drawing) return `<button onclick="submitCaptionVote('${e.pid}')" id="caption-vote-opt-${e.pid}" style="width:100%;max-width:420px;display:flex;justify-content:center;padding:10px;background:rgba(255,255,255,0.06);border:2px solid rgba(255,255,255,0.15);border-radius:12px;cursor:pointer;margin-bottom:10px;-webkit-tap-highlight-color:transparent;"><div style="position:relative;width:160px;height:120px;border-radius:8px;overflow:hidden;border:2px solid rgba(255,255,255,0.2);"><img src="${photoUrl}" style="width:100%;height:100%;object-fit:cover;"><img src="${e.drawing}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;"></div></button>`;
-    return `<button onclick="submitCaptionVote('${e.pid}')" id="caption-vote-opt-${e.pid}" style="width:100%;max-width:420px;display:flex;align-items:center;gap:14px;text-align:left;padding:14px 18px;background:rgba(255,255,255,0.06);border:2px solid rgba(255,255,255,0.15);border-radius:12px;color:#fff;font-family:'Barlow',sans-serif;font-size:17px;cursor:pointer;margin-bottom:10px;-webkit-tap-highlight-color:transparent;"><span style="flex:1;">${e.text || '(no caption)'}</span></button>`;
-  }).join('');
-  div.innerHTML = `
-    <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:rgba(255,255,255,0.3);letter-spacing:2px;margin-bottom:12px;text-align:center;">📸 VOTE FOR YOUR FAVOURITE</div>
-    <div style="font-family:'Bebas Neue',sans-serif;font-size:34px;color:var(--motd-gold);margin-bottom:14px;text-align:center;">Which caption is best?</div>
-    ${photoHtml}
-    <div style="display:flex;flex-direction:column;align-items:center;width:100%;">${optionsHtml}</div>
-    <div id="caption-voted-msg" style="display:none;font-family:'Bebas Neue',sans-serif;font-size:26px;color:var(--motd-gold);margin-top:20px;text-align:center;">✅ Voted!<br><span style="font-size:17px;color:rgba(255,255,255,0.5);">Waiting for others…</span></div>
-  `;
-  document.body.appendChild(div);
-}
-
-function submitCaptionVote(winnerPid) {
-  document.querySelectorAll('[id^="caption-vote-opt-"]').forEach(btn => { btn.style.opacity = '0.3'; btn.disabled = true; });
-  const sel = document.getElementById(`caption-vote-opt-${winnerPid}`);
-  if (sel) { sel.style.opacity = '1'; sel.style.borderColor = 'var(--motd-gold)'; sel.style.background = 'rgba(255,198,41,0.15)'; }
-  gameRef.child(`captionContest/votes/${playerId}`).set(winnerPid);
-  const msg = document.getElementById('caption-voted-msg');
-  if (msg) msg.style.display = 'block';
-}
-
-function showCaptionNextPlayerButton(canVote) {
-  const existing = document.getElementById('caption-next-btn-player');
-  if (existing) existing.remove();
-  const btn = document.createElement('button');
-  btn.id = 'caption-next-btn-player';
-  btn.style.cssText = 'position:fixed;bottom:40px;left:50%;transform:translateX(-50%);padding:18px 52px;background:linear-gradient(135deg,#4dd4e8,#ffc629);color:#0a1628;border:none;border-radius:14px;font-family:"Bebas Neue",sans-serif;font-size:28px;letter-spacing:2px;cursor:pointer;z-index:11000;box-shadow:0 8px 30px rgba(77,212,232,0.5);-webkit-tap-highlight-color:transparent;';
-  btn.textContent = canVote ? '🗳️ Start Voting' : 'Next →';
-  btn.onclick = () => { btn.disabled = true; btn.style.opacity = '0.5'; btn.textContent = '⏳…'; gameRef.child('captionContest/playerAdvanced').set(Date.now()); };
-  document.body.appendChild(btn);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -3361,7 +3081,6 @@ function signalCommentaryReady(teamNumber) {
         </div>
       `;
     } else if (div) {
-      // Fallback if no video file found
       div.innerHTML = `
         <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 20px;">
           <div style="width: 18px; height: 18px; background: #ff0000; border-radius: 50%; animation: pulse 1s infinite;"></div>
@@ -3450,7 +3169,7 @@ function showGoalPostsJudgingOnPlayer() {
   function render() {
     const canSubmit = score1 !== null && score2 !== null;
     const btnStyle = (selected, n) =>
-      `padding: 14px 20px; margin: 5px; border: 3px solid ${n === selected ? '#ffc629' : 'rgba(255,255,255,0.3)'}; background: ${n === selected ? '#ffc629' : 'transparent'}; color: ${n === selected ? '#0a1628' : '#fff'}; border-radius: 10px; font-family: 'Bebas Neue', sans-serif; font-size: 26px; cursor: pointer;`;
+      `padding: 8px 14px; margin: 4px; border: 3px solid ${n === selected ? '#ffc629' : 'rgba(255,255,255,0.3)'}; background: ${n === selected ? '#ffc629' : 'transparent'}; color: ${n === selected ? '#0a1628' : '#fff'}; border-radius: 10px; font-family: 'Bebas Neue', sans-serif; font-size: 20px; cursor: pointer;`;
 
     div.innerHTML = `
       <div style="font-family: 'Bebas Neue', sans-serif; font-size: 40px; color: #ffc629; margin-bottom: 8px; letter-spacing: 3px;">⚽ Goal Post Glory</div>
@@ -4010,7 +3729,7 @@ function showOffsideTrapButton() {
   const overlay = document.getElementById('offside-overlay');
   overlay.classList.add('active');
   
-  let offsideTrapTimeLeft = 4;
+  let offsideTrapTimeLeft = 10;
   document.getElementById('offside-timer').textContent = offsideTrapTimeLeft;
   
   // Countdown timer
@@ -4196,7 +3915,7 @@ function showPlayerRound1Explainer() {
       if (waitMsg) waitMsg.textContent = `Waiting for ${p1Name} to blow the whistle...`;
     }
   });
-  
+
   // Listen for round starting
   gameRef.child('round1Started').on('value', (snapshot) => {
     if (snapshot.val() === true) {
@@ -5084,11 +4803,11 @@ function showPhotoCaptureScreen() {
       </div>
       <canvas id="photo-canvas" style="display: none;"></canvas>
       <button onclick="capturePhoto()"
-              style="display: block; width: 100%; max-width: 300px; margin: 0 auto 14px; padding: 18px 40px; background: linear-gradient(135deg, #4dd4e8, #ffc629); color: #0a1628; border: none; border-radius: 12px; font-family: 'Bebas Neue', sans-serif; font-size: 28px; cursor: pointer; letter-spacing: 2px; box-shadow: 0 8px 24px rgba(77,212,232,0.4);">
+              style="position: relative; display: block; width: 100%; max-width: 300px; margin: 0 auto 14px; padding: 18px 40px; background: linear-gradient(135deg, #4dd4e8, #ffc629); color: #0a1628; border: none; border-radius: 12px; font-family: 'Bebas Neue', sans-serif; font-size: 28px; cursor: pointer; letter-spacing: 2px; box-shadow: 0 8px 24px rgba(77,212,232,0.4);">
         📸 Take Photo
       </button>
       <button onclick="skipPhoto()"
-              style="display: block; width: 100%; max-width: 300px; margin: 0 auto; padding: 12px 24px; background: transparent; color: rgba(255,255,255,0.6); border: 2px solid rgba(255,255,255,0.2); border-radius: 12px; font-family: 'Barlow', sans-serif; font-size: 18px; cursor: pointer;">
+              style="position: relative; display: block; width: 100%; max-width: 300px; margin: 0 auto; padding: 12px 24px; background: transparent; color: rgba(255,255,255,0.6); border: 2px solid rgba(255,255,255,0.2); border-radius: 12px; font-family: 'Barlow', sans-serif; font-size: 18px; cursor: pointer;">
         Skip (use default avatar)
       </button>
     </div>
@@ -5177,12 +4896,467 @@ function generateDefaultAvatar(name) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// TEAM TALK ROUND — PLAYER SIDE
+// SABOTAGE REVEAL — REFEREE SCORING (player 1 only)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CAPTION CONTEST — PLAYER SIDE
+// ═══════════════════════════════════════════════════════════════════════════
+
+(function setupCaptionContestListener() {
+  const check = setInterval(() => {
+    if (!gameRef) return;
+    clearInterval(check);
+
+    gameRef.child('captionContest/phase').on('value', (snap) => {
+      const phase = snap.val();
+
+      // Remove all blow ball screens as soon as caption contest starts
+      if (phase) {
+        ['player-blowball-emotion', 'waiting-blowball-scoring', 'player-blowball-judging',
+         'blowball-full-time-container'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.remove();
+        });
+      }
+
+      // Always clean up Player 1 reading-ready listener + button when phase changes
+      if (window._captionReadingReadyOff) {
+        window._captionReadingReadyOff();
+        window._captionReadingReadyOff = null;
+      }
+      const nextBtnEl = document.getElementById('caption-next-btn-player');
+      if (nextBtnEl) nextBtnEl.remove();
+
+      // Clear UI when contest ends or moves to winner/reviewing
+      if (!phase || phase === 'winner' || phase === 'reviewing') {
+        ['caption-input-screen', 'caption-voting-screen-player'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.remove();
+        });
+
+        // Player 1: watch for reading-ready signal during review phase
+        if (phase === 'reviewing' && window._isPlayer1) {
+          const readingReadyRef = gameRef.child('captionContest/readingReady');
+          const handler = (s) => {
+            const d = s.val();
+            const existing = document.getElementById('caption-next-btn-player');
+            if (existing) existing.remove();
+            if (d) showCaptionNextPlayerButton(d.canVote);
+          };
+          readingReadyRef.on('value', handler);
+          window._captionReadingReadyOff = () => readingReadyRef.off('value', handler);
+        }
+        return;
+      }
+
+      if (phase === 'captioning') {
+        // Remove stale voting screen from previous round before showing input
+        const voteEl = document.getElementById('caption-voting-screen-player');
+        if (voteEl) voteEl.remove();
+        if (document.getElementById('caption-input-screen')) return;
+        gameRef.child('captionContest').once('value', (s) => {
+          const d = s.val();
+          if (d && d.phase === 'captioning') showCaptionInput(d);
+        });
+      }
+
+      if (phase === 'voting') {
+        // Remove any stale voting screen so a fresh one always appears
+        const stale = document.getElementById('caption-voting-screen-player');
+        if (stale) stale.remove();
+        // Fetch captions directly (not the whole node) to avoid race condition
+        gameRef.child('captionContest').once('value', (s) => {
+          const d = s.val();
+          if (d && d.phase === 'voting') showCaptionVotingPlayer(d);
+        });
+      }
+    });
+  }, 500);
+})();
+
+// ─── Caption input screen ─────────────────────────────────────────────────────
+
+function showCaptionInput(d) {
+  const existing = document.getElementById('caption-input-screen');
+  if (existing) existing.remove();
+
+  const isDraw = d.style === 'draw';
+
+  const div = document.createElement('div');
+  div.id = 'caption-input-screen';
+  div.style.cssText = 'position:fixed;inset:0;background:linear-gradient(135deg,#0a1628 0%,#1a2b4a 100%);display:flex;flex-direction:column;align-items:center;z-index:10000;padding:16px;overflow-y:auto;';
+
+  div.innerHTML = `
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;color:rgba(255,255,255,0.3);letter-spacing:2px;margin-bottom:12px;text-align:center;">
+      📸 CAPTION CONTEST
+    </div>
+
+    <div style="position:relative;width:100%;max-width:360px;margin-bottom:12px;flex-shrink:0;">
+      <img id="caption-photo-player" src="${d.photoUrl}" style="width:100%;height:200px;object-fit:cover;border-radius:12px;border:3px solid #ffc629;display:block;">
+      ${isDraw ? `<canvas id="caption-draw-canvas" style="position:absolute;inset:0;width:100%;height:100%;border-radius:12px;cursor:crosshair;touch-action:none;"></canvas>` : ''}
+    </div>
+
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:26px;color:#ffc629;text-align:center;margin-bottom:12px;letter-spacing:1px;max-width:360px;">
+      ${d.instruction}
+    </div>
+
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:52px;color:#fff;margin-bottom:12px;" id="player-caption-timer">:45</div>
+
+    ${isDraw ? `
+      <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-bottom:12px;">
+        <button onclick="setCaptionDrawColor('#ffffff')" style="width:36px;height:36px;background:#fff;border-radius:50%;border:3px solid rgba(255,255,255,0.5);cursor:pointer;"></button>
+        <button onclick="setCaptionDrawColor('#ff0000')" style="width:36px;height:36px;background:#f00;border-radius:50%;border:3px solid rgba(255,255,255,0.3);cursor:pointer;"></button>
+        <button onclick="setCaptionDrawColor('#00dd00')" style="width:36px;height:36px;background:#0d0;border-radius:50%;border:3px solid rgba(255,255,255,0.3);cursor:pointer;"></button>
+        <button onclick="setCaptionDrawColor('#ffc629')" style="width:36px;height:36px;background:#ffc629;border-radius:50%;border:3px solid rgba(255,255,255,0.3);cursor:pointer;"></button>
+        <button onclick="setCaptionDrawColor('#4dd4e8')" style="width:36px;height:36px;background:#4dd4e8;border-radius:50%;border:3px solid rgba(255,255,255,0.3);cursor:pointer;"></button>
+        <button onclick="setCaptionDrawColor('#8B4513')" style="width:36px;height:36px;background:#8B4513;border-radius:50%;border:3px solid rgba(255,255,255,0.3);cursor:pointer;"></button>
+        <button onclick="clearCaptionCanvas()" style="padding:6px 14px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.3);color:#fff;border-radius:8px;font-family:'Barlow',sans-serif;font-size:13px;cursor:pointer;">Clear</button>
+      </div>
+    ` : `
+      <textarea id="caption-text-input" placeholder="Your caption…" maxlength="140"
+        style="width:100%;max-width:360px;height:80px;background:rgba(255,255,255,0.08);border:2px solid rgba(255,255,255,0.3);border-radius:12px;color:#fff;font-family:'Barlow',sans-serif;font-size:18px;padding:12px;resize:none;outline:none;box-sizing:border-box;margin-bottom:12px;-webkit-tap-highlight-color:transparent;"></textarea>
+    `}
+
+    <button id="caption-submit-btn" onclick="submitCaption('${d.style}')"
+      style="padding:14px 0;background:linear-gradient(135deg,#4dd4e8,#ffc629);color:#0a1628;border:none;border-radius:14px;font-family:'Bebas Neue',sans-serif;font-size:26px;cursor:pointer;box-shadow:0 8px 24px rgba(255,198,41,0.4);width:100%;max-width:360px;-webkit-tap-highlight-color:transparent;">
+      Submit
+    </button>
+
+    <div id="caption-submitted-msg" style="display:none;font-family:'Bebas Neue',sans-serif;font-size:26px;color:var(--motd-gold);margin-top:20px;text-align:center;">
+      ✅ Caption submitted!<br>
+      <span style="font-size:17px;color:rgba(255,255,255,0.5);">Waiting for others…</span>
+    </div>
+  `;
+  document.body.appendChild(div);
+
+  // Timer — sync with host's Firebase value
+  window._captionPlayerTimeLeft = 45;
+  window._captionPlayerStyle = d.style;
+  window._captionPlayerTimerInterval = setInterval(() => {
+    window._captionPlayerTimeLeft--;
+    const el = document.getElementById('player-caption-timer');
+    if (el) el.textContent = `:${String(window._captionPlayerTimeLeft).padStart(2, '0')}`;
+    if (window._captionPlayerTimeLeft <= 0) {
+      clearInterval(window._captionPlayerTimerInterval);
+      window._captionPlayerTimerInterval = null;
+      submitCaption(window._captionPlayerStyle);
+    }
+  }, 1000);
+
+  gameRef.child('captionContest/timeLeft').on('value', (snap) => {
+    const host = snap.val();
+    if (host !== null && host < window._captionPlayerTimeLeft) {
+      window._captionPlayerTimeLeft = host;
+      const el = document.getElementById('player-caption-timer');
+      if (el) el.textContent = `:${String(host).padStart(2, '0')}`;
+    }
+  });
+
+  if (isDraw) setupCaptionCanvas();
+}
+
+// ─── Draw canvas ──────────────────────────────────────────────────────────────
+
+window._captionDrawColor = '#ffffff';
+
+function setupCaptionCanvas() {
+  requestAnimationFrame(() => {
+    const img    = document.getElementById('caption-photo-player');
+    const canvas = document.getElementById('caption-draw-canvas');
+    if (!canvas || !img) return;
+
+    const rect = img.getBoundingClientRect();
+    canvas.width  = rect.width  * window.devicePixelRatio;
+    canvas.height = rect.height * window.devicePixelRatio;
+    canvas.style.width  = rect.width  + 'px';
+    canvas.style.height = rect.height + 'px';
+
+    const ctx = canvas.getContext('2d');
+    ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    let drawing = false, lastX = 0, lastY = 0;
+    const pos = (e) => {
+      const r = canvas.getBoundingClientRect();
+      const t = e.touches ? e.touches[0] : e;
+      return { x: t.clientX - r.left, y: t.clientY - r.top };
+    };
+
+    canvas.addEventListener('pointerdown', (e) => { drawing = true; const p = pos(e); lastX = p.x; lastY = p.y; e.preventDefault(); });
+    canvas.addEventListener('pointermove', (e) => {
+      if (!drawing) return;
+      const p = pos(e);
+      ctx.strokeStyle = window._captionDrawColor;
+      ctx.lineWidth = 5;
+      ctx.beginPath(); ctx.moveTo(lastX, lastY); ctx.lineTo(p.x, p.y); ctx.stroke();
+      lastX = p.x; lastY = p.y;
+      e.preventDefault();
+    });
+    canvas.addEventListener('pointerup',    () => { drawing = false; });
+    canvas.addEventListener('pointerleave', () => { drawing = false; });
+  });
+}
+
+function setCaptionDrawColor(color) { window._captionDrawColor = color; }
+
+function clearCaptionCanvas() {
+  const canvas = document.getElementById('caption-draw-canvas');
+  if (!canvas) return;
+  canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+}
+
+// ─── Submit caption ───────────────────────────────────────────────────────────
+
+function submitCaption(style) {
+  const btn = document.getElementById('caption-submit-btn');
+  if (btn && btn.disabled) return;
+  if (btn) btn.disabled = true;
+
+  clearInterval(window._captionPlayerTimerInterval);
+  gameRef.child('captionContest/timeLeft').off();
+
+  let text = '', drawing = null;
+
+  if (style === 'draw') {
+    const canvas = document.getElementById('caption-draw-canvas');
+    if (canvas) drawing = canvas.toDataURL('image/png', 0.6);
+    text = '(Drawing)';
+  } else {
+    const input = document.getElementById('caption-text-input');
+    text = (input?.value || '').trim() || '(No caption)';
+  }
+
+  gameRef.child(`captionContest/submissions/${playerId}`).set({ text, drawing, submitted: true, timestamp: Date.now() });
+
+  if (btn) btn.style.display = 'none';
+  const msg = document.getElementById('caption-submitted-msg');
+  if (msg) msg.style.display = 'block';
+}
+
+// ─── Voting screen ────────────────────────────────────────────────────────────
+
+function showCaptionVotingPlayer(d) {
+  const existing = document.getElementById('caption-voting-screen-player');
+  if (existing) existing.remove();
+
+  const captions = d.captions || {};
+  const isDraw   = d.style === 'draw';
+  const photoUrl = d.photoUrl || '';
+
+  // All captions shown — players may vote for any entry including their own
+  const entries = Object.entries(captions)
+    .map(([pid, c]) => ({ pid, text: c.text || '', drawing: c.drawing || null }));
+
+  if (entries.length === 0) {
+    // No captions at all — auto-cast a blank vote so the round can proceed
+    gameRef.child(`captionContest/votes/${playerId}`).set(playerId);
+    return;
+  }
+
+  const div = document.createElement('div');
+  div.id = 'caption-voting-screen-player';
+  div.style.cssText = 'position:fixed;inset:0;background:linear-gradient(135deg,#0a1628 0%,#1a2b4a 100%);display:flex;flex-direction:column;align-items:center;z-index:10000;padding:20px;overflow-y:auto;';
+
+  // Show round photo at top (or each drawing thumbnail per button for draw rounds)
+  const photoHtml = (!isDraw && photoUrl)
+    ? `<img src="${photoUrl}" style="width:140px;height:105px;object-fit:cover;border-radius:10px;border:3px solid var(--motd-gold);margin-bottom:16px;box-shadow:0 0 20px rgba(255,198,41,0.3);">`
+    : '';
+
+  const optionsHtml = entries.map(e => {
+    if (isDraw && e.drawing) {
+      return `
+        <button onclick="submitCaptionVote('${e.pid}')" id="caption-vote-opt-${e.pid}"
+          style="width:100%;max-width:420px;display:flex;justify-content:center;padding:10px;background:rgba(255,255,255,0.06);border:2px solid rgba(255,255,255,0.15);border-radius:12px;cursor:pointer;margin-bottom:10px;-webkit-tap-highlight-color:transparent;transition:all 0.15s;">
+          <div style="position:relative;width:160px;height:120px;border-radius:8px;overflow:hidden;border:2px solid rgba(255,255,255,0.2);">
+            <img src="${photoUrl}" style="width:100%;height:100%;object-fit:cover;">
+            <img src="${e.drawing}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;">
+          </div>
+        </button>`;
+    }
+    return `
+      <button onclick="submitCaptionVote('${e.pid}')" id="caption-vote-opt-${e.pid}"
+        style="width:100%;max-width:420px;display:flex;align-items:center;gap:14px;text-align:left;padding:14px 18px;background:rgba(255,255,255,0.06);border:2px solid rgba(255,255,255,0.15);border-radius:12px;color:#fff;font-family:'Barlow',sans-serif;font-size:17px;cursor:pointer;margin-bottom:10px;-webkit-tap-highlight-color:transparent;transition:all 0.15s;">
+        <span style="flex:1;">${e.text || '(no caption)'}</span>
+      </button>`;
+  }).join('');
+
+  div.innerHTML = `
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:rgba(255,255,255,0.3);letter-spacing:2px;margin-bottom:12px;text-align:center;">
+      📸 VOTE FOR YOUR FAVOURITE
+    </div>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:34px;color:var(--motd-gold);margin-bottom:14px;text-align:center;">
+      Which caption is best?
+    </div>
+    ${photoHtml}
+    <div style="display:flex;flex-direction:column;align-items:center;width:100%;">
+      ${optionsHtml}
+    </div>
+    <div id="caption-voted-msg" style="display:none;font-family:'Bebas Neue',sans-serif;font-size:26px;color:var(--motd-gold);margin-top:20px;text-align:center;">
+      ✅ Voted!<br><span style="font-size:17px;color:rgba(255,255,255,0.5);">Waiting for others…</span>
+    </div>
+  `;
+  document.body.appendChild(div);
+}
+
+function submitCaptionVote(winnerPid) {
+  document.querySelectorAll('[id^="caption-vote-opt-"]').forEach(btn => {
+    btn.style.opacity = '0.3';
+    btn.disabled = true;
+  });
+  const sel = document.getElementById(`caption-vote-opt-${winnerPid}`);
+  if (sel) {
+    sel.style.opacity = '1';
+    sel.style.borderColor = 'var(--motd-gold)';
+    sel.style.background = 'rgba(255,198,41,0.15)';
+  }
+  gameRef.child(`captionContest/votes/${playerId}`).set(winnerPid);
+  const msg = document.getElementById('caption-voted-msg');
+  if (msg) msg.style.display = 'block';
+}
+
+// ─── Player 1 "Next / Vote" button during review ──────────────────────────────
+
+function showCaptionNextPlayerButton(canVote) {
+  const existing = document.getElementById('caption-next-btn-player');
+  if (existing) existing.remove();
+
+  const btn = document.createElement('button');
+  btn.id = 'caption-next-btn-player';
+  btn.style.cssText = 'position:fixed;bottom:40px;left:50%;transform:translateX(-50%);padding:18px 52px;background:linear-gradient(135deg,#4dd4e8,#ffc629);color:#0a1628;border:none;border-radius:14px;font-family:"Bebas Neue",sans-serif;font-size:28px;letter-spacing:2px;cursor:pointer;z-index:11000;box-shadow:0 8px 30px rgba(77,212,232,0.5);-webkit-tap-highlight-color:transparent;';
+  btn.textContent = canVote ? '🗳️ Start Voting' : 'Next →';
+  btn.onclick = () => {
+    btn.disabled = true;
+    btn.style.opacity = '0.5';
+    btn.textContent = '⏳…';
+    gameRef.child('captionContest/playerAdvanced').set(Date.now());
+  };
+  document.body.appendChild(btn);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+
+(function setupSabotageRevealListener() {
+  const check = setInterval(() => {
+    if (!gameRef) return;
+    clearInterval(check);
+
+    // Watch the WHOLE sabotageReveal node so we detect index changes between players
+    gameRef.child('sabotageReveal').on('value', (snap) => {
+      const d = snap.val();
+
+      if (!d || !d.active) {
+        // Host finished — remove scoring UI
+        const el = document.getElementById('sabotage-referee-scoring');
+        if (el) el.remove();
+        return;
+      }
+
+      // Only player 1 gets the scoring UI
+      if (!window._isPlayer1) return;
+
+      // Rebuild when a new player's index arrives; skip if already showing this index
+      const existing = document.getElementById('sabotage-referee-scoring');
+      if (existing && parseInt(existing.dataset.index) === d.index) return;
+
+      showRefereeScoring(d);
+    });
+  }, 500);
+})();
+
+function showRefereeScoring(d) {
+  const existing = document.getElementById('sabotage-referee-scoring');
+  if (existing) existing.remove();
+
+  const div = document.createElement('div');
+  div.id = 'sabotage-referee-scoring';
+  div.dataset.index = d.index; // used by listener to detect player changes
+  div.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, #0a1628 0%, #1a2b4a 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 28px; text-align: center; overflow-y: auto;';
+
+  let currentStatus = 'notdone';
+  let currentPoints = 0;
+
+  div.innerHTML = `
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:rgba(255,255,255,0.3);letter-spacing:3px;margin-bottom:20px;">
+      🕵️ REFEREE SCORING &nbsp;—&nbsp; ${d.index + 1} / ${d.total}
+    </div>
+
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:48px;color:#fff;line-height:1;margin-bottom:6px;">
+      ${d.playerName}
+    </div>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:#d4145a;letter-spacing:2px;margin-bottom:20px;">
+      🕵️ ${d.taskName}
+    </div>
+
+    <div style="font-family:'Barlow',sans-serif;font-size:15px;color:rgba(255,255,255,0.7);max-width:480px;line-height:1.6;padding:14px 18px;background:rgba(0,0,0,0.3);border-radius:10px;margin-bottom:24px;">
+      ${d.description}
+    </div>
+
+    <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-bottom:20px;">
+      <button id="ref-btn-completed" onclick="setRefStatus('completed')"
+        style="padding:14px 20px;border:none;border-radius:10px;font-family:'Bebas Neue',sans-serif;font-size:20px;cursor:pointer;background:rgba(46,204,113,0.85);color:#fff;opacity:0.3;">
+        ✅ Completed
+      </button>
+      <button id="ref-btn-notdone" onclick="setRefStatus('notdone')"
+        style="padding:14px 20px;border:none;border-radius:10px;font-family:'Bebas Neue',sans-serif;font-size:20px;cursor:pointer;background:rgba(120,120,120,0.7);color:#fff;opacity:1;">
+        ❌ Not Done
+      </button>
+      <button id="ref-btn-caught" onclick="setRefStatus('caught')"
+        style="padding:14px 20px;border:none;border-radius:10px;font-family:'Bebas Neue',sans-serif;font-size:20px;cursor:pointer;background:rgba(212,20,90,0.85);color:#fff;opacity:0.3;">
+        🚨 Caught
+      </button>
+    </div>
+
+    <div id="ref-pts-row" style="display:none;align-items:center;gap:12px;margin-bottom:24px;">
+      <label style="font-family:'Barlow Condensed',sans-serif;font-size:20px;color:rgba(255,255,255,0.8);">Points:</label>
+      <input type="number" id="ref-pts-input" value="0" min="0" max="50"
+        style="width:80px;padding:10px;background:rgba(0,0,0,0.4);border:2px solid #ffc629;border-radius:8px;font-family:'Bebas Neue',sans-serif;font-size:26px;color:#ffc629;text-align:center;">
+    </div>
+
+    <button id="ref-submit-btn" onclick="submitRefereeScore('${d.pid}')"
+      style="padding:16px 44px;background:linear-gradient(135deg,#4dd4e8,#ffc629);color:#0a1628;border:none;border-radius:14px;font-family:'Bebas Neue',sans-serif;font-size:28px;cursor:pointer;box-shadow:0 8px 24px rgba(255,198,41,0.4);-webkit-tap-highlight-color:transparent;">
+      ${d.isLast ? '✅ Submit Final Score' : 'Submit Score →'}
+    </button>
+  `;
+
+  document.body.appendChild(div);
+}
+
+function setRefStatus(status) {
+  ['completed', 'notdone', 'caught'].forEach(s => {
+    const btn = document.getElementById(`ref-btn-${s}`);
+    if (btn) btn.style.opacity = s === status ? '1' : '0.3';
+  });
+  const ptsRow = document.getElementById('ref-pts-row');
+  if (ptsRow) ptsRow.style.display = status === 'completed' ? 'flex' : 'none';
+  window._refCurrentStatus = status;
+}
+
+function submitRefereeScore(pid) {
+  const btn = document.getElementById('ref-submit-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '✅ Sent!'; }
+
+  const status = window._refCurrentStatus || 'notdone';
+  const pts = status === 'completed'
+    ? Math.max(0, parseInt(document.getElementById('ref-pts-input')?.value || '0', 10))
+    : 0;
+
+  // Remove scoring UI immediately — listener rebuilds it for next player
+  const scoringEl = document.getElementById('sabotage-referee-scoring');
+  if (scoringEl) scoringEl.remove();
+
+  gameRef.child('sabotageReveal/judgement').set({ pid, status, points: pts });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TEAM TALK — PLAYER SIDE
 // ═══════════════════════════════════════════════════════════════════════════
 
 let _ttPlayerPhase = null;     // last phase we acted on (prevents duplicate shows)
 let _ttScorerRunningScore = 0; // local running total shown on scorer screen
 
+// IDs of all Team Talk screens — used for cleanup
 const TT_SCREEN_IDS = [
   'tt-player-intro',
   'tt-player-ready',
@@ -5198,6 +5372,7 @@ function clearTeamTalkScreens() {
   });
 }
 
+// Called by the teamTalk/phase listener
 function handleTeamTalkPhase(phase) {
   if (phase === _ttPlayerPhase) return;
   _ttPlayerPhase = phase;
@@ -5219,17 +5394,6 @@ function handleTeamTalkPhase(phase) {
   }
 }
 
-// Patch: track which team is scoring (needed by showTeamTalkScorerActiveScreen)
-let _ttCurrentScoringTeam = 1;
-(function() {
-  const origHandle = handleTeamTalkPhase;
-  handleTeamTalkPhase = function(phase) {
-    if (phase === 'team1turn') _ttCurrentScoringTeam = 1;
-    else if (phase === 'team2turn') _ttCurrentScoringTeam = 2;
-    origHandle(phase);
-  };
-})();
-
 // ─── Intro ───────────────────────────────────────────────────────────────────
 
 function showTeamTalkPlayerIntro() {
@@ -5250,8 +5414,10 @@ function showTeamTalkPlayerIntro() {
 // ─── Turn screen router ───────────────────────────────────────────────────────
 
 function showTeamTalkPlayerTurnScreen(teamNum) {
+  // Figure out this player's role
   const myData = players[playerId];
   if (!myData) {
+    // Players object not yet populated — wait briefly and retry
     setTimeout(() => showTeamTalkPlayerTurnScreen(teamNum), 300);
     return;
   }
@@ -5265,6 +5431,7 @@ function showTeamTalkPlayerTurnScreen(teamNum) {
   if (isScorer) {
     showTeamTalkReadyScreen(teamNum);
   } else {
+    // Everyone else (guesser, teammates, non-captains) sees a cheer screen
     showTeamTalkPlayerWaiting(
       teamNum === myTeam
         ? 'Your turn! Help your team guess!'
@@ -5297,7 +5464,13 @@ function showTeamTalkReadyScreen(teamNum) {
   `;
   document.body.appendChild(div);
 
-  // Watch for currentWord to appear as signal that the turn has started
+  // Listen for phase to change to active turn (host confirms ready) — then show scorer UI
+  gameRef.child('teamTalk/phase').once('value', () => {});
+  // The phase listener in listenForGameStart will fire handleTeamTalkPhase again if phase changes,
+  // but since we're already on the right phase we watch scorerReady feedback via Firebase:
+  // When host advances (after receiving scorerReady:true) it will trigger the countdown.
+  // Meanwhile watch for currentWord to appear as signal that turn started.
+  const turnPhase = teamNum === 1 ? 'team1turn' : 'team2turn';
   const currentWordListener = gameRef.child('teamTalk/currentWord').on('value', (snap) => {
     if (snap.val() !== null) {
       gameRef.child('teamTalk/currentWord').off('value', currentWordListener);
@@ -5350,7 +5523,25 @@ function showTeamTalkScorerActiveScreen() {
   });
 }
 
+// Which team's score to watch — set when phase fires
+let _ttCurrentScoringTeam = 1;
+
+// Override handleTeamTalkPhase to track scoring team
+const _ttOriginalHandle = window._ttHandleSetup; // unused — handled inline
+const _ttHandlePhaseOrig = (typeof handleTeamTalkPhase === 'function') ? handleTeamTalkPhase : null;
+
+// Patch: track which team is scoring
+(function() {
+  const origHandle = handleTeamTalkPhase;
+  handleTeamTalkPhase = function(phase) {
+    if (phase === 'team1turn') _ttCurrentScoringTeam = 1;
+    else if (phase === 'team2turn') _ttCurrentScoringTeam = 2;
+    origHandle(phase);
+  };
+})();
+
 function submitTeamTalkAction(action) {
+  // Briefly disable both buttons to prevent double-tap
   const correctBtn = document.getElementById('tt-correct-btn');
   const skipBtn    = document.getElementById('tt-skip-btn');
   if (correctBtn) correctBtn.disabled = true;
@@ -5368,6 +5559,7 @@ function submitTeamTalkAction(action) {
       ts: Date.now(),
     });
 
+    // Re-enable after a short delay (host will push a new word)
     setTimeout(() => {
       if (correctBtn) correctBtn.disabled = false;
       if (skipBtn)    skipBtn.disabled    = false;
@@ -5457,6 +5649,9 @@ function startHeartbeat() {
     gameRef.child('paused').on('value', (snap) => {
       let indicator = document.getElementById('player-pause-indicator');
       if (snap.val() === true) {
+        // Stop caption input timer while paused
+        clearInterval(window._captionPlayerTimerInterval);
+        window._captionPlayerTimerInterval = null;
         if (!indicator) {
           indicator = document.createElement('div');
           indicator.id = 'player-pause-indicator';
@@ -5473,15 +5668,35 @@ function startHeartbeat() {
             'pointer-events: all',
             'touch-action: none',
           ].join(';');
+          const resumeBtnHtml = window._isPlayer1
+            ? `<button onclick="gameRef.child('paused').set(false)"
+                 style="margin-top:32px;padding:18px 52px;background:linear-gradient(135deg,#2ecc71,#27ae60);color:#fff;border:none;border-radius:14px;font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:2px;cursor:pointer;box-shadow:0 8px 24px rgba(46,204,113,0.5);-webkit-tap-highlight-color:transparent;">
+                 ▶️ Resume Game
+               </button>`
+            : '';
           indicator.innerHTML = `
             <div style="font-size: 64px; margin-bottom: 20px;">⏸️</div>
             <div style="font-family:'Bebas Neue',sans-serif; font-size:42px; color:#ffc629; letter-spacing:3px; margin-bottom:12px;">GAME PAUSED</div>
             <div style="font-family:'Barlow',sans-serif; font-size:18px; color:rgba(255,255,255,0.7);">Back soon…</div>
+            ${resumeBtnHtml}
           `;
           document.body.appendChild(indicator);
         }
       } else {
         if (indicator) indicator.remove();
+        // Restart caption input timer if the caption round is still showing
+        if (window._captionPlayerTimeLeft > 0 && document.getElementById('player-caption-timer')) {
+          window._captionPlayerTimerInterval = setInterval(() => {
+            window._captionPlayerTimeLeft--;
+            const el = document.getElementById('player-caption-timer');
+            if (el) el.textContent = `:${String(window._captionPlayerTimeLeft).padStart(2, '0')}`;
+            if (window._captionPlayerTimeLeft <= 0) {
+              clearInterval(window._captionPlayerTimerInterval);
+              window._captionPlayerTimerInterval = null;
+              submitCaption(window._captionPlayerStyle);
+            }
+          }, 1000);
+        }
       }
     });
   }, 500);
