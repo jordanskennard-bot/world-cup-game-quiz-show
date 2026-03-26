@@ -1604,6 +1604,9 @@ const ROUND_3_QUESTIONS = [
   },
   {
     question: "What would you say is your biggest strength?"
+  },
+  {
+    question: "What are you most excited about?"
   }
 ];
 
@@ -2611,7 +2614,7 @@ function updateScoreboard() {
 // ═══════════════════════════════════════════════════════════════════════════
 
 async function generateIntroVoiceDirectly() {
-  const text = `Thanks Clyde!... It's looking like an interesting game.. We've got ${team1.name} up against ${team2.name}! Certainly one to watch! (given you're already here).`;
+  const text = `(excited) Thanks Clyde!... It's looking like an interesting game.. We've got ${team1.name} up against ${team2.name}! Certainly one to watch! (given you're already here).`;
   
   console.log('🎙️ Generating intro voice:', text);
   
@@ -2631,11 +2634,11 @@ async function generateIntroVoiceDirectly() {
       },
       body: JSON.stringify({
         text: text,
-        model_id: 'eleven_monolingual_v1',
+        model_id: 'eleven_turbo_v2_5',
         voice_settings: {
-          stability: 0.5,
+          stability: 0.4,
           similarity_boost: 0.75,
-          style: 0.0,
+          style: 0.5,
           use_speaker_boost: true
         }
       })
@@ -3164,12 +3167,12 @@ async function generateScoresCommentary(leadText, team1Score, team2Score) {
         'xi-api-key': 'sk_eb4900ceb7e4366087590c2b906743504ba8c844524ddcc4'
       },
       body: JSON.stringify({
-        text: `Well Clyde, ${leadText}`,
-        model_id: 'eleven_monolingual_v1',
+        text: `(impressed) Well Clyde, ${leadText}`,
+        model_id: 'eleven_turbo_v2_5',
         voice_settings: {
-          stability: 0.5,
+          stability: 0.4,
           similarity_boost: 0.75,
-          style: 0.0,
+          style: 0.5,
           use_speaker_boost: true
         }
       })
@@ -3819,12 +3822,12 @@ async function readPunAloud(punData) {
         'xi-api-key': 'sk_eb4900ceb7e4366087590c2b906743504ba8c844524ddcc4'
       },
       body: JSON.stringify({
-        text: `${punData.playerName} says... ${punData.pun}`,
-        model_id: 'eleven_monolingual_v1',
+        text: `(amused) ${punData.playerName} says... ${punData.pun}`,
+        model_id: 'eleven_turbo_v2_5',
         voice_settings: {
-          stability: 0.5,
+          stability: 0.4,
           similarity_boost: 0.75,
-          style: 0.0,
+          style: 0.5,
           use_speaker_boost: true
         }
       })
@@ -4093,6 +4096,11 @@ function loadRound3Question(index) {
   document.getElementById('round3-question-text').textContent = q.question;
   document.getElementById('submitted-answers').innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-muted);">Waiting for players to submit answers...</div>';
 
+  // Play question audio file
+  const qAudio = new Audio(`R3_Q${index + 1}_Q.mp3?v=2`);
+  qAudio.volume = 0.8;
+  qAudio.play().catch(err => console.warn(`⚠️ R3_Q${index + 1}_Q.mp3 not found:`, err));
+
   // Reset reveal state for this question
   window._round3NamesRevealed[index] = false;
   window._round3LastSubmissions[index] = {};
@@ -4237,6 +4245,61 @@ function updateRound3Scoreboard() {
 
 const _round3AcceptPlayed = {};
 
+const ROUND3_REACTIONS = [
+  "(happy) I like that one!",
+  "(impressed) Oh, very good!",
+  "(amused) I see what you did there.",
+  "(excited) Ha! That is brilliant.",
+  "(happy) Now that is a solid answer.",
+  "(impressed) Ooh, nice one.",
+  "(amused) I love it.",
+  "(excited) Absolutely class!",
+  "(happy) What a response.",
+  "(amused) They didn't hold back, did they.",
+];
+let _round3ReactionIdx = 0;
+
+async function readWinningAnswerAloud(answerText) {
+  const ELEVENLABS_API_KEY = 'sk_eb4900ceb7e4366087590c2b906743504ba8c844524ddcc4';
+  const VOICE_ID = 'rfkTsdZrVWEVhDycUYn9';
+
+  const callTTS = (text) => fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`, {
+    method: 'POST',
+    headers: { 'Accept': 'audio/mpeg', 'Content-Type': 'application/json', 'xi-api-key': ELEVENLABS_API_KEY },
+    body: JSON.stringify({
+      text,
+      model_id: 'eleven_turbo_v2_5',
+      voice_settings: { stability: 0.4, similarity_boost: 0.75, style: 0.5, use_speaker_boost: true }
+    })
+  }).then(r => r.blob()).then(blob => new Audio(URL.createObjectURL(blob)));
+
+  try {
+    // 1. Read out the winning answer
+    const answerAudio = await callTTS(`(amused) And the winner is... "${answerText}"`);
+    answerAudio.volume = 0.85;
+    window._currentTTSAudio = answerAudio;
+
+    await new Promise(resolve => {
+      answerAudio.onended = () => { window._currentTTSAudio = null; resolve(); };
+      answerAudio.onerror = () => { window._currentTTSAudio = null; resolve(); };
+      answerAudio.play().catch(() => resolve());
+    });
+
+    // 2. Play a rotating reaction comment
+    const reaction = ROUND3_REACTIONS[_round3ReactionIdx % ROUND3_REACTIONS.length];
+    _round3ReactionIdx++;
+    const reactionAudio = await callTTS(reaction);
+    reactionAudio.volume = 0.85;
+    window._currentTTSAudio = reactionAudio;
+    reactionAudio.onended = () => { window._currentTTSAudio = null; };
+    reactionAudio.onerror = () => { window._currentTTSAudio = null; };
+    reactionAudio.play().catch(() => {});
+
+  } catch (err) {
+    console.error('❌ readWinningAnswerAloud error:', err);
+  }
+}
+
 function awardRound3Points(votes, questionIndex) {
   // Count votes for each player
   const voteCounts = {};
@@ -4275,6 +4338,12 @@ function awardRound3Points(votes, questionIndex) {
     if (window.playPunReactionAudio) {
       window.playPunReactionAudio('accept');
       console.log('🎵 Playing accept audio — all votes in for question', questionIndex);
+    }
+
+    // Read out the winning answer then deliver a reaction
+    const winningAnswer = window._round3LastSubmissions[questionIndex]?.[winnerId]?.answer;
+    if (winningAnswer) {
+      readWinningAnswerAloud(winningAnswer);
     }
   }
 }
@@ -6632,13 +6701,13 @@ function captionHostSkip(roundIndex) {
 function playCaptionIntro() {
   const ELEVENLABS_API_KEY = 'sk_eb4900ceb7e4366087590c2b906743504ba8c844524ddcc4';
   const VOICE_ID = 'rfkTsdZrVWEVhDycUYn9';
-  const text = "That's it! Now let's see what you all came up with.";
+  const text = "(excited) That's it! Now let's see what you all came up with.";
 
   return new Promise((resolve) => {
     fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`, {
       method: 'POST',
       headers: { 'Accept': 'audio/mpeg', 'Content-Type': 'application/json', 'xi-api-key': ELEVENLABS_API_KEY },
-      body: JSON.stringify({ text, model_id: 'eleven_monolingual_v1', voice_settings: { stability: 0.5, similarity_boost: 0.75, style: 0.0, use_speaker_boost: true } })
+      body: JSON.stringify({ text, model_id: 'eleven_turbo_v2_5', voice_settings: { stability: 0.4, similarity_boost: 0.75, style: 0.5, use_speaker_boost: true } })
     })
     .then(r => r.arrayBuffer())
     .then(buf => {
@@ -6668,13 +6737,13 @@ function playCaptionReading(playerName, captionText, index = 0) {
     ? 'The first caption we have is...'
     : subsequentPrefixes[(index - 1) % subsequentPrefixes.length];
 
-  const text = `${prefix} "${captionText}"`;
+  const text = `(happy) ${prefix} "${captionText}"`;
 
   return new Promise((resolve) => {
     fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`, {
       method: 'POST',
       headers: { 'Accept': 'audio/mpeg', 'Content-Type': 'application/json', 'xi-api-key': ELEVENLABS_API_KEY },
-      body: JSON.stringify({ text, model_id: 'eleven_monolingual_v1', voice_settings: { stability: 0.5, similarity_boost: 0.75, style: 0.0, use_speaker_boost: true } })
+      body: JSON.stringify({ text, model_id: 'eleven_turbo_v2_5', voice_settings: { stability: 0.4, similarity_boost: 0.75, style: 0.5, use_speaker_boost: true } })
     })
       .then(r => r.blob())
       .then(blob => {
@@ -6802,12 +6871,12 @@ function showCaptionWinner(roundIndex, votes) {
 function announceCaptionWinner(playerName) {
   const ELEVENLABS_API_KEY = 'sk_eb4900ceb7e4366087590c2b906743504ba8c844524ddcc4';
   const VOICE_ID = 'rfkTsdZrVWEVhDycUYn9';
-  const text = `${playerName} wins this round!`;
+  const text = `(excited) ${playerName} wins this round!`;
   return new Promise((resolve) => {
     fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`, {
       method: 'POST',
       headers: { 'Accept': 'audio/mpeg', 'Content-Type': 'application/json', 'xi-api-key': ELEVENLABS_API_KEY },
-      body: JSON.stringify({ text, model_id: 'eleven_monolingual_v1', voice_settings: { stability: 0.5, similarity_boost: 0.75, style: 0.0, use_speaker_boost: true } })
+      body: JSON.stringify({ text, model_id: 'eleven_turbo_v2_5', voice_settings: { stability: 0.4, similarity_boost: 0.75, style: 0.5, use_speaker_boost: true } })
     }).then(r => r.blob()).then(blob => {
       const audio = new Audio(URL.createObjectURL(blob));
       audio.volume = 0.85;
@@ -6855,7 +6924,7 @@ let _sabotageQuestionIndex = 0;
 async function playSabotageQuestion(playerName) {
   const variant = SABOTAGE_QUESTION_VARIANTS[_sabotageQuestionIndex % SABOTAGE_QUESTION_VARIANTS.length];
   _sabotageQuestionIndex++;
-  const text = variant(playerName);
+  const text = `(enthusiastic) ${variant(playerName)}`;
 
   const ELEVENLABS_API_KEY = 'sk_eb4900ceb7e4366087590c2b906743504ba8c844524ddcc4';
   const VOICE_ID = 'rfkTsdZrVWEVhDycUYn9';
@@ -6869,8 +6938,8 @@ async function playSabotageQuestion(playerName) {
       },
       body: JSON.stringify({
         text,
-        model_id: 'eleven_monolingual_v1',
-        voice_settings: { stability: 0.5, similarity_boost: 0.75, style: 0.0, use_speaker_boost: true }
+        model_id: 'eleven_turbo_v2_5',
+        voice_settings: { stability: 0.4, similarity_boost: 0.75, style: 0.5, use_speaker_boost: true }
       })
     });
     if (!response.ok) throw new Error(`ElevenLabs error: ${response.status}`);
@@ -7490,6 +7559,11 @@ function resumeAllAudio() {
       const shouldBePaused = snap.val() === true;
       if (shouldBePaused && !_gamePaused) {
         _gamePaused = true;
+        // Pause Round 2 countdown timer if running
+        if (round2Timer) {
+          clearInterval(round2Timer);
+          round2Timer = null;
+        }
         // Pause caption timer if running
         clearInterval(window._captionTimerInterval);
         window._captionTimerInterval = null;
@@ -7497,6 +7571,25 @@ function resumeAllAudio() {
       } else if (!shouldBePaused && _gamePaused) {
         _gamePaused = false;
         resumeAllAudio();
+        // Restart Round 2 countdown if it was mid-game when paused
+        if (round2TimeLeft > 0 && document.getElementById('countdown-timer')) {
+          round2Timer = setInterval(() => {
+            round2TimeLeft--;
+            const timerEl = document.getElementById('countdown-timer');
+            if (timerEl) timerEl.textContent = round2TimeLeft;
+            gameRef.update({ round2TimeLeft: round2TimeLeft });
+            if (round2TimeLeft <= 0) {
+              clearInterval(round2Timer);
+              round2Timer = null;
+              if (window.round2MusicAudio) {
+                window.round2MusicAudio.pause();
+                window.round2MusicAudio = null;
+              }
+              gameRef.update({ round2TimeUp: true });
+              setTimeout(() => { endRound2(); }, 2000);
+            }
+          }, 1000);
+        }
         // Restart caption timer if caption round is still on screen
         if (window._captionTimeLeft > 0 && document.getElementById('caption-round-screen')) {
           const ri = window._captionActiveRoundIndex;
@@ -8458,7 +8551,7 @@ async function showTeamTalkResults() {
     ? `${team1.name} scored ${_ttTeam1Score} and ${team2.name} scored ${_ttTeam2Score}. ${winner.name} wins the round!`
     : `${team1.name} scored ${_ttTeam1Score} and ${team2.name} scored ${_ttTeam2Score}. It's a draw!`;
 
-  const voiceText = `Right, let's see how the Team Talk went! ${scoreLine}`;
+  const voiceText = `(excited) Right, let's see how the Team Talk went! ${scoreLine}`;
 
   let voicePlayed = false;
   const afterVoice = () => {
@@ -8507,8 +8600,8 @@ async function showTeamTalkResults() {
           },
           body: JSON.stringify({
             text: voiceText,
-            model_id: 'eleven_monolingual_v1',
-            voice_settings: { stability: 0.5, similarity_boost: 0.75, style: 0.0, use_speaker_boost: true },
+            model_id: 'eleven_turbo_v2_5',
+            voice_settings: { stability: 0.4, similarity_boost: 0.75, style: 0.5, use_speaker_boost: true },
           }),
         });
         if (!response.ok) throw new Error(`ElevenLabs ${response.status}`);
