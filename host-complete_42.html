@@ -2220,66 +2220,66 @@ function showRound1Explainer() {
   
   document.body.appendChild(explainerDiv);
 
-  // Play round_1_intro_music as background
+  // Play round_1_intro_music first, then voice intro after it finishes
   console.log('🎵 Playing round_1_intro_music.mp3');
   window.round1IntroMusic = new Audio('round_1_intro_music.mp3?v=2');
   window.round1IntroMusic.volume = 0.5;
-  window.round1IntroMusic.loop = true;
-  window.round1IntroMusic.play().catch(() => {});
 
-  // Play round_1_intro audio
-  console.log('🎵 Playing round_1_intro.mp3');
-  
-  // Use preloaded audio if available, otherwise create new
-  // NOTE: never call .load() on a preloaded Audio — it clears the buffer
-  //       and causes audio to stall after ~2 s while the file re-fetches.
-  const round1Audio = window.round1IntroPreload || new Audio('round_1_intro.mp3?v=2');
-  if (!window.round1IntroPreload) {
-    round1Audio.preload = 'auto';
-    round1Audio.load();
-  }
-  round1Audio.volume = 0.6;
+  const playRound1Voice = () => {
+    // Use preloaded audio if available, otherwise create new
+    // NOTE: never call .load() on a preloaded Audio — it clears the buffer
+    //       and causes audio to stall after ~2 s while the file re-fetches.
+    console.log('🎵 Playing round_1_intro.mp3');
+    const round1Audio = window.round1IntroPreload || new Audio('round_1_intro.mp3?v=2');
+    if (!window.round1IntroPreload) {
+      round1Audio.preload = 'auto';
+      round1Audio.load();
+    }
+    round1Audio.volume = 0.6;
+    window.round1IntroAudio = round1Audio;
 
-  // Keep a window reference so GC can't collect it mid-play
-  window.round1IntroAudio = round1Audio;
+    round1Audio.addEventListener('error', (e) => {
+      console.error('❌ round_1_intro.mp3 failed to load:', round1Audio.error);
+    });
 
-  round1Audio.addEventListener('error', (e) => {
-    console.error('❌ round_1_intro.mp3 failed to load:', round1Audio.error);
-  });
+    round1Audio.play()
+      .then(() => console.log('🔊 Playing round_1_intro'))
+      .catch(err => {
+        if (err.name === 'NotAllowedError') {
+          console.log('⚠️ round_1_intro blocked — queued for unlock');
+          window._audioQueue = window._audioQueue || [];
+          window._audioQueue.push({ audio: round1Audio, options: {}, release: () => {} });
+          showAudioUnlockButton();
+        } else {
+          console.error('round_1_intro play failed:', err);
+          gameRef.update({ round1IntroReady: true });
+        }
+      });
 
-  round1Audio.play()
-    .then(() => console.log('🔊 Playing round_1_intro'))
-    .catch(err => {
-      if (err.name === 'NotAllowedError') {
-        console.log('⚠️ round_1_intro blocked — queued for unlock');
-        window._audioQueue = window._audioQueue || [];
-        window._audioQueue.push({ audio: round1Audio, options: {}, release: () => {} });
-        showAudioUnlockButton();
-      } else {
-        console.error('round_1_intro play failed:', err);
-        // If audio can't play at all, unblock the start button immediately
+    // Unlock the start button on players' phones when voice finishes
+    let introReadySet = false;
+    round1Audio.addEventListener('ended', () => {
+      if (!introReadySet) {
+        introReadySet = true;
+        console.log('✅ round_1_intro finished — unlocking start button');
         gameRef.update({ round1IntroReady: true });
       }
     });
 
-  // Unlock the start button on players' phones when audio finishes
-  let introReadySet = false;
-  round1Audio.addEventListener('ended', () => {
-    if (!introReadySet) {
-      introReadySet = true;
-      console.log('✅ round_1_intro finished — unlocking start button');
-      gameRef.update({ round1IntroReady: true });
-    }
-  });
+    // Fallback: unlock after 30s if audio never ends
+    setTimeout(() => {
+      if (!introReadySet) {
+        introReadySet = true;
+        console.log('⚠️ round_1_intro timeout — unlocking start button anyway');
+        gameRef.update({ round1IntroReady: true });
+      }
+    }, 30000);
+  }; // end playRound1Voice
 
-  // Fallback: unlock after 30s if audio never ends (e.g. very long file)
-  setTimeout(() => {
-    if (!introReadySet) {
-      introReadySet = true;
-      console.log('⚠️ round_1_intro timeout — unlocking start button anyway');
-      gameRef.update({ round1IntroReady: true });
-    }
-  }, 30000);
+  // Play music first — voice follows once music ends
+  window.round1IntroMusic.addEventListener('ended', playRound1Voice);
+  window.round1IntroMusic.addEventListener('error', playRound1Voice); // fallback if file missing
+  window.round1IntroMusic.play().catch(() => playRound1Voice()); // fallback if blocked
 
   // Notify players to show explainer on their screens
   gameRef.update({
