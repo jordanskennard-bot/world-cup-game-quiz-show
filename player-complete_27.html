@@ -1439,12 +1439,27 @@ function listenForGameStart() {
   });
 
   // ── OFFSIDE TRAP LISTENERS ──
-  gameRef.child(`offsideTrapOpportunity/${playerId}`).on('value', (snapshot) => {
-    if (snapshot.val()) {
-      console.log('🚩 Got Offside Trap opportunity!');
+  // Global broadcast — all players see the button simultaneously
+  gameRef.child('offsideTrapOpportunity').on('value', (snapshot) => {
+    const data = snapshot.val();
+    if (data && !data.claimed) {
+      console.log('🚩 Offside Trap opportunity — showing button!');
       showOffsideTrapButton();
-      gameRef.child(`offsideTrapOpportunity/${playerId}`).remove();
+    } else {
+      // Claimed or removed — hide button if still showing
+      hideOffsideTrapButton(window.offsideTrapTimer);
     }
+  });
+
+  // Play accept audio on all player phones when interview round winner is revealed
+  gameRef.child('round3WinnerAudio').on('value', (snapshot) => {
+    if (!snapshot.val()) return;
+    const acceptFiles = ['accept_1','accept_2','accept_3','accept_4','accept_5',
+                         'accept_6','accept_7','accept_8','accept_9','accept_10'];
+    window._r3AcceptIdx = (window._r3AcceptIdx || 0);
+    const file = acceptFiles[window._r3AcceptIdx % acceptFiles.length] + '.mp3?v=2';
+    window._r3AcceptIdx++;
+    new Audio(file).play().catch(() => {});
   });
 
   gameRef.child('offsideTrapUsed').on('value', (snapshot) => {
@@ -2441,11 +2456,11 @@ function showPlayerBlowBallJudging() {
   const ftBtn = document.getElementById('blowball-full-time-btn');
   if (ftBtn) ftBtn.remove();
 
-  // Player 1 (first in the players object) acts as referee
-  const playerIds = Object.keys(players);
-  const refereeId = playerIds[0];
+  // Team 1 captain acts as referee (same as Goal Posts judging)
+  const myData = players[playerId];
+  const isReferee = myData && myData.isCaptain === true && myData.team === 1;
 
-  if (playerId === refereeId) {
+  if (isReferee) {
     showRefereeBlowBallScoring();
   } else {
     showWaitingForBlowBallScoring();
@@ -3881,28 +3896,25 @@ function useOffsideTrap() {
   // Hide the button immediately so the player can't tap twice
   hideOffsideTrapButton(window.offsideTrapTimer);
 
-  // Use a Firebase transaction to atomically claim the shared opportunity.
-  // Only the first team to press wins — if already claimed, the transaction aborts.
-  gameRef.child('sabotageOpportunityPlayers').transaction((current) => {
-    if (!current || current.claimed) return; // abort — already claimed or expired
+  // Claim the opportunity via transaction — only the first tapper wins
+  gameRef.child('offsideTrapOpportunity').transaction((current) => {
+    if (!current || current.claimed) return; // already claimed or expired — abort
     return { ...current, claimed: true, claimedBy: playerId };
   }, (error, committed) => {
     if (!committed) {
-      // Opponent was faster — button already hidden, nothing more to do
-      console.log('🚩 Sabotage already claimed by opponent');
+      console.log('🚩 Offside Trap already claimed by someone else');
       return;
     }
 
-    // We won the race — apply the sabotage
-    gameRef.child('players/' + playerId + '/team').once('value', (snap) => {
-      const myTeam = snap.val();
-      const targetTeam = myTeam === 1 ? 2 : 1;
-      gameRef.child('sabotageUsed').set({
-        userId: playerId,
-        userTeam: myTeam,
-        targetTeam: targetTeam,
-        timestamp: Date.now()
-      });
+    // We won — write the result so host and other players react
+    const myTeam = players[playerId]?.team;
+    const targetTeam = myTeam === 1 ? 2 : 1;
+    console.log(`🚩 Offside Trap claimed! Targeting team ${targetTeam}`);
+    gameRef.child('offsideTrapUsed').set({
+      userId: playerId,
+      userTeam: myTeam,
+      targetTeam: targetTeam,
+      timestamp: Date.now()
     });
 
     if (navigator.vibrate) navigator.vibrate([100, 50, 100, 50, 100]);
@@ -4697,23 +4709,162 @@ function showPlayerGameComplete() {
 
   const div = document.createElement('div');
   div.id = 'player-game-complete';
-  div.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, #0a1628 0%, #1a2b4a 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 25000; padding: 40px; text-align: center;';
+  div.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, #0a1628 0%, #1a2b4a 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 25000; padding: 40px; text-align: center; overflow-y: auto;';
   div.innerHTML = `
-    <div style="font-size: 80px; margin-bottom: 24px;">🏆</div>
-    <h1 style="font-family: 'Bebas Neue', sans-serif; font-size: 64px; color: #ffc629; margin-bottom: 20px; letter-spacing: 4px; line-height: 1.1;">FULL TIME!</h1>
-    <p style="font-family: 'Barlow', sans-serif; font-size: 22px; color: rgba(255,255,255,0.85); margin-bottom: 50px; line-height: 1.6;">
-      Thanks for playing Foul Play!<br>Check the host screen for the final scores.
-    </p>
-    <button
-      onclick="showEmailCaptureScreen()"
-      style="padding: 20px 48px; background: linear-gradient(135deg, #4dd4e8, #ffc629); color: #0a1628; border: none; border-radius: 12px; font-family: 'Bebas Neue', sans-serif; font-size: 32px; cursor: pointer; letter-spacing: 2px; box-shadow: 0 8px 24px rgba(77,212,232,0.4);"
-      onmouseover="this.style.transform='scale(1.05)'"
-      onmouseout="this.style.transform='scale(1)'"
-    >
-      Continue
+    <div style="font-size: 72px; margin-bottom: 16px;">🏆</div>
+    <h1 style="font-family: 'Bebas Neue', sans-serif; font-size: 64px; color: #ffc629; margin-bottom: 10px; letter-spacing: 4px; line-height: 1.1;">FULL TIME!</h1>
+    <p id="player-final-score-line" style="font-family: 'Bebas Neue', sans-serif; font-size: 32px; color: #4dd4e8; margin-bottom: 32px; letter-spacing: 2px;">Check the host screen for scores</p>
+
+    <!-- Download -->
+    <button onclick="downloadChampionsPhoto()"
+      style="padding: 16px 36px; background: linear-gradient(135deg, #4dd4e8, #ffc629); color: #0a1628; border: none; border-radius: 12px; font-family: 'Bebas Neue', sans-serif; font-size: 26px; cursor: pointer; letter-spacing: 2px; box-shadow: 0 6px 20px rgba(77,212,232,0.4); margin-bottom: 20px; -webkit-tap-highlight-color: transparent;">
+      🏆 Download Team Photo
+    </button>
+
+    <!-- Share -->
+    <div style="margin-bottom: 32px;">
+      <div style="font-family: 'Bebas Neue', sans-serif; font-size: 20px; color: rgba(255,255,255,0.5); letter-spacing: 2px; margin-bottom: 12px;">SHARE YOUR VICTORY</div>
+      <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+        <a id="player-wa-btn" href="#" target="_blank"
+          style="padding: 12px 22px; background: #25D366; color: #fff; border-radius: 10px; font-family: 'Bebas Neue', sans-serif; font-size: 18px; text-decoration: none; display: inline-block;">📱 WhatsApp</a>
+        <a id="player-tw-btn" href="#" target="_blank"
+          style="padding: 12px 22px; background: #1DA1F2; color: #fff; border-radius: 10px; font-family: 'Bebas Neue', sans-serif; font-size: 18px; text-decoration: none; display: inline-block;">🐦 Twitter</a>
+        <button onclick="copyGameLink()"
+          style="padding: 12px 22px; background: rgba(255,255,255,0.15); color: #fff; border: 2px solid rgba(255,255,255,0.3); border-radius: 10px; font-family: 'Bebas Neue', sans-serif; font-size: 18px; cursor: pointer; -webkit-tap-highlight-color: transparent;">🔗 Copy Link</button>
+      </div>
+    </div>
+
+    <button onclick="showEmailCaptureScreen()"
+      style="padding: 18px 44px; background: rgba(255,255,255,0.1); color: #fff; border: 2px solid rgba(255,255,255,0.2); border-radius: 12px; font-family: 'Bebas Neue', sans-serif; font-size: 26px; cursor: pointer; letter-spacing: 2px; -webkit-tap-highlight-color: transparent;">
+      Continue →
     </button>
   `;
   document.body.appendChild(div);
+
+  // Populate score line and share links from Firebase
+  gameRef.once('value', (snap) => {
+    const d = snap.val() || {};
+    const finalScore = d.finalScore || '';
+    const winner = d.winner || '';
+    const scoreLine = document.getElementById('player-final-score-line');
+    if (scoreLine && finalScore) scoreLine.textContent = winner ? `${winner} — ${finalScore}` : finalScore;
+    const shareMsg = `We just played Foul Play! ⚽🏆 Final score: ${finalScore}. Play your own game: https://foulplay.games`;
+    const waBtn = document.getElementById('player-wa-btn');
+    const twBtn = document.getElementById('player-tw-btn');
+    if (waBtn) waBtn.href = `https://wa.me/?text=${encodeURIComponent(shareMsg)}`;
+    if (twBtn) twBtn.href = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareMsg)}`;
+  });
+}
+
+function copyGameLink() {
+  navigator.clipboard.writeText('https://foulplay.games').catch(() => {});
+  const toast = document.createElement('div');
+  toast.style.cssText = 'position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 30000; background: #2ecc71; color: #fff; padding: 14px 30px; border-radius: 8px; font-family: \'Bebas Neue\', sans-serif; font-size: 20px; letter-spacing: 1px;';
+  toast.textContent = '✓ Link Copied!';
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 2500);
+}
+
+function downloadChampionsPhoto() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 1200;
+  canvas.height = 675;
+  const ctx = canvas.getContext('2d');
+
+  const bg = ctx.createLinearGradient(0, 0, 1200, 675);
+  bg.addColorStop(0, '#001e3c');
+  bg.addColorStop(1, '#0a2f5c');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, 1200, 675);
+
+  ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i < 20; i++) {
+    ctx.beginPath(); ctx.moveTo(i * 60, 0); ctx.lineTo(1200, 675 - i * 34); ctx.stroke();
+  }
+
+  const team1Score = Object.values(players).filter(p => p.team === 1).reduce((s, p) => s + (p.score || 0), 0);
+  const team2Score = Object.values(players).filter(p => p.team === 2).reduce((s, p) => s + (p.score || 0), 0);
+  const winLabel = team1Score > team2Score ? (team1 ? team1.name + ' WIN' : 'HOME WIN')
+                 : team2Score > team1Score ? (team2 ? team2.name + ' WIN' : 'AWAY WIN')
+                 : "IT'S A DRAW";
+
+  ctx.fillStyle = '#ffc629';
+  ctx.font = 'bold 64px Arial';
+  ctx.textAlign = 'center';
+  ctx.fillText(`🏆 ${winLabel} 🏆`, 600, 80);
+
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 48px Arial';
+  ctx.fillText(`FINAL SCORE: ${team1Score} – ${team2Score}`, 600, 145);
+
+  const allPlayers = Object.values(players);
+  const photoSize = 140;
+  const spacing = 180;
+  const startX = (1200 - (allPlayers.length * spacing - (spacing - photoSize))) / 2 + photoSize / 2;
+  const photoY = 200;
+
+  let loadedCount = 0;
+  const finalize = () => {
+    ctx.fillStyle = '#4dd4e8';
+    ctx.font = 'bold 22px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('foulplay.games', 600, 650);
+    const link = document.createElement('a');
+    link.href = canvas.toDataURL('image/png');
+    link.download = `foul-play-victory-${Date.now()}.png`;
+    link.click();
+  };
+
+  if (allPlayers.length === 0) { finalize(); return; }
+
+  allPlayers.forEach((player, i) => {
+    const x = startX + i * spacing;
+    const tilt = i % 2 === 0 ? -4 : 4;
+    const teamColor = player.team === 1 ? '#4dd4e8' : '#d4145a';
+
+    const drawPlayer = () => {
+      ctx.save();
+      ctx.translate(x, photoY + photoSize / 2);
+      ctx.rotate((tilt * Math.PI) / 180);
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(-photoSize / 2 - 5, -photoSize / 2 - 5, photoSize + 10, photoSize + 10);
+      ctx.fillStyle = teamColor;
+      ctx.fillRect(-photoSize / 2 - 5, photoSize / 2 - 5, photoSize + 10, 10);
+      ctx.restore();
+      ctx.save();
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 18px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText(player.name || '', x, photoY + photoSize + 30);
+      ctx.restore();
+      loadedCount++;
+      if (loadedCount === allPlayers.length) finalize();
+    };
+
+    if (player.photo) {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        ctx.save();
+        ctx.translate(x, photoY + photoSize / 2);
+        ctx.rotate(((i % 2 === 0 ? -4 : 4) * Math.PI) / 180);
+        ctx.drawImage(img, -photoSize / 2, -photoSize / 2, photoSize, photoSize);
+        ctx.restore();
+        drawPlayer();
+      };
+      img.onerror = drawPlayer;
+      img.src = player.photo;
+    } else {
+      ctx.fillStyle = teamColor;
+      ctx.fillRect(x - photoSize / 2 - 5, photoY - 5, photoSize + 10, photoSize + 10);
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 64px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText((player.name || '?')[0].toUpperCase(), x, photoY + photoSize / 2 + 22);
+      drawPlayer();
+    }
+  });
 }
 
 function showEmailCaptureScreen() {
@@ -5367,20 +5518,25 @@ function showCaptionNextPlayerButton(canVote) {
       const d = snap.val();
 
       if (!d || !d.active) {
-        // Host finished — remove scoring UI
-        const el = document.getElementById('sabotage-referee-scoring');
-        if (el) el.remove();
+        // Host finished — remove all sabotage UI
+        ['sabotage-referee-scoring', 'sabotage-task-view'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.remove();
+        });
         return;
       }
 
-      // Only player 1 gets the scoring UI
-      if (!window._isPlayer1) return;
-
-      // Rebuild when a new player's index arrives; skip if already showing this index
-      const existing = document.getElementById('sabotage-referee-scoring');
-      if (existing && parseInt(existing.dataset.index) === d.index) return;
-
-      showRefereeScoring(d);
+      if (window._isPlayer1) {
+        // Referee: full scoring UI
+        const existing = document.getElementById('sabotage-referee-scoring');
+        if (existing && parseInt(existing.dataset.index) === d.index) return;
+        showRefereeScoring(d);
+      } else {
+        // Everyone else: read-only task view
+        const existing = document.getElementById('sabotage-task-view');
+        if (existing && parseInt(existing.dataset.index) === d.index) return;
+        showSabotageTaskView(d);
+      }
     });
   }, 500);
 })();
@@ -5440,6 +5596,34 @@ function showRefereeScoring(d) {
     </button>
   `;
 
+  document.body.appendChild(div);
+}
+
+function showSabotageTaskView(d) {
+  const existing = document.getElementById('sabotage-task-view');
+  if (existing) existing.remove();
+
+  const div = document.createElement('div');
+  div.id = 'sabotage-task-view';
+  div.dataset.index = d.index;
+  div.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, #0a1628 0%, #1a2b4a 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 28px; text-align: center; overflow-y: auto;';
+  div.innerHTML = `
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:rgba(255,255,255,0.3);letter-spacing:3px;margin-bottom:20px;">
+      🕵️ SABOTAGE REVEALS &nbsp;—&nbsp; ${d.index + 1} / ${d.total}
+    </div>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:48px;color:#fff;line-height:1;margin-bottom:6px;">
+      ${d.playerName}
+    </div>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:#d4145a;letter-spacing:2px;margin-bottom:20px;">
+      🕵️ ${d.taskName}
+    </div>
+    <div style="font-family:'Barlow',sans-serif;font-size:15px;color:rgba(255,255,255,0.7);max-width:480px;line-height:1.6;padding:14px 18px;background:rgba(0,0,0,0.3);border-radius:10px;margin-bottom:24px;">
+      ${d.description}
+    </div>
+    <div style="font-family:'Barlow',sans-serif;font-size:16px;color:rgba(255,255,255,0.3);">
+      ⏳ Referee is scoring…
+    </div>
+  `;
   document.body.appendChild(div);
 }
 

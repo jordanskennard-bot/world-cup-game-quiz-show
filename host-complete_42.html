@@ -2184,6 +2184,7 @@ function showMatchCard() {
   // Build interleaved player list: T1P1, T2P1, T1P2, T2P2 …
   const team1Players = Object.values(players).filter(p => p.team === 1);
   const team2Players = Object.values(players).filter(p => p.team === 2);
+  console.log(`🎴 Match card players — team1: ${team1Players.map(p=>p.name)}, team2: ${team2Players.map(p=>p.name)}`);
   const maxLen = Math.max(team1Players.length, team2Players.length);
 
   const queue = []; // { name, teamNum, color }
@@ -2192,7 +2193,10 @@ function showMatchCard() {
     if (i < team2Players.length) queue.push({ name: team2Players[i].name, teamNum: 2, color: team2.color });
   }
 
-  // Stagger each player in 200 ms apart, starting after the flag fly-in (800 ms)
+  // Stagger each player in 220 ms apart, starting after the flag fly-in (800 ms)
+  // NOTE: do NOT set opacity:0 as an inline style — it sits in the author cascade
+  // and will override the animation's forwards fill, leaving elements invisible.
+  // The flyIn keyframes already start from opacity:0.
   queue.forEach((entry, idx) => {
     setTimeout(() => {
       const container = document.getElementById(`mc-team${entry.teamNum}-players`);
@@ -2205,7 +2209,6 @@ function showMatchCard() {
         `font-weight: 600`,
         `color: #fff`,
         `letter-spacing: 1px`,
-        `opacity: 0`,
         `animation: ${dir} 0.45s cubic-bezier(0.23, 1, 0.32, 1) forwards`,
         `text-shadow: 0 0 12px ${entry.color}99`,
       ].join(';');
@@ -2845,33 +2848,30 @@ function activateSabotageForTeam(teamNumber) {
   }, 10000);
 }
 
-// Listen for sabotage usage
-gameRef.child('sabotageUsed').on('value', (snapshot) => {
-  const sabotageData = snapshot.val();
-  if (sabotageData) {
-    const { userId, targetTeam } = sabotageData;
-    
-    // Deduct 5 points from target team
-    Object.entries(players).forEach(([playerId, player]) => {
-      if (player.team === targetTeam) {
-        const currentScore = player.score || 0;
-        const newScore = Math.max(0, currentScore - 5); // Don't go below 0
-        gameRef.child('players/' + playerId).update({ score: newScore });
-      }
-    });
-    
-    // Mark as used
-    gameRef.child('players/' + userId).once('value', (snap) => {
-      const userTeam = snap.val()?.team;
-      if (userTeam === 1) team1SabotageUsed = true;
-      if (userTeam === 2) team2SabotageUsed = true;
-    });
-    
-    // Clear the trigger
-    gameRef.child('sabotageUsed').remove();
-    
-    updateScoreboard();
-  }
+// Listen for offside trap usage — deduct 2 points from every player on the target team
+gameRef.child('offsideTrapUsed').on('value', (snapshot) => {
+  const trapData = snapshot.val();
+  if (!trapData) return;
+
+  const { userId, targetTeam } = trapData;
+  console.log(`🚩 Offside Trap used by ${userId} — deducting 2pts from team ${targetTeam}`);
+
+  Object.entries(players).forEach(([pid, player]) => {
+    if (player.team === targetTeam) {
+      const newScore = Math.max(0, (player.score || 0) - 2);
+      gameRef.child('players/' + pid).update({ score: newScore });
+    }
+  });
+
+  // Mark team sabotage as used so it can't fire again this game
+  gameRef.child('players/' + userId).once('value', (snap) => {
+    const userTeam = snap.val()?.team;
+    if (userTeam === 1) team1SabotageUsed = true;
+    if (userTeam === 2) team2SabotageUsed = true;
+  });
+
+  gameRef.child('offsideTrapUsed').remove();
+  updateScoreboard();
 });
 
 function loadQuestion(index) {
@@ -3448,6 +3448,8 @@ function startRound2() {
     console.log('⚠️ Round 2 already started, skipping duplicate call');
     return;
   }
+  window._offsideTrapFired = false; // reset for this round
+  window._round2VoiceStarted = false;
   
   console.log('🎯 Starting Round 2 - Showing explainer');
   round2Started = true;
@@ -3490,21 +3492,31 @@ function showRound2Explainer() {
   `;
   
   document.body.appendChild(explainerDiv);
-  
-  // Play round_2_intro audio
-  // NOTE: no .load() before .play() — calling .load() first resets the buffer
-  //       and causes audio to stall after a few seconds.
-  console.log('🎵 Playing round_2_intro.mp3');
-  window.round2IntroAudio = new Audio('round_2_intro.mp3?v=2');
-  window.round2IntroAudio.volume = 0.6;
 
-  window.round2IntroAudio.addEventListener('error', (e) => {
-    console.error('❌ round_2_intro.mp3 failed to load:', window.round2IntroAudio.error);
+  // Play punned_it_intro_music first, then voice after it finishes
+  console.log('🎵 Playing punned_it_intro_music.mp3');
+  window.round2IntroMusic = new Audio('punned_it_intro_music.mp3?v=2');
+  window.round2IntroMusic.volume = 0.5;
+
+  const playRound2Voice = () => {
+    if (window._round2VoiceStarted) return;
+    window._round2VoiceStarted = true;
+    console.log('🎵 Playing round_2_intro.mp3');
+    window.round2IntroAudio = new Audio('round_2_intro.mp3?v=2');
+    window.round2IntroAudio.volume = 0.6;
+    window.round2IntroAudio.addEventListener('error', (e) => {
+      console.error('❌ round_2_intro.mp3 failed to load:', window.round2IntroAudio.error);
+    });
+    window.round2IntroAudio.play()
+      .then(() => console.log('🔊 Playing round_2_intro'))
+      .catch(err => console.error('round_2_intro play failed:', err));
+  };
+
+  window.round2IntroMusic.addEventListener('ended', playRound2Voice);
+  window.round2IntroMusic.addEventListener('error', playRound2Voice);
+  window.round2IntroMusic.play().catch(err => {
+    if (!window.round2IntroMusic || window.round2IntroMusic.paused) playRound2Voice();
   });
-
-  window.round2IntroAudio.play()
-    .then(() => console.log('🔊 Playing round_2_intro'))
-    .catch(err => console.error('round_2_intro play failed:', err));
   
   // Notify players to show explainer
   gameRef.update({
@@ -3999,6 +4011,18 @@ function handlePunAccepted() {
   // Track accepts for champion reveal
   window._punAcceptCounts[playerId] = (window._punAcceptCounts[playerId] || 0) + 1;
 
+  // Speculatively start generating the portrait for the current leader as early as possible.
+  // Work out who has the most accepts so far.
+  const counts = window._punAcceptCounts;
+  const leaderId = Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0];
+  const leaderPhoto = players[leaderId]?.photo;
+  if (leaderPhoto && leaderId !== window._punKingSpeculativeId) {
+    // New leader — kick off (or replace) the speculative fetch
+    window._punKingSpeculativeId = leaderId;
+    console.log(`🎨 Speculatively generating portrait for current pun leader: ${players[leaderId]?.name}`);
+    window._punKingSpeculativePromise = generatePunKingPortrait(leaderPhoto);
+  }
+
   currentPunIndex++;
   window.playPunReactionAudio('accept', () => reviewNextPun());
 }
@@ -4082,8 +4106,15 @@ function showPunChampionScreen(championId, acceptCount, onDone) {
   }, 4000);
 
   if (player.photo) {
-    generatePunKingPortrait(player.photo)
-      .then(generatedUrl => {
+    // Use the speculative promise if it was started for this exact winner — saves 40–70s
+    const portraitPromise = (window._punKingSpeculativeId === championId && window._punKingSpeculativePromise)
+      ? (console.log('🎨 Using speculative portrait promise for pun king'), window._punKingSpeculativePromise)
+      : generatePunKingPortrait(player.photo);
+    // Clear speculative cache
+    window._punKingSpeculativeId = null;
+    window._punKingSpeculativePromise = null;
+
+    portraitPromise.then(generatedUrl => {
         clearTimeout(fallbackTimer);
         if (!generatedUrl) {
           applyPhotoFallback();
@@ -4132,30 +4163,19 @@ function triggerOffsideTrap() {
   // Random chance (50%)
   if (Math.random() > 0.5) return;
 
-  // Build a list of players who haven't had the trap yet
-  const eligible = Object.entries(players).filter(([pid]) => {
-    return !window._offsideTrapPlayersUsed.has(pid);
-  });
+  // Only trigger once per round
+  if (window._offsideTrapFired) return;
+  window._offsideTrapFired = true;
 
-  if (eligible.length === 0) {
-    console.log('🚩 Offside Trap: every player already had their opportunity — skipping');
-    return;
-  }
+  console.log('🚩 Triggering Offside Trap — broadcasting to ALL players');
 
-  console.log('🚩 Triggering Offside Trap opportunity');
+  // Broadcast globally so every player sees the button simultaneously
+  gameRef.child('offsideTrapOpportunity').set({ timestamp: Date.now(), claimed: false });
 
-  // Pick a random eligible player
-  const [luckyPlayerId, luckyPlayer] = eligible[Math.floor(Math.random() * eligible.length)];
-
-  // Mark that player as used
-  window._offsideTrapPlayersUsed.add(luckyPlayerId);
-
-  // Send trigger to that specific player
-  gameRef.child(`offsideTrapOpportunity/${luckyPlayerId}`).set({
-    timestamp: Date.now()
-  });
-
-  console.log(`🚩 Offside Trap opportunity sent to ${luckyPlayer.name}`);
+  // Auto-expire after 10 seconds
+  setTimeout(() => {
+    gameRef.child('offsideTrapOpportunity').remove();
+  }, 10000);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -4263,9 +4283,22 @@ function loadRound3Question(index) {
   });
 
   // Listen for submitted answers — store them but hide names until voting done
+  window._round3VoteAudioPlayed = window._round3VoteAudioPlayed || {};
   gameRef.child('round3/' + index + '/submissions').on('value', (snapshot) => {
     window._round3LastSubmissions[index] = snapshot.val() || {};
     displaySubmittedAnswers(window._round3LastSubmissions[index], index);
+
+    // Play vote audio once all players have submitted
+    const submissionCount = Object.keys(window._round3LastSubmissions[index]).length;
+    const totalPlayers = Object.keys(players).length;
+    if (submissionCount >= totalPlayers && !window._round3VoteAudioPlayed[index]) {
+      window._round3VoteAudioPlayed[index] = true;
+      const voteNum = (index % 4) + 1; // Q1→vote_1, Q2→vote_2, Q3→vote_3, Q4→vote_4, Q5→vote_1…
+      const voteAudio = new Audio(`vote_${voteNum}.mp3?v=2`);
+      voteAudio.volume = 0.7;
+      voteAudio.play().catch(() => {});
+      console.log(`🗳️ All answers in for Q${index + 1} — playing vote_${voteNum}.mp3`);
+    }
   });
   
   // Listen for votes and award points
@@ -4478,10 +4511,10 @@ function awardRound3Points(votes, questionIndex) {
     window._round3NamesRevealed[questionIndex] = true;
     displaySubmittedAnswers(window._round3LastSubmissions[questionIndex] || {}, questionIndex);
 
-    if (window.playPunReactionAudio) {
-      window.playPunReactionAudio('accept');
-      console.log('🎵 Playing accept audio — all votes in for question', questionIndex);
-    }
+    // Signal player phones to play accept audio
+    console.log('🎵 Signalling players to play accept audio — all votes in for question', questionIndex);
+    gameRef.child('round3WinnerAudio').set({ questionIndex, timestamp: Date.now() })
+      .then(() => gameRef.child('round3WinnerAudio').remove());
 
     // Read out the winning answer then deliver a reaction, then auto-advance
     const winningAnswer = window._round3LastSubmissions[questionIndex]?.[winnerId]?.answer;
@@ -5409,6 +5442,11 @@ function startCommentaryRound() {
 
   const explainerAudio = new Audio('commentary_explainer.mp3?v=2');
   explainerAudio.volume = 0.7;
+  // Register with the pause system so the host pause button can pause this audio
+  window._audioRefs.push(explainerAudio);
+  explainerAudio.addEventListener('ended', () => {
+    window._audioRefs = window._audioRefs.filter(a => a !== explainerAudio);
+  });
   explainerAudio.play().catch(e => console.log('commentary_explainer not found:', e));
 
   let explainerTransitioned = false;
@@ -5517,24 +5555,20 @@ function startCommentaryCountdown(teamNumber, commentatorId, videoFile) {
 function startCommentaryRecording(teamNumber, commentatorId, videoFile) {
   console.log(`🎙️ Commentary recording Team ${teamNumber} — ${videoFile}`);
   const recId = `commentary-recording-${teamNumber}`;
+  const commentatorName = players[commentatorId]?.name || 'Commentator';
 
   const recordingDiv = document.createElement('div');
   recordingDiv.id = recId;
-  recordingDiv.style.cssText = 'position: fixed; inset: 0; background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 20px;';
+  recordingDiv.style.cssText = 'position: fixed; inset: 0; background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 20px; text-align: center;';
   recordingDiv.innerHTML = `
-    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
-      <div style="width: 16px; height: 16px; background: #ff0000; border-radius: 50%; animation: pulse 1s infinite;"></div>
-      <div style="font-family: 'Bebas Neue', sans-serif; font-size: 36px; color: #ff4444; letter-spacing: 3px;">● RECORDING</div>
+    <div id="commentary-host-status-${teamNumber}" style="padding: 40px;">
+      <div style="font-size: 80px; margin-bottom: 20px;">🎙️</div>
+      <div style="font-family: 'Bebas Neue', sans-serif; font-size: 52px; color: var(--motd-gold); letter-spacing: 4px; margin-bottom: 12px;">${commentatorName}</div>
+      <div style="font-family: 'Barlow', sans-serif; font-size: 26px; color: rgba(255,255,255,0.7); margin-bottom: 32px;">Waiting to start recording…</div>
+      <div class="spinner"></div>
     </div>
-    <div style="position: relative; width: 100%; max-width: 900px;">
-      <video id="commentary-video-${teamNumber}" src="${videoFile}" style="width: 100%; max-height: 65vh; border-radius: 8px; display: block;" playsinline></video>
-      <div id="commentary-waiting-overlay-${teamNumber}" style="position: absolute; inset: 0; background: rgba(0,0,0,0.75); display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 8px;">
-        <div style="font-size: 48px; margin-bottom: 16px;">🎙️</div>
-        <div style="font-family: 'Bebas Neue', sans-serif; font-size: 36px; color: var(--motd-gold); letter-spacing: 3px;">Waiting for commentator…</div>
-        <div style="font-family: 'Barlow', sans-serif; font-size: 20px; color: rgba(255,255,255,0.6); margin-top: 10px;">Video starts when they press Ready</div>
-        <div class="spinner" style="margin-top: 24px;"></div>
-      </div>
-    </div>
+    <!-- Hidden timing video — keeps the ended event; not shown to audience -->
+    <video id="commentary-video-${teamNumber}" src="${videoFile}" style="display: none;" playsinline muted></video>
   `;
   document.body.appendChild(recordingDiv);
   gameRef.update({ commentaryPhase: `team${teamNumber}Recording`, [`commentary/team${teamNumber}/commentatorRecording`]: true });
@@ -5542,9 +5576,19 @@ function startCommentaryRecording(teamNumber, commentatorId, videoFile) {
   const video = document.getElementById(`commentary-video-${teamNumber}`);
 
   const startVideo = () => {
-    const overlay = document.getElementById(`commentary-waiting-overlay-${teamNumber}`);
-    if (overlay) overlay.remove();
-    video.play().catch(e => console.log('Commentary video play failed:', e));
+    // Update host display to show LIVE status (video plays hidden for timing only)
+    const statusDiv = document.getElementById(`commentary-host-status-${teamNumber}`);
+    if (statusDiv) {
+      statusDiv.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 16px; justify-content: center; margin-bottom: 24px;">
+          <div style="width: 20px; height: 20px; background: #ff0000; border-radius: 50%; animation: pulse 1s infinite;"></div>
+          <div style="font-family: 'Bebas Neue', sans-serif; font-size: 52px; color: #ff4444; letter-spacing: 4px;">● LIVE NOW</div>
+        </div>
+        <div style="font-family: 'Bebas Neue', sans-serif; font-size: 44px; color: var(--motd-gold); letter-spacing: 3px;">${commentatorName}</div>
+        <div style="font-family: 'Barlow', sans-serif; font-size: 22px; color: rgba(255,255,255,0.6); margin-top: 12px;">Recording on their phone…</div>
+      `;
+    }
+    video.play().catch(e => console.log('Commentary timing video play failed:', e));
   };
 
   // Flush any stale ready signal, then wait for commentator to press Ready
@@ -5558,15 +5602,17 @@ function startCommentaryRecording(teamNumber, commentatorId, videoFile) {
   });
 
   // Fallback — start video after 45 s if player never presses Ready
+  let videoStarted = false;
   setTimeout(() => {
-    if (document.getElementById(`commentary-waiting-overlay-${teamNumber}`)) {
-      console.warn('⚠️ Commentator never pressed Ready — starting video anyway');
+    if (!videoStarted && document.getElementById(recId)) {
+      console.warn('⚠️ Commentator never pressed Ready — starting timing video anyway');
       startVideo();
     }
   }, 45000);
 
   const finishRecording = () => {
     if (!document.getElementById(recId)) return; // already finished
+    videoStarted = true;
     gameRef.child('commentaryCommentatorReady').off();
     recordingDiv.remove();
     gameRef.update({ [`commentary/team${teamNumber}/commentatorRecording`]: false });
@@ -5869,7 +5915,7 @@ function assignSabotageTasks() {
         task: task.id,
         name: task.name,
         description: task.description,
-        pointsPerPiece: task.pointsPerPiece,
+        pointsPerPiece: task.pointsPerPiece ?? null,
         assigned: true,
         completed: false,
         piecesCollected: 0,
@@ -6077,8 +6123,9 @@ function showGoalPostsJudging() {
   `;
   document.body.appendChild(waitingDiv);
 
-  // Signal player screens that judging is active
+  // Signal player screens that judging is active; play scoring music during the wait
   gameRef.update({ goalPostsJudging: true });
+  playAudio('goalpost_scoring.mp3?v=2', { volume: 0.7 });
 
   // Listen for scores submitted by player 1
   gameRef.child('goalPostsScores').on('value', (snapshot) => {
@@ -6103,10 +6150,8 @@ function showGoalPostsJudging() {
     gameRef.child('goalPostsScores').remove();
     console.log(`✅ Goal Posts scored: Team 1 = ${t1}, Team 2 = ${t2}`);
 
-    // Move to Blow Ball
-    setTimeout(() => {
-      startBlowBall();
-    }, 2000);
+    // Applause when scores come in; advance to Blow Ball when it finishes
+    playAudio('clap.mp3?v=2', { volume: 0.7, onEnded: () => startBlowBall() });
   });
 }
 
@@ -6130,6 +6175,19 @@ const TOTAL_BLOW_BALL_PHOTOS = 6;
 function startBlowBall() {
   console.log('💨 Starting Blow Ball');
 
+  // Blank screen while intro plays
+  const introScreen = document.createElement('div');
+  introScreen.id = 'blowball-intro-screen';
+  introScreen.style.cssText = 'position: fixed; inset: 0; background: #000; z-index: 10000;';
+  document.body.appendChild(introScreen);
+
+  playAudio('blowball_intro.mp3?v=2', { volume: 0.7, onEnded: () => {
+    introScreen.remove();
+    showBlowBallExplainer();
+  }});
+}
+
+function showBlowBallExplainer() {
   const explainerDiv = document.createElement('div');
   explainerDiv.id = 'blowball-explainer';
   explainerDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, var(--motd-dark-navy) 0%, var(--motd-navy) 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 40px;';
@@ -7461,20 +7519,13 @@ function showVictoryScreen() {
         </div>
       </div>
 
-      <!-- Champions League team photo download -->
-      <button onclick="downloadChampionsPhoto()" style="display: block; margin: 20px auto 0; padding: 16px 40px; background: linear-gradient(135deg, #4dd4e8, #ffc629); color: #0a1628; border: none; border-radius: 12px; font-family: 'Bebas Neue', sans-serif; font-size: 26px; cursor: pointer; letter-spacing: 2px; box-shadow: 0 6px 20px rgba(77,212,232,0.4);">
-        🏆 Download Team Photo
-      </button>
-
-      <!-- Social sharing -->
-      <div style="margin: 30px 0 10px; text-align: center;">
-        <div style="font-family: 'Bebas Neue', sans-serif; font-size: 24px; color: rgba(255,255,255,0.7); margin-bottom: 16px; letter-spacing: 2px;">SHARE YOUR VICTORY</div>
-        <div style="display: flex; gap: 14px; justify-content: center; flex-wrap: wrap;">
-          <a id="whatsapp-share-btn" href="#" target="_blank" style="padding: 14px 28px; background: #25D366; color: #fff; border-radius: 10px; font-family: 'Bebas Neue', sans-serif; font-size: 20px; text-decoration: none; display: inline-block;">📱 WhatsApp</a>
-          <a id="twitter-share-btn" href="#" target="_blank" style="padding: 14px 28px; background: #1DA1F2; color: #fff; border-radius: 10px; font-family: 'Bebas Neue', sans-serif; font-size: 20px; text-decoration: none; display: inline-block;">🐦 Twitter</a>
-          <button onclick="copyGameLink()" style="padding: 14px 28px; background: rgba(255,255,255,0.15); color: #fff; border: 2px solid rgba(255,255,255,0.3); border-radius: 10px; font-family: 'Bebas Neue', sans-serif; font-size: 20px; cursor: pointer;">🔗 Copy Link</button>
-        </div>
+      <!-- Full-time commentary banner — populated by generateFullTimeCommentary() -->
+      <div id="victory-commentary-banner" style="display:none; width:100%; max-width:900px; margin-bottom:30px; background:rgba(255,198,41,0.1); border:2px solid rgba(255,198,41,0.4); border-radius:16px; padding:24px 32px; text-align:center;">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:16px;color:rgba(255,255,255,0.5);letter-spacing:3px;text-transform:uppercase;margin-bottom:10px;">🎙️ Post-Match Commentary</div>
+        <div id="victory-commentary-text" style="font-family:'Barlow',sans-serif;font-size:22px;color:rgba(255,255,255,0.9);line-height:1.6;font-style:italic;"></div>
       </div>
+
+      <!-- Download & share moved to player screens -->
 
       <!-- Email sign-up for the host/ref -->
       <div id="host-email-section" style="margin: 40px auto 10px; max-width: 640px; width: 100%; background: rgba(255,255,255,0.06); border: 2px solid rgba(77,212,232,0.35); border-radius: 16px; padding: 30px 36px; text-align: center;">
@@ -7502,23 +7553,19 @@ function showVictoryScreen() {
 
     document.body.appendChild(victoryDiv);
 
-    // Wire up share buttons now that DOM scores are known
-    const shareMsg = `We just played Foul Play! ⚽🏆 Final score: ${team1Total} - ${team2Total}. Play your own game: https://foulplay.games`;
-    const waBtn = document.getElementById('whatsapp-share-btn');
-    const twBtn = document.getElementById('twitter-share-btn');
-    if (waBtn) waBtn.href = `https://wa.me/?text=${encodeURIComponent(shareMsg)}`;
-    if (twBtn) twBtn.href = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareMsg)}`;
-
     // Clear any lingering pause state at game end
     gameRef.child('paused').set(false);
 
     // Load photo album after a short delay
     setTimeout(() => loadPhotoAlbum(), 1500);
 
-    // Play final whistle → victory fanfare
+    // Play final whistle → victory fanfare → full-time commentary
     playAudio('final_whistle.mp3?v=2', {
       volume: 0.7,
-      onEnded: () => playAudio('victory_fanfare.mp3?v=2', { volume: 0.6 })
+      onEnded: () => playAudio('victory_fanfare.mp3?v=2', {
+        volume: 0.6,
+        onEnded: () => generateFullTimeCommentary({ team1Total, team2Total, mvp, t1Players, t2Players, winnerTeam })
+      })
     });
 
     gameRef.update({
@@ -7530,6 +7577,83 @@ function showVictoryScreen() {
     // Clear saved game code so a fresh game starts on next load
     localStorage.removeItem('fp_gameCode');
   });
+}
+
+async function generateFullTimeCommentary({ team1Total, team2Total, mvp, t1Players, t2Players, winnerTeam }) {
+  const ELEVENLABS_API_KEY = 'sk_eb4900ceb7e4366087590c2b906743504ba8c844524ddcc4';
+  const VOICE_ID = 'rfkTsdZrVWEVhDycUYn9';
+
+  const t1Name = team1 ? `${team1.flag} ${team1.name}` : 'Team 1';
+  const t2Name = team2 ? `${team2.flag} ${team2.name}` : 'Team 2';
+  const resultLine = winnerTeam
+    ? `${winnerTeam.flag || ''} ${winnerTeam.name} win ${Math.max(team1Total, team2Total)} to ${Math.min(team1Total, team2Total)}`
+    : `it finishes all square — ${team1Total} points apiece`;
+
+  // Build a mention of the runner-up and a wooden spoon player for flavour
+  const allPlayers = [...t1Players, ...t2Players].sort((a, b) => (b.score || 0) - (a.score || 0));
+  const runnerUp = allPlayers[1];
+  const lastPlace = allPlayers[allPlayers.length - 1];
+
+  const runnerUpLine = runnerUp && runnerUp.name !== mvp.name
+    ? `${runnerUp.name} also deserves a mention with ${runnerUp.score || 0} points.`
+    : '';
+  const lastPlaceLine = lastPlace && lastPlace.name !== mvp.name
+    ? `And ${lastPlace.name} — well, there's always next time.`
+    : '';
+
+  const scriptText = [
+    `[excited] And that really is the end now — what an evening of Foul Play!`,
+    `[happy] The final score: ${t1Name} finish with ${team1Total} points, ${t2Name} with ${team2Total} — and ${resultLine}!`,
+    `[impressed] But the standout performer tonight, without any doubt, is ${mvp.name} — an absolutely extraordinary showing, racking up ${mvp.score} points.`,
+    runnerUpLine,
+    lastPlaceLine,
+    (() => {
+      const sign_offs = [
+        'Thanks for playing!',
+        'No, you were great!',
+        'Get home safely!',
+        'Thank you Wembley!',
+        "Wasn't that fun?",
+        'FUTBOL! FUTBOL! FUTBOL!',
+        "Everybody's a winner if you just believe!",
+        'Arrivederci.',
+        'Wham bam thank you mam!',
+        'You were my favourite.',
+        "We'll always have the goals.",
+        "Having fun isn't hard, when you have a library card.",
+        'I want to thank all my fans.',
+      ];
+      return `[excited] ${sign_offs[Math.floor(Math.random() * sign_offs.length)]}`;
+    })()
+  ].filter(Boolean).join(' ');
+
+  // Show the banner immediately with the script text
+  const banner = document.getElementById('victory-commentary-banner');
+  const textEl = document.getElementById('victory-commentary-text');
+  if (banner) banner.style.display = 'block';
+  if (textEl) textEl.textContent = scriptText.replace(/\[.*?\]\s*/g, ''); // strip emotion tags for display
+
+  try {
+    const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`, {
+      method: 'POST',
+      headers: { 'Accept': 'audio/mpeg', 'Content-Type': 'application/json', 'xi-api-key': ELEVENLABS_API_KEY },
+      body: JSON.stringify({
+        text: scriptText,
+        model_id: 'eleven_v3',
+        voice_settings: { stability: 0.3, similarity_boost: 0.75, style: 0.5, use_speaker_boost: true }
+      })
+    });
+    if (!response.ok) throw new Error(`ElevenLabs error: ${response.status}`);
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+    window._audioRefs.push(audio);
+    audio.addEventListener('ended', () => { window._audioRefs = window._audioRefs.filter(a => a !== audio); });
+    audio.play().catch(e => console.warn('Full-time commentary play failed:', e));
+    console.log('🎙️ Full-time commentary playing');
+  } catch (e) {
+    console.warn('⚠️ Full-time commentary generation failed:', e);
+  }
 }
 
 function loadPhotoAlbum() {
