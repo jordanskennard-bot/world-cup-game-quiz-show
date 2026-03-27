@@ -4033,17 +4033,14 @@ function showPunChampionScreen(championId, acceptCount, onDone) {
         const img = document.getElementById('pun-king-portrait-img');
         const overlay = document.getElementById('pun-king-loading-overlay');
         if (!img) return;
-        const newImg = new Image();
-        newImg.onload = () => {
-          img.src = generatedUrl;
-          img.style.transition = 'opacity 0.6s';
-          img.style.opacity = '0';
-          if (overlay) overlay.remove();
-          requestAnimationFrame(() => { img.style.opacity = '1'; });
-          broadcastPunKingImage(generatedUrl);
-        };
-        newImg.onerror = () => { applyPhotoFallback(); broadcastPunKingImage(player.photo); };
-        newImg.src = generatedUrl;
+        // Remove overlay immediately — no preload dance needed
+        document.getElementById('pun-king-loading-overlay')?.remove();
+        img.style.opacity = '0';
+        img.style.transition = 'opacity 0.8s';
+        img.onload = () => requestAnimationFrame(() => { img.style.opacity = '1'; });
+        img.onerror = () => { applyPhotoFallback(); broadcastPunKingImage(player.photo); };
+        img.src = generatedUrl;
+        broadcastPunKingImage(generatedUrl);
       })
       .catch(() => {
         clearTimeout(fallbackTimer);
