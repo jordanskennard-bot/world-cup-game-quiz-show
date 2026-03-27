@@ -2219,7 +2219,14 @@ function showRound1Explainer() {
   `;
   
   document.body.appendChild(explainerDiv);
-  
+
+  // Play round_1_intro_music as background
+  console.log('🎵 Playing round_1_intro_music.mp3');
+  window.round1IntroMusic = new Audio('round_1_intro_music.mp3?v=2');
+  window.round1IntroMusic.volume = 0.5;
+  window.round1IntroMusic.loop = true;
+  window.round1IntroMusic.play().catch(() => {});
+
   // Play round_1_intro audio
   console.log('🎵 Playing round_1_intro.mp3');
   
@@ -2729,6 +2736,11 @@ async function generateIntroVoiceDirectly() {
 
 function startGamePlay() {
   document.getElementById('lobby-screen').classList.add('hidden');
+  // Stop Round 1 intro music if still playing
+  if (window.round1IntroMusic) {
+    window.round1IntroMusic.pause();
+    window.round1IntroMusic = null;
+  }
   gameRef.update({ started: true });
   document.getElementById('game-screen').classList.add('active');
   currentQuestion = 0;
