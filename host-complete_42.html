@@ -1677,7 +1677,9 @@ const ROUND_3_ANSWER_POOL = [
   "Mini Golf",
   "A thruple with Meghan and Harry",
   "Jehova",
-  "The fourth meat"
+  "The fourth meat",
+  "Gordon Brown in a dressing gown",
+  "Jonathan Dimbleby squatting"
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -4003,18 +4005,34 @@ function showPunChampionScreen(championId, acceptCount, onDone) {
     }
   };
 
+  // Helper: push image URL to Firebase so player phones can display it
+  const broadcastPunKingImage = (imageUrl) => {
+    gameRef.update({ punKingImageUrl: imageUrl, punKingName: player.name || 'Unknown' });
+  };
+
+  // Fallback timeout — if loading overlay still visible after 4s, apply fallback
+  const fallbackTimer = setTimeout(() => {
+    const overlay = document.getElementById('pun-king-loading-overlay');
+    if (overlay) {
+      console.warn('⚠️ Pun King portrait timed out — applying fallback');
+      applyPhotoFallback();
+      const finalSrc = document.getElementById('pun-king-portrait-img')?.src || player.photo || '';
+      if (finalSrc) broadcastPunKingImage(finalSrc);
+    }
+  }, 4000);
+
   if (player.photo) {
     generatePunKingPortrait(player.photo)
       .then(generatedUrl => {
+        clearTimeout(fallbackTimer);
         if (!generatedUrl) {
-          // fal.ai returned null — fall back to player photo
           applyPhotoFallback();
+          broadcastPunKingImage(player.photo);
           return;
         }
         const img = document.getElementById('pun-king-portrait-img');
         const overlay = document.getElementById('pun-king-loading-overlay');
-        if (!img) return; // screen already removed
-        // Swap in the generated portrait with a smooth fade
+        if (!img) return;
         const newImg = new Image();
         newImg.onload = () => {
           img.src = generatedUrl;
@@ -4022,20 +4040,26 @@ function showPunChampionScreen(championId, acceptCount, onDone) {
           img.style.opacity = '0';
           if (overlay) overlay.remove();
           requestAnimationFrame(() => { img.style.opacity = '1'; });
+          broadcastPunKingImage(generatedUrl);
         };
-        newImg.onerror = () => applyPhotoFallback();
+        newImg.onerror = () => { applyPhotoFallback(); broadcastPunKingImage(player.photo); };
         newImg.src = generatedUrl;
       })
-      .catch(() => applyPhotoFallback());
+      .catch(() => {
+        clearTimeout(fallbackTimer);
+        applyPhotoFallback();
+        broadcastPunKingImage(player.photo);
+      });
   } else {
-    // No photo — show initial letter circle
+    clearTimeout(fallbackTimer);
     applyPhotoFallback();
   }
 
-  // Screen stays up until the face swap arrives OR 12s, whichever comes first
-  const CHAMPION_DURATION = 12000;
+  // Screen stays up for 15s (was 12s — extra time for portrait to load)
+  const CHAMPION_DURATION = 15000;
   setTimeout(() => {
     div.remove();
+    gameRef.update({ punKingImageUrl: null, punKingName: null }); // clear from Firebase
     onDone();
   }, CHAMPION_DURATION);
 }
@@ -4405,11 +4429,25 @@ function awardRound3Points(votes, questionIndex) {
     // Read out the winning answer then deliver a reaction, then auto-advance
     const winningAnswer = window._round3LastSubmissions[questionIndex]?.[winnerId]?.answer;
     console.log('🎙️ Round 3 winner:', winnerId, '| answer:', winningAnswer);
-    if (winningAnswer) {
-      readWinningAnswerAloud(winningAnswer, () => nextRound3Question());
+
+    const advanceAfterAnswer = () => nextRound3Question();
+
+    // Special case: Jonathan Dimbleby squatting
+    if (winningAnswer && winningAnswer.trim().toLowerCase() === 'jonathan dimbleby squatting') {
+      const dimblesquat = new Audio('dimblesquat.mp3');
+      dimblesquat.volume = 0.9;
+      dimblesquat.play().catch(() => {});
+      dimblesquat.addEventListener('ended', () => {
+        readWinningAnswerAloud(winningAnswer, advanceAfterAnswer);
+      });
+      setTimeout(() => {
+        if (!dimblesquat.ended) { dimblesquat.pause(); readWinningAnswerAloud(winningAnswer, advanceAfterAnswer); }
+      }, 8000);
+    } else if (winningAnswer) {
+      readWinningAnswerAloud(winningAnswer, advanceAfterAnswer);
     } else {
       // No TTS — still auto-advance after a short pause
-      setTimeout(() => nextRound3Question(), 3000);
+      setTimeout(advanceAfterAnswer, 3000);
     }
   }
 }
