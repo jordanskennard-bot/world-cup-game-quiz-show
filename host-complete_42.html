@@ -1679,7 +1679,27 @@ const ROUND_3_ANSWER_POOL = [
   "Jehova",
   "The fourth meat",
   "Gordon Brown in a dressing gown",
-  "Jonathan Dimbleby squatting"
+  "Jonathan Dimbleby squatting",
+  "David Ginola flavoured Worthers Originals",
+  "Timothy at the opera",
+  "Free velcro",
+  "Marcus Rashford's all new glow in the dark hoover",
+  "A Jamie Vardy chemsex party",
+  "Mo Salah's pop up book collection",
+  "Jellied eel and Twix",
+  "Horny owls",
+  "Half a dog",
+  "Poodoku",
+  "Half price wigs",
+  "A witty answer",
+  "Hemp",
+  "Ross Kemp in nothing but hemp",
+  "A website about tractors",
+  "Alan Shearer's book of exciting anecdotes",
+  "Michael Owen's horse racing podcast",
+  "Elton John in a velvet sarong",
+  "Real Housewives of Hull",
+  "Genuine Leather sock puppets"
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -3427,7 +3447,7 @@ function routeAfterScoresReview() {
   switch (source) {
     case 'round1':      startRound2();            break;
     case 'round2':      startRound3();            break; // → Interview Round
-    case 'interview':   checkForMatchDraw();       break; // → Match Draw
+    case 'interview':   showTeamTalkIntro();        break; // → Team Talk → Match Draw
     case 'matchdraw':   startCommentaryRound();    break;
     case 'commentary':  showToiletPaperAlert();    break;
     case 'toiletpaper': showExtraTimeScreen(); break; // → Extra Time → Sabotage Reveals
@@ -8836,7 +8856,7 @@ async function showTeamTalkResults() {
     ? `${team1.name} scored ${_ttTeam1Score} and ${team2.name} scored ${_ttTeam2Score}. ${winner.name} wins the round!`
     : `${team1.name} scored ${_ttTeam1Score} and ${team2.name} scored ${_ttTeam2Score}. It's a draw!`;
 
-  const voiceText = `(excited) Right, let's see how the Team Talk went! ${scoreLine}`;
+  const voiceText = `[excited] Right, let's see how the Team Talk went! ${scoreLine}`;
 
   let voicePlayed = false;
   const afterVoice = () => {
@@ -8849,7 +8869,7 @@ async function showTeamTalkResults() {
 
     const continueBtn = document.createElement('button');
     continueBtn.id = 'tt-continue-btn';
-    continueBtn.textContent = '▶ Continue to Round 1';
+    continueBtn.textContent = '▶ Continue';
     continueBtn.style.cssText = [
       'margin-top: 40px',
       'padding: 22px 64px',
@@ -8867,7 +8887,7 @@ async function showTeamTalkResults() {
       continueBtn.disabled = true;
       continueBtn.textContent = 'Loading…';
       resultsDiv.remove();
-      showRound1Explainer();
+      checkForMatchDraw();
     };
     resultsDiv.appendChild(continueBtn);
   };
