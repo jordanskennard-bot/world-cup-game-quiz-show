@@ -2156,24 +2156,63 @@ function showMatchCard() {
   matchCard.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, var(--motd-dark-navy) 0%, var(--motd-navy) 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 9500; padding: 40px; text-align: center;';
 
   matchCard.innerHTML = `
-    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 26px; color: var(--motd-gold); letter-spacing: 8px; margin-bottom: 50px; opacity: 0.85; text-transform: uppercase;">Today's Match</div>
-    <div style="display: flex; align-items: center; justify-content: center; gap: 60px; width: 100%; max-width: 1000px;">
-      <div style="display: flex; flex-direction: column; align-items: center; gap: 24px; flex: 1; animation: flyInLeft 0.7s cubic-bezier(0.23, 1, 0.32, 1) forwards;">
-        <div style="font-size: 110px; line-height: 1; filter: drop-shadow(0 0 20px rgba(255,255,255,0.3));">${team1.flag}</div>
-        <div style="font-family: 'Bebas Neue', sans-serif; font-size: 46px; color: var(--text); letter-spacing: 3px; text-shadow: 0 0 20px ${team1.color}88;">${team1.name}</div>
-        <div style="width: 80px; height: 4px; background: ${team1.color}; border-radius: 2px;"></div>
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 26px; color: var(--motd-gold); letter-spacing: 8px; margin-bottom: 40px; opacity: 0.85; text-transform: uppercase;">Today's Match</div>
+    <div style="display: flex; align-items: flex-start; justify-content: center; gap: 60px; width: 100%; max-width: 1100px;">
+
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 20px; flex: 1; animation: flyInLeft 0.7s cubic-bezier(0.23, 1, 0.32, 1) forwards;">
+        <div style="font-size: 100px; line-height: 1; filter: drop-shadow(0 0 20px rgba(255,255,255,0.3));">${team1.flag}</div>
+        <div style="font-family: 'Bebas Neue', sans-serif; font-size: 42px; color: var(--text); letter-spacing: 3px; text-shadow: 0 0 20px ${team1.color}88;">${team1.name}</div>
+        <div style="width: 80px; height: 4px; background: ${team1.color}; border-radius: 2px; margin-bottom: 4px;"></div>
+        <div id="mc-team1-players" style="display: flex; flex-direction: column; align-items: center; gap: 10px; min-height: 40px;"></div>
       </div>
-      <div style="font-family: 'Bebas Neue', sans-serif; font-size: 90px; color: var(--motd-gold); text-shadow: 0 0 40px rgba(255,198,41,0.6); line-height: 1;">VS</div>
-      <div style="display: flex; flex-direction: column; align-items: center; gap: 24px; flex: 1; animation: flyInRight 0.7s cubic-bezier(0.23, 1, 0.32, 1) forwards;">
-        <div style="font-size: 110px; line-height: 1; filter: drop-shadow(0 0 20px rgba(255,255,255,0.3));">${team2.flag}</div>
-        <div style="font-family: 'Bebas Neue', sans-serif; font-size: 46px; color: var(--text); letter-spacing: 3px; text-shadow: 0 0 20px ${team2.color}88;">${team2.name}</div>
-        <div style="width: 80px; height: 4px; background: ${team2.color}; border-radius: 2px;"></div>
+
+      <div style="font-family: 'Bebas Neue', sans-serif; font-size: 90px; color: var(--motd-gold); text-shadow: 0 0 40px rgba(255,198,41,0.6); line-height: 1; padding-top: 20px;">VS</div>
+
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 20px; flex: 1; animation: flyInRight 0.7s cubic-bezier(0.23, 1, 0.32, 1) forwards;">
+        <div style="font-size: 100px; line-height: 1; filter: drop-shadow(0 0 20px rgba(255,255,255,0.3));">${team2.flag}</div>
+        <div style="font-family: 'Bebas Neue', sans-serif; font-size: 42px; color: var(--text); letter-spacing: 3px; text-shadow: 0 0 20px ${team2.color}88;">${team2.name}</div>
+        <div style="width: 80px; height: 4px; background: ${team2.color}; border-radius: 2px; margin-bottom: 4px;"></div>
+        <div id="mc-team2-players" style="display: flex; flex-direction: column; align-items: center; gap: 10px; min-height: 40px;"></div>
       </div>
+
     </div>
-    <div style="font-family: 'Barlow', sans-serif; font-size: 20px; color: var(--text-muted); margin-top: 60px; font-style: italic; letter-spacing: 1px;">⚽ Match starting soon...</div>
+    <div style="font-family: 'Barlow', sans-serif; font-size: 20px; color: var(--text-muted); margin-top: 50px; font-style: italic; letter-spacing: 1px;">⚽ Match starting soon...</div>
   `;
 
   document.body.appendChild(matchCard);
+
+  // Build interleaved player list: T1P1, T2P1, T1P2, T2P2 …
+  const team1Players = Object.values(players).filter(p => p.team === 1);
+  const team2Players = Object.values(players).filter(p => p.team === 2);
+  const maxLen = Math.max(team1Players.length, team2Players.length);
+
+  const queue = []; // { name, teamNum, color }
+  for (let i = 0; i < maxLen; i++) {
+    if (i < team1Players.length) queue.push({ name: team1Players[i].name, teamNum: 1, color: team1.color });
+    if (i < team2Players.length) queue.push({ name: team2Players[i].name, teamNum: 2, color: team2.color });
+  }
+
+  // Stagger each player in 200 ms apart, starting after the flag fly-in (800 ms)
+  queue.forEach((entry, idx) => {
+    setTimeout(() => {
+      const container = document.getElementById(`mc-team${entry.teamNum}-players`);
+      if (!container) return;
+      const dir = entry.teamNum === 1 ? 'flyInLeft' : 'flyInRight';
+      const el = document.createElement('div');
+      el.style.cssText = [
+        `font-family: 'Barlow Condensed', sans-serif`,
+        `font-size: 22px`,
+        `font-weight: 600`,
+        `color: #fff`,
+        `letter-spacing: 1px`,
+        `opacity: 0`,
+        `animation: ${dir} 0.45s cubic-bezier(0.23, 1, 0.32, 1) forwards`,
+        `text-shadow: 0 0 12px ${entry.color}99`,
+      ].join(';');
+      el.textContent = entry.name;
+      container.appendChild(el);
+    }, 800 + idx * 220);
+  });
 }
 
 function proceedToVoiceGeneration() {
@@ -2225,7 +2264,10 @@ function showRound1Explainer() {
   window.round1IntroMusic = new Audio('round_1_intro_music.mp3?v=2');
   window.round1IntroMusic.volume = 0.5;
 
+  let _voiceStarted = false;
   const playRound1Voice = () => {
+    if (_voiceStarted) return;
+    _voiceStarted = true;
     // Use preloaded audio if available, otherwise create new
     // NOTE: never call .load() on a preloaded Audio — it clears the buffer
     //       and causes audio to stall after ~2 s while the file re-fetches.
@@ -2279,7 +2321,13 @@ function showRound1Explainer() {
   // Play music first — voice follows once music ends
   window.round1IntroMusic.addEventListener('ended', playRound1Voice);
   window.round1IntroMusic.addEventListener('error', playRound1Voice); // fallback if file missing
-  window.round1IntroMusic.play().catch(() => playRound1Voice()); // fallback if blocked
+  window.round1IntroMusic.play().catch(err => {
+    // Only skip to voice if audio genuinely can't play (not a spurious rejection)
+    if (!window.round1IntroMusic || window.round1IntroMusic.paused) {
+      console.warn('⚠️ round_1_intro_music blocked, skipping to voice:', err.message);
+      playRound1Voice();
+    }
+  });
 
   // Notify players to show explainer on their screens
   gameRef.update({
