@@ -4871,6 +4871,17 @@ function showEmailCaptureScreen() {
   const prev = document.getElementById('player-game-complete');
   if (prev) prev.remove();
 
+  const _emailSignOffs = [
+    'Thanks for playing!', 'No, you were great!', 'Get home safely!',
+    'Thank you Wembley!', "Wasn't that fun?", 'FUTBOL! FUTBOL! FUTBOL!',
+    "Everybody's a winner if you just believe!", 'Arrivederci.',
+    'Wham bam thank you mam!', 'You were my favourite.',
+    "We'll always have the goals.",
+    "Having fun isn't hard, when you have a library card.",
+    'I want to thank all my fans.'
+  ];
+  const _randomSignOff = _emailSignOffs[Math.floor(Math.random() * _emailSignOffs.length)];
+
   const emailCaptureDiv = document.createElement('div');
   emailCaptureDiv.id = 'email-capture-screen';
   emailCaptureDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, #0a1628 0%, #1a2b4a 100%); display: flex; align-items: center; justify-content: center; z-index: 25000; padding: 40px 20px; overflow-y: auto;';
@@ -4881,7 +4892,7 @@ function showEmailCaptureScreen() {
       <div style="font-size: 80px; margin-bottom: 30px;">⚽</div>
 
       <h1 style="font-family: 'Bebas Neue', sans-serif; font-size: 56px; color: #ffc629; margin-bottom: 30px; letter-spacing: 3px; line-height: 1.2;">
-        THANKS FOR PLAYING<br>FOUL PLAY!
+        ${_randomSignOff}
       </h1>
 
       <p style="font-family: 'Barlow', sans-serif; font-size: 24px; color: rgba(255,255,255,0.9); margin-bottom: 20px; line-height: 1.6;">
@@ -5027,6 +5038,9 @@ function finishGame() {
 function showGameOverScreen() {
   if (document.getElementById('game-over-screen')) return;
 
+  const _goSignOffs = ['Thanks for playing!','No, you were great!','Get home safely!','Thank you Wembley!',"Wasn't that fun?",'FUTBOL! FUTBOL! FUTBOL!',"Everybody's a winner if you just believe!",'Arrivederci.','Wham bam thank you mam!','You were my favourite.',"We'll always have the goals.","Having fun isn't hard, when you have a library card.",'I want to thank all my fans.'];
+  const _goSignOff = _goSignOffs[Math.floor(Math.random() * _goSignOffs.length)];
+
   const div = document.createElement('div');
   div.id = 'game-over-screen';
   div.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, #0a1628 0%, #1a2b4a 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 40px 20px; text-align: center;';
@@ -5037,7 +5051,7 @@ function showGameOverScreen() {
       FULL TIME!
     </h1>
     <p style="font-family: 'Barlow', sans-serif; font-size: 22px; color: rgba(255,255,255,0.7);">
-      Thanks for playing!
+      ${_goSignOff}
     </p>
   `;
 
