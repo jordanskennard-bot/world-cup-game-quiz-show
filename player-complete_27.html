@@ -1891,6 +1891,13 @@ function startPlaying() {
     }
   });
 
+  // Futbol face swap reveal
+  gameRef.child('futbolImageUrl').on('value', (snapshot) => {
+    const val = snapshot.val();
+    if (val) showFutbolImageScreen(val === 'none' ? null : val);
+    else { const d = document.getElementById('player-futbol-screen'); if (d) d.remove(); }
+  });
+
   // Game complete — show thanks screen then email capture
   gameRef.child('gameComplete').on('value', (snapshot) => {
     if (snapshot.val() === true) {
@@ -4093,6 +4100,8 @@ function acceptBonusRound() {
     gameRef.child('bonusTeamAccepted').once('value', (acceptSnap) => {
       if (acceptSnap.val() === null) {
         gameRef.child('bonusTeamAccepted').set(myTeam);
+        // Also record which player accepted (for face swap)
+        gameRef.child('bonusAcceptedPlayerId').set(playerId);
       }
     });
   });
@@ -4697,6 +4706,52 @@ function startRound1() {
 // ═══════════════════════════════════════════════════════════════════════════
 // EMAIL CAPTURE FLOW
 // ═══════════════════════════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FUTBOL FACE SWAP REVEAL — player screen
+// ═══════════════════════════════════════════════════════════════════════════
+
+function showFutbolImageScreen(imageUrl) {
+  if (document.getElementById('player-futbol-screen')) return;
+
+  const div = document.createElement('div');
+  div.id = 'player-futbol-screen';
+  div.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, #0a1628 0%, #001e3c 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 20000; padding: 30px; text-align: center; gap: 20px; overflow-y: auto;';
+
+  const imgSrc = imageUrl || 'futbol.jpeg';
+
+  // Share text (reuse the share logic)
+  const shareText = 'We just played Foul Play and someone became Maryla Rodowicz! 🎤⚽ https://foulplay.games';
+
+  const continueBtn = window._isPlayer1
+    ? `<button onclick="closeFutbolImageScreen()"
+        style="padding:16px 44px; background: linear-gradient(135deg,#4dd4e8,#ffc629); color:#0a1628; border:none; border-radius:12px; font-family:'Bebas Neue',sans-serif; font-size:28px; cursor:pointer; letter-spacing:2px; -webkit-tap-highlight-color:transparent;">
+        Continue →
+      </button>`
+    : '';
+
+  div.innerHTML = `
+    <img src="${imgSrc}"
+      style="max-height: 55vh; max-width: 90vw; border-radius: 16px; box-shadow: 0 0 60px rgba(77,212,232,0.5); object-fit: contain;">
+
+    <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
+      <a href="https://wa.me/?text=${encodeURIComponent(shareText)}" target="_blank"
+        style="padding:12px 20px; background:#25D366; color:#fff; border-radius:10px; font-family:'Bebas Neue',sans-serif; font-size:18px; text-decoration:none;">📱 WhatsApp</a>
+      <a href="https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}" target="_blank"
+        style="padding:12px 20px; background:#1DA1F2; color:#fff; border-radius:10px; font-family:'Bebas Neue',sans-serif; font-size:18px; text-decoration:none;">🐦 Twitter</a>
+      <button onclick="navigator.share ? navigator.share({title:'Foul Play',text:'${shareText.replace(/'/g,"\\'")}',url:'https://foulplay.games'}).catch(()=>{}) : navigator.clipboard.writeText('${shareText.replace(/'/g,"\\'")}').catch(()=>{})"
+        style="padding:12px 20px; background:rgba(255,255,255,0.15); color:#fff; border:2px solid rgba(255,255,255,0.3); border-radius:10px; font-family:'Bebas Neue',sans-serif; font-size:18px; cursor:pointer; -webkit-tap-highlight-color:transparent;">🔗 Share</button>
+    </div>
+    ${continueBtn}`;
+
+  document.body.appendChild(div);
+}
+
+function closeFutbolImageScreen() {
+  // Just hide locally — futbolImageUrl stays in Firebase for later use
+  const d = document.getElementById('player-futbol-screen');
+  if (d) d.remove();
+}
 
 function showPlayerGameComplete() {
   // Remove any end-of-game waiting screens

@@ -1418,7 +1418,8 @@ const FAL_AI_KEY = 'a820a0d0-835e-4024-85f0-e216e2016551:ae86f34bb27479c3ce6be57
 // pun_king.jpg must be publicly accessible so fal.ai can fetch it.
 // On GitHub Pages / foulplay.games this resolves correctly automatically.
 // If testing locally, replace with a full public URL, e.g. a Firebase Storage link.
-const PUN_KING_URL = window.location.origin + '/pun_king.jpg';
+const PUN_KING_URL  = window.location.origin + '/pun_king.jpg';
+const FUTBOL_URL    = window.location.origin + '/futbol.jpeg';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // FAL.AI — PUN KING FACE SWAP
@@ -1461,6 +1462,47 @@ async function generatePunKingPortrait(playerPhotoDataUrl) {
 
   } catch (e) {
     console.error('❌ fal.ai request failed:', e);
+    return null;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FAL.AI — FUTBOL FACE SWAP (bonus round)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Swaps the accepting player's face onto futbol.jpeg using fal.ai.
+ * Returns a Promise resolving to the generated image URL (string) or null.
+ */
+async function generateFutbolFaceSwap(playerPhotoDataUrl) {
+  if (!FAL_AI_KEY || FAL_AI_KEY === 'YOUR_FAL_AI_KEY_HERE') {
+    console.warn('⚠️  FAL_AI_KEY not set — skipping Futbol face swap');
+    return null;
+  }
+  try {
+    console.log('🎭 Starting Futbol face swap via fal.ai…');
+    const response = await fetch('https://fal.run/fal-ai/face-swap', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Key ${FAL_AI_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        base_image_url: FUTBOL_URL,
+        swap_image_url: playerPhotoDataUrl
+      })
+    });
+    if (!response.ok) {
+      const err = await response.text();
+      console.error('❌ fal.ai futbol face-swap error:', response.status, err);
+      return null;
+    }
+    const result = await response.json();
+    const url = result?.image?.url || result?.images?.[0]?.url || null;
+    console.log('✅ Futbol portrait generated:', url);
+    return url;
+  } catch (e) {
+    console.error('❌ fal.ai futbol request failed:', e);
     return null;
   }
 }
@@ -4702,10 +4744,14 @@ function showBonusOffer() {
 
   // Write null first, THEN attach listener so stale values from previous games don't fire
   let bonusAutoSkipTimer = null;
+  window._futbolFaceSwapPromise = null;
+  window._futbolFaceSwapPlayerId = null;
+
   gameRef.update({
     bonusRoundActive: true,
     bonusRoundPhase: 'offer',
     bonusTeamAccepted: null,
+    bonusAcceptedPlayerId: null,
     karaokeReady: false
   }).then(() => {
     // Only start listening once null is confirmed written to Firebase
@@ -4714,6 +4760,20 @@ function showBonusOffer() {
       if (teamNum !== null && teamNum !== undefined) {
         gameRef.child('bonusTeamAccepted').off();
         clearTimeout(bonusAutoSkipTimer); // Cancel the auto-skip
+
+        // Kick off speculative Futbol face swap if accepting player has a photo
+        gameRef.child('bonusAcceptedPlayerId').once('value', (pidSnap) => {
+          const acceptingPid = pidSnap.val();
+          const acceptingPlayer = acceptingPid ? players[acceptingPid] : null;
+          if (acceptingPlayer?.photo) {
+            window._futbolFaceSwapPlayerId = acceptingPid;
+            window._futbolFaceSwapPromise = generateFutbolFaceSwap(acceptingPlayer.photo);
+            console.log('🎭 Futbol face swap started speculatively for', acceptingPlayer.name);
+          } else {
+            console.log('🎭 Futbol face swap: accepting player has no photo, will skip');
+          }
+        });
+
         // Pass bonusDiv so startKaraoke can update it in-place
         startKaraoke(teamNum, bonusDiv);
       }
@@ -4928,13 +4988,9 @@ function bonusJudgement(teamNum, passed) {
 
   // Play accept or reject audio
   if (passed) {
-    if (window.playPunReactionAudio) {
-      window.playPunReactionAudio('accept');
-    }
+    if (window.playPunReactionAudio) window.playPunReactionAudio('accept');
   } else {
-    if (window.playPunReactionAudio) {
-      window.playPunReactionAudio('reject');
-    }
+    if (window.playPunReactionAudio) window.playPunReactionAudio('reject');
   }
 
   gameRef.update({
@@ -4943,10 +4999,68 @@ function bonusJudgement(teamNum, passed) {
     bonusResult: { teamNum, passed, pointChange }
   });
 
-  setTimeout(() => {
-    resultDiv.remove();
-    showScoresReview();
-  }, 3000);
+  if (passed) {
+    // Wait 3s then transition to Futbol screen (face swap)
+    setTimeout(async () => {
+      resultDiv.remove();
+
+      // Show loading screen while face swap resolves
+      const loadingDiv = document.createElement('div');
+      loadingDiv.id = 'futbol-loading';
+      loadingDiv.style.cssText = 'position: fixed; inset: 0; background: #0a1628; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10002; gap: 24px;';
+      loadingDiv.innerHTML = `
+        <div class="spinner"></div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;color:rgba(255,255,255,0.5);letter-spacing:3px;">ONE MOMENT…</div>`;
+      document.body.appendChild(loadingDiv);
+
+      const imageUrl = await (window._futbolFaceSwapPromise || Promise.resolve(null));
+      loadingDiv.remove();
+      showFutbolScreen(imageUrl);
+    }, 3000);
+  } else {
+    setTimeout(() => {
+      resultDiv.remove();
+      showScoresReview();
+    }, 3000);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FUTBOL FACE SWAP REVEAL SCREEN
+// ═══════════════════════════════════════════════════════════════════════════
+
+function showFutbolScreen(imageUrl) {
+  console.log('🎭 Showing Futbol screen, imageUrl:', imageUrl);
+
+  // Broadcast to all player phones
+  gameRef.child('futbolImageUrl').set(imageUrl || 'none');
+
+  // Play futbol.mp3
+  playAudio('futbol.mp3?v=2', { volume: 0.8 });
+
+  const div = document.createElement('div');
+  div.id = 'futbol-screen';
+  div.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, #0a1628 0%, #001e3c 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10002; padding: 40px; text-align: center; gap: 24px;';
+
+  const imgHtml = imageUrl
+    ? `<img src="${imageUrl}" style="max-height: 60vh; max-width: 90vw; border-radius: 20px; box-shadow: 0 0 80px rgba(77,212,232,0.5); object-fit: contain;">`
+    : `<img src="futbol.jpeg" style="max-height: 60vh; max-width: 90vw; border-radius: 20px; box-shadow: 0 0 80px rgba(77,212,232,0.4); object-fit: contain;">`;
+
+  div.innerHTML = `
+    ${imgHtml}
+    <button onclick="closeFutbolScreen()"
+      style="padding: 18px 50px; background: linear-gradient(135deg, #4dd4e8, #ffc629); color: #0a1628; border: none; border-radius: 12px; font-family: 'Bebas Neue', sans-serif; font-size: 30px; cursor: pointer; letter-spacing: 2px; box-shadow: 0 6px 24px rgba(77,212,232,0.4); margin-top: 8px;">
+      Continue →
+    </button>`;
+
+  document.body.appendChild(div);
+}
+
+function closeFutbolScreen() {
+  const div = document.getElementById('futbol-screen');
+  if (div) div.remove();
+  // futbolImageUrl intentionally kept in Firebase for later use
+  showScoresReview();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
