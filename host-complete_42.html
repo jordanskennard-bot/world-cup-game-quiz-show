@@ -3078,8 +3078,9 @@ function nextQuestion() {
     loadQuestion(currentQuestion);
     answerRevealed = false;
   } else {
-    // Round 1 complete → Bonus Round (Karaoke)
-    showBonusOffer();
+    // Round 1 complete → Scores Review → Interview Round
+    window.scoresReviewSource = 'round1';
+    showScoresReview();
   }
 }
 
@@ -3121,10 +3122,11 @@ function showScoresReview() {
   // Determine which round this scores review is for, so commentary references the right next round
   const _src = window.scoresReviewSource || 'round1';
   const nextRoundName = {
-    'round1':      'round two',
-    'round2':      'round three',
-    'interview':   'the match draw',
-    'matchdraw':   'the final',
+    'round1':      'the interview round',
+    'interview':   'the commentary challenge',
+    'commentary':  'the match draw',
+    'matchdraw':   'the bonus round',
+    'round2':      'bog rolling',
     'toiletpaper': 'full time',
   }[_src] || 'the next round';
 
@@ -3156,11 +3158,12 @@ function showScoresReview() {
   
   // Dynamic heading based on which scores review this is (_src already set above)
   const scoresHeading = {
-    'round1':     'After Round 1',
-    'round2':     'After Round 2',
-    'interview':  'After Round 3',
-    'matchdraw':  'After Match Draw',
-    'toiletpaper':'Full Time',
+    'round1':      'After Round 1',
+    'interview':   'After The Interview',
+    'commentary':  'After Commentary',
+    'matchdraw':   'After Match Draw',
+    'round2':      'After Punned It',
+    'toiletpaper': 'Full Time',
   }[_src] || 'Scores';
 
   // Also pass the source to Firebase so player screens can show the right label
@@ -3491,13 +3494,13 @@ function routeAfterScoresReview() {
   console.log(`📊 Scores review done — routing from: ${source}`);
 
   switch (source) {
-    case 'round1':      startRound2();            break;
-    case 'round2':      startRound3();            break; // → Interview Round
-    case 'interview':   showTeamTalkIntro();        break; // → Team Talk → Match Draw
-    case 'matchdraw':   startCommentaryRound();    break;
-    case 'commentary':  showToiletPaperAlert();    break;
-    case 'toiletpaper': showExtraTimeScreen(); break; // → Extra Time → Sabotage Reveals
-    default:            startRound2();
+    case 'round1':      startRound3();             break; // Anthem Quiz → Interview
+    case 'interview':   startCommentaryRound();    break; // Interview → Commentary
+    case 'commentary':  startMatchDraw();           break; // Commentary → Match Draw (always, no player-count guard)
+    case 'matchdraw':   showBonusOffer();           break; // Match Draw → Sing When You're Winning
+    case 'round2':      showToiletPaperAlert();     break; // Punned It → Bog Rolling
+    case 'toiletpaper': showExtraTimeScreen();      break; // Caption Contest → Extra Time
+    default:            startRound3();
   }
 }
 
@@ -3534,9 +3537,9 @@ function showRound2Explainer() {
   explainerDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, var(--motd-dark-navy) 0%, var(--motd-navy) 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 40px;';
   explainerDiv.innerHTML = `
     <div style="font-family: 'Bebas Neue', sans-serif; font-size: 80px; color: var(--motd-gold); text-shadow: 0 0 40px rgba(255,198,41,0.8); margin-bottom: 40px; letter-spacing: 6px;">
-      ROUND 2
+      ROUND 6
     </div>
-    
+
     <div style="font-family: 'Oswald', sans-serif; font-size: 42px; color: var(--text); margin-bottom: 30px; text-transform: uppercase; letter-spacing: 3px;">
       ⚽ Punned It ⚽
     </div>
@@ -3618,7 +3621,7 @@ function startRound2Gameplay() {
   console.log('🎮 Starting Round 2 gameplay');
   
   document.getElementById('round2-screen').classList.add('active');
-  document.getElementById('round-indicator').textContent = 'Round 2 - Punned It';
+  document.getElementById('round-indicator').textContent = 'Round 6 - Punned It';
   
   // Assign each player a unique random category (shuffle categories, cycle if more players than categories)
   const shuffledCats = [...ROUND_2_CATEGORIES].sort(() => Math.random() - 0.5);
@@ -4252,7 +4255,7 @@ let round3CurrentQ = 0;
 
 function startRound3() {
   document.getElementById('game-screen').classList.remove('active');
-  document.getElementById('round-indicator').textContent = 'Round 3 - Interview';
+  document.getElementById('round-indicator').textContent = 'Round 2 - Interview';
 
   // Show intro screen
   const introDiv = document.createElement('div');
@@ -4263,7 +4266,7 @@ function startRound3() {
       🎙️ INTERVIEW ROUND
     </div>
     <div style="font-family: 'Oswald', sans-serif; font-size: 32px; color: var(--text); margin-bottom: 20px;">
-      Round 3
+      Round 2
     </div>
     <div class="spinner" style="margin-top: 30px;"></div>
   `;
@@ -5020,7 +5023,7 @@ function bonusJudgement(teamNum, passed) {
   } else {
     setTimeout(() => {
       resultDiv.remove();
-      showScoresReview();
+      showTeamTalkIntro(); // Bonus fail → Team Talk → Punned It
     }, 3000);
   }
 }
@@ -5060,7 +5063,7 @@ function closeFutbolScreen() {
   const div = document.getElementById('futbol-screen');
   if (div) div.remove();
   // futbolImageUrl intentionally kept in Firebase for later use
-  showScoresReview();
+  showTeamTalkIntro(); // Bonus pass (futbol reveal) → Team Talk → Punned It
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -5879,9 +5882,10 @@ let _commentaryRoundEnded = false;
 function endCommentaryRound() {
   if (_commentaryRoundEnded) return;
   _commentaryRoundEnded = true;
-  console.log('🎙️ Commentary Round complete → Toilet Paper');
+  console.log('🎙️ Commentary Round complete → Match Draw');
   gameRef.update({ commentaryPhase: null });
-  showToiletPaperAlert();
+  window.scoresReviewSource = 'commentary';
+  showScoresReview();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -7838,8 +7842,9 @@ function loadPhotoAlbum() {
 /*
   FULL GAME FLOW (v8.0):
   Round 1 Quiz → Bonus Round (Karaoke) → Scores Review #1
-  → Round 2 Puns (30s) → Pun Review → [Match Draw if 4+ players]
-  → Round 3 Interview → Victory Screen
+  → Round 2 Interview → Round 3 Commentary → Round 4 Match Draw
+  → Bonus (Karaoke) → Team Talk → Round 6 Punned It → Bog Rolling
+  → Goal Post Glory → Blow Ball → Caption Contest → Extra Time → Victory
 
   Phases 3 (Commentary) and 4 (Toilet Paper) are deferred.
 */
@@ -9005,7 +9010,7 @@ async function showTeamTalkResults() {
       continueBtn.disabled = true;
       continueBtn.textContent = 'Loading…';
       resultsDiv.remove();
-      checkForMatchDraw();
+      startRound2(); // Team Talk → Punned It
     };
     resultsDiv.appendChild(continueBtn);
   };
