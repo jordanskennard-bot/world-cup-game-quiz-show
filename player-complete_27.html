@@ -1451,9 +1451,11 @@ function listenForGameStart() {
     }
   });
 
-  // Play accept audio on all player phones when interview round winner is revealed
+  // Play accept audio only on the winning player's phone when interview round winner is revealed
   gameRef.child('round3WinnerAudio').on('value', (snapshot) => {
-    if (!snapshot.val()) return;
+    const data = snapshot.val();
+    if (!data) return;
+    if (data.winnerId !== playerId) return; // only the winner hears this
     const acceptFiles = ['accept_1','accept_2','accept_3','accept_4','accept_5',
                          'accept_6','accept_7','accept_8','accept_9','accept_10'];
     window._r3AcceptIdx = (window._r3AcceptIdx || 0);
@@ -3131,7 +3133,7 @@ function signalCommentaryReady(teamNumber) {
     const div = document.getElementById('player-commentary-recording');
     if (div && videoFile) {
       div.innerHTML = `
-        <video id="player-commentary-video" src="${videoFile}" autoplay playsinline
+        <video id="player-commentary-video" src="${videoFile}" autoplay playsinline muted
                style="width: 100%; max-height: 70vh; border-radius: 8px; display: block;"></video>
         <div style="display: flex; align-items: center; gap: 10px; margin-top: 14px; justify-content: center;">
           <div style="width: 14px; height: 14px; background: #ff0000; border-radius: 50%; animation: pulse 1s infinite;"></div>

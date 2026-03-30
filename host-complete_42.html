@@ -3156,6 +3156,27 @@ function showScoresReview() {
     ]);
   }
   
+  // ── PRE-FETCH ElevenLabs commentary NOW, in parallel with UI & reaction audio ──
+  // By the time generateScoresCommentary() is called the blob should already be ready.
+  window._scoresCommentaryLeadText = leadText;
+  window._scoresCommentaryPromise = fetch('https://api.elevenlabs.io/v1/text-to-speech/rfkTsdZrVWEVhDycUYn9', {
+    method: 'POST',
+    headers: {
+      'Accept': 'audio/mpeg',
+      'Content-Type': 'application/json',
+      'xi-api-key': 'sk_eb4900ceb7e4366087590c2b906743504ba8c844524ddcc4'
+    },
+    body: JSON.stringify({
+      text: `[impressed] Well Clyde, ${leadText}`,
+      model_id: 'eleven_v3',
+      voice_settings: { stability: 0.3, similarity_boost: 0.75, style: 0.5, use_speaker_boost: true }
+    })
+  })
+  .then(r => r.ok ? r.blob() : Promise.reject(`ElevenLabs prefetch ${r.status}`))
+  .then(b => URL.createObjectURL(b))
+  .catch(err => { console.warn('⚠️ Scores commentary prefetch failed:', err); return null; });
+  console.log('⚡ Scores commentary prefetch started for:', leadText);
+
   // Dynamic heading based on which scores review this is (_src already set above)
   const scoresHeading = {
     'round1':      'After Round 1',
@@ -3329,43 +3350,46 @@ function showScoresReview() {
 
 async function generateScoresCommentary(leadText, team1Score, team2Score) {
   const commentaryDiv = document.getElementById('scores-commentary');
-  
+
   if (!commentaryDiv) {
     console.error('❌ Commentary div not found, skipping');
     setTimeout(() => { playContextualReaction(team1Score, team2Score); }, 1000);
     return;
   }
-  
+
   commentaryDiv.textContent = 'Analyzing the scores...';
-  
+
   try {
-    console.log('🎙️ Generating ElevenLabs commentary:', leadText);
-    
-    const response = await fetch('https://api.elevenlabs.io/v1/text-to-speech/rfkTsdZrVWEVhDycUYn9', {
-      method: 'POST',
-      headers: {
-        'Accept': 'audio/mpeg',
-        'Content-Type': 'application/json',
-        'xi-api-key': 'sk_eb4900ceb7e4366087590c2b906743504ba8c844524ddcc4'
-      },
-      body: JSON.stringify({
-        text: `[impressed] Well Clyde, ${leadText}`,
-        model_id: 'eleven_v3',
-        voice_settings: {
-          stability: 0.3,
-          similarity_boost: 0.75,
-          style: 0.5,
-          use_speaker_boost: true
-        }
-      })
-    });
-    
-    if (!response.ok) {
-      throw new Error('ElevenLabs API error');
+    let audioUrl = null;
+
+    // Use pre-fetched audio if available (started at beginning of showScoresReview)
+    if (window._scoresCommentaryPromise && window._scoresCommentaryLeadText === leadText) {
+      console.log('⚡ Awaiting pre-fetched scores commentary (should be instant or nearly so)');
+      audioUrl = await window._scoresCommentaryPromise;
+      window._scoresCommentaryPromise = null;
+      window._scoresCommentaryLeadText = null;
     }
-    
-    const audioBlob = await response.blob();
-    const audioUrl = URL.createObjectURL(audioBlob);
+
+    // Cache miss or prefetch failed — fall back to fresh fetch
+    if (!audioUrl) {
+      console.log('🎙️ Generating ElevenLabs commentary (cache miss):', leadText);
+      const response = await fetch('https://api.elevenlabs.io/v1/text-to-speech/rfkTsdZrVWEVhDycUYn9', {
+        method: 'POST',
+        headers: {
+          'Accept': 'audio/mpeg',
+          'Content-Type': 'application/json',
+          'xi-api-key': 'sk_eb4900ceb7e4366087590c2b906743504ba8c844524ddcc4'
+        },
+        body: JSON.stringify({
+          text: `[impressed] Well Clyde, ${leadText}`,
+          model_id: 'eleven_v3',
+          voice_settings: { stability: 0.3, similarity_boost: 0.75, style: 0.5, use_speaker_boost: true }
+        })
+      });
+      if (!response.ok) throw new Error('ElevenLabs API error');
+      const audioBlob = await response.blob();
+      audioUrl = URL.createObjectURL(audioBlob);
+    }
     window._commentaryAudio = new Audio(audioUrl);
 
     // Show the text
@@ -4580,9 +4604,9 @@ function awardRound3Points(votes, questionIndex) {
     window._round3NamesRevealed[questionIndex] = true;
     displaySubmittedAnswers(window._round3LastSubmissions[questionIndex] || {}, questionIndex);
 
-    // Signal player phones to play accept audio
-    console.log('🎵 Signalling players to play accept audio — all votes in for question', questionIndex);
-    gameRef.child('round3WinnerAudio').set({ questionIndex, timestamp: Date.now() })
+    // Signal the winning player's phone to play accept audio
+    console.log('🎵 Signalling winner', winnerId, 'to play accept audio — question', questionIndex);
+    gameRef.child('round3WinnerAudio').set({ questionIndex, winnerId, timestamp: Date.now() })
       .then(() => gameRef.child('round3WinnerAudio').remove());
 
     // Read out the winning answer then deliver a reaction, then auto-advance
@@ -5784,17 +5808,43 @@ function startCommentaryPlayback(teamNumber, commentatorId, videoFile) {
   gameRef.child(`commentary/team${teamNumber}/recordingURL`).once('value', (snap) => {
     const recordingURL = snap.val();
 
-    // Shared helper: start muted video + play mic recording in sync
+    // Shared helper: start muted video + mic recording in tight sync
     const playCommentaryRecording = () => {
       const v = document.getElementById(`commentary-playback-video-${teamNumber}`);
       if (!v || !document.getElementById(pbId)) return;
       v.muted = true;
-      v.play().catch(e => console.log('Playback video play failed:', e));
+
       if (recordingURL) {
         const recordingAudio = new Audio(recordingURL);
-        recordingAudio.play().catch(e => console.log('Commentary recording play failed:', e));
-        console.log('🎙️ Playing player mic recording for Team', teamNumber);
+        recordingAudio.preload = 'auto';
+
+        // Wait for both to signal canplay, then fire play() on both in the same tick
+        const videoReady = new Promise(res => {
+          if (v.readyState >= 3) res();
+          else v.addEventListener('canplay', res, { once: true });
+        });
+        const audioReady = new Promise(res => {
+          if (recordingAudio.readyState >= 3) res();
+          else recordingAudio.addEventListener('canplay', res, { once: true });
+        });
+
+        // Also store ref so finishPlayback can listen for video end
+        window._commentaryPlaybackAudio = recordingAudio;
+
+        Promise.all([videoReady, audioReady]).then(() => {
+          if (!document.getElementById(pbId)) return; // screen already gone
+          v.play().catch(e => console.log('Playback video play failed:', e));
+          recordingAudio.play().catch(e => console.log('Commentary recording play failed:', e));
+          console.log('🎙️ Playing video + mic recording in sync for Team', teamNumber);
+        });
+
+        // Fallback: if canplay takes too long, just play anyway
+        setTimeout(() => {
+          if (v.paused) v.play().catch(() => {});
+          if (recordingAudio.paused) recordingAudio.play().catch(() => {});
+        }, 3000);
       } else {
+        v.play().catch(e => console.log('Playback video play failed:', e));
         console.warn('⚠️ No recording URL found — playing video muted');
       }
     };
