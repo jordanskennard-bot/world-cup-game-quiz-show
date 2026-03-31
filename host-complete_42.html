@@ -3324,27 +3324,8 @@ function showScoresReview() {
     setTimeout(() => { if (!introStarted) playFinalIntro(); }, 8000);
 
   } else {
-    // ── REGULAR SEQUENCE: commentary_review.mp3 → ElevenLabs ──
-    console.log('🎵 Playing commentary_review.mp3');
-    window.scoresIntroAudio = new Audio('commentary_review.mp3?v=2');
-    window.scoresIntroAudio.volume = 0.6;
-    window.scoresIntroAudio.addEventListener('ended', () => {
-      window.scoresIntroAudio = null;
-      console.log('✅ Scores intro finished, generating commentary');
-      triggerCommentary();
-    });
-    window.scoresIntroAudio.play()
-      .catch(err => console.error('commentary_review play failed:', err));
-
-    // Fallback — only fire if audio genuinely hasn't started
-    setTimeout(() => {
-      if (!commentaryTriggered && window.scoresIntroAudio &&
-          !window.scoresIntroAudio.ended &&
-          (window.scoresIntroAudio.paused || window.scoresIntroAudio.currentTime === 0)) {
-        console.log('⚠️ Scores intro timeout, generating commentary anyway');
-        triggerCommentary();
-      }
-    }, 5000);
+    // ── REGULAR SEQUENCE: straight to reaction + ElevenLabs ──
+    triggerCommentary();
   }
 }
 
@@ -5849,17 +5830,7 @@ function startCommentaryPlayback(teamNumber, commentatorId, videoFile) {
       }
     };
 
-    // Play commentary_review.mp3 first, then start video + mic in sync
-    const reviewAudio = new Audio('commentary_review.mp3?v=2');
-    reviewAudio.volume = 0.7;
-    let reviewPlayed = false;
-    const onReviewDone = () => {
-      if (reviewPlayed) return;
-      reviewPlayed = true;
-      playCommentaryRecording();
-    };
-    reviewAudio.play().catch(() => onReviewDone());
-    reviewAudio.addEventListener('ended', onReviewDone);
+    playCommentaryRecording();
 
     const finishPlayback = () => {
       if (!document.getElementById(pbId)) return;
