@@ -3634,7 +3634,6 @@ function showVotingOptions(submissions, questionIndex) {
   optionsContainer.innerHTML = submissions.map((sub, i) => `
     <button class="vote-btn" id="vote-option-${i}"
             onclick="voteForAnswer('${sub.playerId}', ${questionIndex})">
-      <div class="vote-player-name">${sub.playerName}</div>
       <div class="vote-answer-text">${sub.answer}</div>
     </button>
   `).join('');
