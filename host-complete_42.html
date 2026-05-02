@@ -1930,9 +1930,12 @@ function getRefereeName() {
   // Prefer the explicitly-assigned refereeId (written when match draw starts)
   // so host text and player detection always agree.
   const explicit = window._matchDrawRefereeId;
-  if (explicit && players[explicit]) return players[explicit].name;
-  const firstId = Object.keys(players)[0];
-  return (firstId && players[firstId]) ? players[firstId].name : 'Referee';
+  if (explicit && players[explicit] && players[explicit].name) return players[explicit].name;
+  // Otherwise fall back to the first player WITH a name set — skip stale
+  // records that have a key but no name (these can leak across sessions
+  // when the same gameCode is reused).
+  const namedFirst = Object.keys(players).find(id => players[id] && players[id].name);
+  return namedFirst ? players[namedFirst].name : 'The first player';
 }
 let currentQuestion = 0;
 let gameStarted = false;
@@ -2423,13 +2426,25 @@ function showRound1Explainer() {
 // GAME INITIALIZATION
 // ═══════════════════════════════════════════════════════════════════════════
 
+// Explicitly null out subtrees that can leak across sessions when the same
+// gameCode is reused (the host code's localStorage cache means SDYC etc.
+// gets reused on host reload). Without these explicit nulls, Firebase's
+// set() at the parent level can race with player rejoin writes and leave
+// nameless ghost records or stale captain assignments behind.
 gameRef.set({
   code: gameCode,
   started: false,
   round: 1,
   currentQuestion: 0,
   teamsSelected: false,
-  createdAt: Date.now()
+  createdAt: Date.now(),
+  players: null,
+  matchDraw: null,
+  round3: null,
+  round2: null,
+  commentary: null,
+  captionContest: null,
+  scoresReview: null
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -2523,18 +2538,24 @@ gameRef.child('players').on('value', (snapshot) => {
   updateScoreboard();
 });
 
-// Captain assignment: first player = Home Team captain, second = Away Team captain, rest choose
+// Captain assignment: first player = Home Team captain, second = Away Team captain, rest choose.
+// Filter out nameless / stale records when computing the index — otherwise
+// ghost rows from a previous session can take the Home/Away captain slots
+// and leave the actual joiners stuck without captain UI.
 gameRef.child('players').on('child_added', (snapshot) => {
   const newPlayerId = snapshot.key;
   const playerData = snapshot.val();
 
   // Skip if already assigned
   if (playerData && playerData.isCaptain !== undefined) return;
+  // Skip if this record has no name yet — wait for the player to fully join.
+  if (!playerData || !playerData.name) return;
 
   gameRef.child('players').once('value', (allSnap) => {
     const allPlayers = allSnap.val() || {};
-    const playerIds = Object.keys(allPlayers);
-    const playerIndex = playerIds.indexOf(newPlayerId);
+    // Only count records that have a name (filter ghosts).
+    const namedIds = Object.keys(allPlayers).filter(id => allPlayers[id] && allPlayers[id].name);
+    const playerIndex = namedIds.indexOf(newPlayerId);
 
     if (playerIndex === 0) {
       gameRef.child(`players/${newPlayerId}`).update({ isCaptain: true, team: 1 });

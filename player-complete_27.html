@@ -4819,7 +4819,10 @@ function showRefereeMatchDrawScoring() {
 }
 
 function scoreMatchDrawPlayer(scoringPlayerId, score) {
-  gameRef.child('matchDraw/scores/' + scoringPlayerId).set(score);
+  console.log(`⚖️ Submitting Match Draw score: ${scoringPlayerId} = ${score}`);
+  gameRef.child('matchDraw/scores/' + scoringPlayerId).set(score)
+    .then(() => console.log(`✅ Match Draw score saved for ${scoringPlayerId}`))
+    .catch(err => console.error(`❌ Match Draw score save failed:`, err));
   const div = document.getElementById('player-md-scoring');
   if (div) div.remove();
 }
@@ -6282,7 +6285,17 @@ window.addEventListener('load', () => {
         return;
       }
       const playerData = data.players && data.players[savedPid];
-      if (!playerData) return;
+      // Skip the rejoin screen if there's no record OR if the record exists
+      // but has no name — that means the host wiped the players subtree
+      // (game restart) and what's left is just a fragment from the rejoin
+      // listener writing back. Treating it as stale avoids the
+      // "WELCOME BACK! UNDEFINED" screen and lets the user join fresh.
+      if (!playerData || !playerData.name) {
+        localStorage.removeItem('foulplay_gameCode');
+        localStorage.removeItem('foulplay_playerId');
+        localStorage.removeItem('foulplay_playerName');
+        return;
+      }
 
       showRejoinScreen(savedCode, savedPid, savedName, playerData);
     });
@@ -6298,14 +6311,20 @@ function showRejoinScreen(savedCode, savedPid, savedName, playerData) {
     ? `<img src="${playerData.photo}" style="width:90px;height:90px;border-radius:50%;border:4px solid #4dd4e8;object-fit:cover;margin-bottom:12px;">`
     : '';
 
+  // Fall back if the Firebase player record is missing/stale (no name field).
+  // Without this, the screen rendered "WELCOME BACK! UNDEFINED" when a host
+  // restarted the game with the same code — the localStorage rejoin pointed
+  // at a stale playerId whose name had been cleared.
+  const displayName = (playerData && playerData.name) || savedName || 'Player';
+
   rejoinDiv.innerHTML = `
     <div style="text-align: center; max-width: 500px; width: 100%;">
       <div style="font-size: 80px; margin-bottom: 20px;">👋</div>
       <h1 style="font-family: 'Bebas Neue', sans-serif; font-size: 52px; color: #ffc629; margin-bottom: 24px; letter-spacing: 3px;">WELCOME BACK!</h1>
       ${photoHtml}
-      <div style="font-family: 'Bebas Neue', sans-serif; font-size: 32px; color: #fff; margin-bottom: 8px;">${playerData.name}</div>
+      <div style="font-family: 'Bebas Neue', sans-serif; font-size: 32px; color: #fff; margin-bottom: 8px;">${displayName}</div>
       <div style="font-family: 'Barlow', sans-serif; font-size: 18px; color: #4dd4e8; margin-bottom: 40px;">
-        ${playerData.score || 0} points · Game ${savedCode}
+        ${(playerData && playerData.score) || 0} points · Game ${savedCode}
       </div>
       <button onclick="rejoinGame('${savedCode}','${savedPid}','${savedName}')"
               style="display:block;width:100%;max-width:380px;margin:0 auto 16px;padding:18px 40px;background:linear-gradient(135deg,#4dd4e8,#ffc629);color:#0a1628;border:none;border-radius:12px;font-family:'Bebas Neue',sans-serif;font-size:28px;cursor:pointer;letter-spacing:2px;">
