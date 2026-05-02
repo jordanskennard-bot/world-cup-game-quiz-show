@@ -2193,11 +2193,19 @@ function confirmTeams() {
   // Check if intro_2 is still playing
   if (window.intro2Audio && !window.intro2Audio.paused) {
     console.log('⏳ Waiting for intro_2 to finish...');
-    // Wait for intro_2 to finish, then play ElevenLabs voice
-    window.intro2Audio.addEventListener('ended', () => {
-      console.log('✅ intro_2 finished, now generating ElevenLabs voice');
+    // Wait for intro_2 to finish, then play ElevenLabs voice. Never wait
+    // longer than 12s — if autoplay was blocked or `ended` never fires
+    // (browser quirks), the game would hang on the match card forever.
+    let proceeded = false;
+    const proceedOnce = (reason) => {
+      if (proceeded) return;
+      proceeded = true;
+      console.log(`✅ intro_2 wait done (${reason}), now generating ElevenLabs voice`);
       proceedToVoiceGeneration();
-    }, { once: true });
+    };
+    window.intro2Audio.addEventListener('ended', () => proceedOnce('ended event'), { once: true });
+    window.intro2Audio.addEventListener('error', () => proceedOnce('error event'), { once: true });
+    setTimeout(() => proceedOnce('12s timeout'), 12000);
   } else {
     // intro_2 already finished or not playing, proceed immediately
     console.log('intro_2 already finished, proceeding to voice generation');
@@ -2834,10 +2842,15 @@ async function generateIntroVoiceDirectly() {
         }
       });
 
-    // Fallback if audio doesn't play or unlock never happens
+    // Fallback if audio doesn't play or `ended` never fires.
+    // Note: we deliberately do NOT gate this on `voiceAudio.paused`. When
+    // autoplay is blocked, browsers report `paused === false` even though
+    // playback never actually started — so the previous `paused`-guarded
+    // check would silently skip the fallback and the host would hang on
+    // the match card. Just trip the explainer if we haven't already shown it.
     setTimeout(() => {
-      if (!explainerShown && (!window._introVoiceAudio || window._introVoiceAudio.paused)) {
-        console.log('⚠️ Audio not playing, showing explainer anyway');
+      if (!explainerShown) {
+        console.log('⚠️ Intro voice timeout, showing explainer anyway');
         explainerShown = true;
         showRound1Explainer();
       }
@@ -5398,8 +5411,11 @@ function showNextPlayerReveal() {
     const revealIndex = md.currentRevealPlayer || 0;
     const playerOrder = md.playerOrder || [];
 
+    console.log(`🎭 showNextPlayerReveal: index ${revealIndex} of ${playerOrder.length}`);
+
     if (revealIndex >= playerOrder.length) {
       // All players revealed and judged — apply scores
+      console.log('🎭 All chains revealed — applying scores');
       applyMatchDrawScores(playerOrder);
       return;
     }
@@ -5407,6 +5423,7 @@ function showNextPlayerReveal() {
     const revealPlayerId = playerOrder[revealIndex];
     const chain = md.chains ? md.chains[revealPlayerId] : null;
     const pName = players[revealPlayerId] ? players[revealPlayerId].name : 'Player';
+    console.log(`🎭 Revealing chain for ${pName} (${revealPlayerId})`);
 
     // Reset state for each chain so player-side listeners see a phase
     // transition. Without this, phase stays 'scoring' between players 1 and
@@ -5432,6 +5449,7 @@ function showNextPlayerReveal() {
 }
 
 function showMatchDrawScoringForPlayer(scoringPlayerId, pName, callback) {
+  console.log(`⚖️ Showing scoring screen for ${pName} (${scoringPlayerId})`);
   const scoringDiv = document.createElement('div');
   scoringDiv.id = 'md-scoring-screen';
   scoringDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, var(--motd-dark-navy) 0%, var(--motd-navy) 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 40px; text-align: center;';
@@ -5442,37 +5460,58 @@ function showMatchDrawScoringForPlayer(scoringPlayerId, pName, callback) {
   `;
   document.body.appendChild(scoringDiv);
 
+  // Clear any leftover score for this player from a previous attempt before
+  // attaching the listener — otherwise a stale value could fire it instantly.
+  gameRef.child('matchDraw/scores/' + scoringPlayerId).remove();
+
   gameRef.update({
     'matchDraw/currentPhase': 'scoring',
     'matchDraw/currentScoringPlayerId': scoringPlayerId,
     'matchDraw/currentScoringPlayerName': pName
   });
 
+  let advanced = false;
+  const advance = (reason) => {
+    if (advanced) return;
+    advanced = true;
+    console.log(`⚖️ Advancing past ${pName}'s scoring (${reason})`);
+    gameRef.child('matchDraw/scores/' + scoringPlayerId).off('value', scoreListener);
+    const el = document.getElementById('md-scoring-screen');
+    if (el) el.remove();
+
+    // Play victory fanfare then move on
+    let fanfareDone = false;
+    const finishFanfare = (delay) => {
+      if (fanfareDone) return;
+      fanfareDone = true;
+      window._matchDrawFanfare = null;
+      setTimeout(callback, delay);
+    };
+    window._matchDrawFanfare = new Audio('victory_fanfare.mp3?v=2');
+    window._matchDrawFanfare.volume = 0.8;
+    window._matchDrawFanfare.addEventListener('ended', () => finishFanfare(300));
+    window._matchDrawFanfare.play().catch(() => finishFanfare(500));
+    // Fallback in case audio hangs
+    setTimeout(() => finishFanfare(0), 8000);
+  };
+
   // Listen for score submission from player phone
   const scoreListener = gameRef.child('matchDraw/scores/' + scoringPlayerId).on('value', (snap) => {
-    if (snap.val() !== null && snap.val() !== undefined) {
-      gameRef.child('matchDraw/scores/' + scoringPlayerId).off('value', scoreListener);
-      const el = document.getElementById('md-scoring-screen');
-      if (el) el.remove();
-
-      // Play victory fanfare then move on
-      let fanfareDone = false;
-      window._matchDrawFanfare = new Audio('victory_fanfare.mp3?v=2');
-      window._matchDrawFanfare.volume = 0.8;
-      window._matchDrawFanfare.addEventListener('ended', () => {
-        window._matchDrawFanfare = null;
-        if (!fanfareDone) { fanfareDone = true; setTimeout(callback, 300); }
-      });
-      window._matchDrawFanfare.play().catch(() => {
-        window._matchDrawFanfare = null;
-        if (!fanfareDone) { fanfareDone = true; setTimeout(callback, 500); }
-      });
-      // Fallback in case audio hangs
-      setTimeout(() => {
-        if (!fanfareDone) { fanfareDone = true; window._matchDrawFanfare = null; callback(); }
-      }, 8000);
+    const val = snap.val();
+    console.log(`⚖️ Score path fired for ${scoringPlayerId}:`, val);
+    if (val !== null && val !== undefined) {
+      advance(`score=${val}`);
     }
   });
+
+  // Safety net: if no score arrives within 45s (referee distracted, network
+  // glitch, listener race etc.), advance anyway so the game doesn't stall.
+  setTimeout(() => {
+    if (!advanced) {
+      console.warn(`⚠️ No score received for ${pName} within 45s — auto-advancing`);
+      advance('timeout');
+    }
+  }, 45000);
 }
 
 // ── Waits for the referee (player 1) to press Next on their phone ─────────
@@ -5703,6 +5742,7 @@ function startCommentaryRound() {
   document.body.appendChild(introDiv);
   gameRef.update({ commentaryPhase: 'intro' });
 
+  // Build the explainer up front so the music sting can hand off to it on end
   const explainerAudio = new Audio('commentary_explainer.mp3?v=2');
   explainerAudio.volume = 0.7;
   // Register with the pause system so the host pause button can pause this audio
@@ -5710,7 +5750,6 @@ function startCommentaryRound() {
   explainerAudio.addEventListener('ended', () => {
     window._audioRefs = window._audioRefs.filter(a => a !== explainerAudio);
   });
-  explainerAudio.play().catch(e => console.log('commentary_explainer not found:', e));
 
   let explainerTransitioned = false;
   const transitionToTeamSelection = () => {
@@ -5721,7 +5760,39 @@ function startCommentaryRound() {
   };
 
   explainerAudio.addEventListener('ended', transitionToTeamSelection);
-  setTimeout(transitionToTeamSelection, 60000); // safety fallback only — ended event handles normal flow
+
+  // Play the music sting first, then the voice explainer (same pattern as
+  // round 1, interview, match draw, team talk).
+  let voiceStarted = false;
+  const playExplainer = () => {
+    if (voiceStarted) return;
+    voiceStarted = true;
+    console.log('🎵 Playing commentary_explainer.mp3');
+    explainerAudio.play().catch(e => console.log('commentary_explainer not found:', e));
+  };
+
+  console.log('🎵 Playing commentary_round_intro_music.mp3');
+  const commentaryMusic = new Audio('commentary_round_intro_music.mp3?v=2');
+  commentaryMusic.volume = 0.5;
+  window.commentaryIntroMusic = commentaryMusic;
+  window._audioRefs.push(commentaryMusic);
+  const cleanupMusic = () => {
+    window._audioRefs = window._audioRefs.filter(a => a !== commentaryMusic);
+  };
+  commentaryMusic.addEventListener('ended', () => { cleanupMusic(); playExplainer(); });
+  commentaryMusic.addEventListener('error', () => {
+    console.warn('⚠️ commentary_round_intro_music.mp3 failed — skipping to explainer');
+    cleanupMusic();
+    playExplainer();
+  });
+  commentaryMusic.play()
+    .then(() => console.log('🔊 Playing commentary_round_intro_music'))
+    .catch(err => {
+      console.warn('⚠️ commentary_round_intro_music blocked, skipping to explainer:', err.message);
+      cleanupMusic();
+      playExplainer();
+    });
+  setTimeout(transitionToTeamSelection, 75000); // safety fallback only — ended event handles normal flow (extended to allow music + explainer)
 }
 
 function startCommentaryTeamSelection(teamNumber) {
