@@ -2406,12 +2406,20 @@ function showRound1Explainer() {
   window.round1IntroMusic.addEventListener('ended', playRound1Voice);
   window.round1IntroMusic.addEventListener('error', playRound1Voice); // fallback if file missing
   window.round1IntroMusic.play().catch(err => {
-    // Only skip to voice if audio genuinely can't play (not a spurious rejection)
-    if (!window.round1IntroMusic || window.round1IntroMusic.paused) {
-      console.warn('⚠️ round_1_intro_music blocked, skipping to voice:', err.message);
-      playRound1Voice();
-    }
+    // Always cascade into the voice — autoplay-blocked audio reports
+    // `paused === false` even though playback never started, so the
+    // previous `paused`-guarded short-circuit silently skipped the
+    // fallback and the explainer wait would hang forever.
+    console.warn('⚠️ round_1_intro_music blocked or failed, skipping to voice:', err && err.message);
+    playRound1Voice();
   });
+
+  // Hard safety: if neither the music's `ended` event nor the catch path
+  // ever runs (e.g., a browser quirk where autoplay-blocked audio just sits
+  // there silently), force the voice phase after 5s. The function is
+  // idempotent (guarded by an internal _voiceStarted flag) so calling it
+  // a second time is a no-op if music already cascaded normally.
+  setTimeout(playRound1Voice, 5000);
 
   // Notify players to show explainer on their screens
   gameRef.update({
