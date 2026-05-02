@@ -5376,6 +5376,19 @@ function showNextPlayerReveal() {
     const chain = md.chains ? md.chains[revealPlayerId] : null;
     const pName = players[revealPlayerId] ? players[revealPlayerId].name : 'Player';
 
+    // Reset state for each chain so player-side listeners see a phase
+    // transition. Without this, phase stays 'scoring' between players 1 and
+    // 2 (and beyond), and the referee's reveal/scoring UI never re-attaches
+    // — they end up on a screen with no buttons. We also null out the
+    // scoring player IDs so the listener inside showRefereeMatchDrawScoring
+    // sees a real change when the next player's ID arrives.
+    gameRef.update({
+      'matchDraw/currentPhase': 'reveal',
+      'matchDraw/currentScoringPlayerId': null,
+      'matchDraw/currentScoringPlayerName': null,
+      'matchDraw/awaitingRevealNext': false
+    });
+
     displayChainOnHost(revealPlayerId, pName, chain, () => {
       gameRef.update({ 'matchDraw/currentRevealPlayer': revealIndex + 1 });
       // Judge this player immediately after showing their chain

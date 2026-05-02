@@ -4741,10 +4741,33 @@ function showPlayerScoring() {
       });
     }
   });
+
+  // Safety: if the referee enters the scoring phase but the buttons never
+  // render within 4s (e.g. listener attached too late, or currentScoringPlayerId
+  // hasn't propagated), force a re-fetch.
+  setTimeout(() => {
+    if (document.getElementById('player-md-scoring')) return;
+    gameRef.child('matchDraw/currentScoringPlayerId').once('value', (snap) => {
+      const id = snap.val();
+      if (!id) return;
+      console.warn('⚠️ Scoring buttons missing after 4s — forcing rebuild');
+      showRefereeMatchDrawScoring();
+    });
+  }, 4000);
 }
 
 function showRefereeMatchDrawScoring() {
-  gameRef.child('matchDraw/currentScoringPlayerId').on('value', (snap) => {
+  // Tear down any previous scoring listener so this function is idempotent —
+  // showPlayerScoring may be called fresh for each player and we don't want
+  // stacked listeners that each rebuild the UI on every value change.
+  if (window._mdScoringRef) {
+    window._mdScoringRef.off('value', window._mdScoringHandler);
+    window._mdScoringRef = null;
+    window._mdScoringHandler = null;
+  }
+
+  const scoringRef = gameRef.child('matchDraw/currentScoringPlayerId');
+  const handler = scoringRef.on('value', (snap) => {
     const scoringPlayerId = snap.val();
     if (!scoringPlayerId) return;
 
@@ -4773,6 +4796,25 @@ function showRefereeMatchDrawScoring() {
       `;
       document.body.appendChild(div);
     });
+  });
+
+  // Stash refs so we can detach later when the phase changes (or showPlayerScoring runs again).
+  window._mdScoringRef = scoringRef;
+  window._mdScoringHandler = handler;
+
+  // Detach when match draw phase leaves 'scoring' (or 'reveal' starts), so we
+  // don't keep handling stale events from a previous chain.
+  const phaseRef = gameRef.child('matchDraw/currentPhase');
+  const phaseHandler = phaseRef.on('value', (phaseSnap) => {
+    const phase = phaseSnap.val();
+    if (phase === 'reveal' || !phase) {
+      if (window._mdScoringRef) {
+        window._mdScoringRef.off('value', window._mdScoringHandler);
+        window._mdScoringRef = null;
+        window._mdScoringHandler = null;
+      }
+      phaseRef.off('value', phaseHandler);
+    }
   });
 }
 
