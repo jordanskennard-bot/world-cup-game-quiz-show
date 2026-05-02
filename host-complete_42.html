@@ -4262,6 +4262,12 @@ function startRound3() {
   document.getElementById('game-screen').classList.remove('active');
   document.getElementById('round-indicator').textContent = 'Round 2 - Interview';
 
+  // Defensive: kill any stale Round 2 (Punned It) timer state. Otherwise a
+  // pause/resume here would let the leftover countdown elapse in the
+  // background and bounce the game into startPunReview() mid-interview.
+  if (round2Timer) { clearInterval(round2Timer); round2Timer = null; }
+  round2TimeLeft = 0;
+
   // Show intro screen
   const introDiv = document.createElement('div');
   introDiv.id = 'round3-intro';
@@ -4280,10 +4286,18 @@ function startRound3() {
   // Signal players to show their interview round intro screen
   gameRef.update({ round3IntroActive: true });
 
+  // Play interview_round_intro_music first, then voice intro after it finishes
+  console.log('🎵 Playing interview_round_intro_music.mp3');
+  const introMusic = new Audio('interview_round_intro_music.mp3?v=2');
+  introMusic.volume = 0.5;
+  window.interviewIntroMusic = introMusic;
+
   const introAudio = new Audio('interview_round_intro.mp3?v=2');
   introAudio.volume = 0.7;
+  window.interviewIntroAudio = introAudio;
 
   const launchRound = () => {
+    if (!document.getElementById('round3-intro')) return; // already launched
     introDiv.remove();
     gameRef.update({ round3IntroActive: false, round: 3, currentRound3Question: 0 });
     document.getElementById('round3-screen').classList.add('active');
@@ -4303,16 +4317,45 @@ function startRound3() {
     loadRound3Question(0);
   };
 
-  introAudio.addEventListener('ended', launchRound);
-  introAudio.play().catch(() => {
-    // Audio not found — fallback after 3 s
-    setTimeout(launchRound, 3000);
-  });
+  let _voiceStarted = false;
+  const playInterviewVoice = () => {
+    if (_voiceStarted) return;
+    _voiceStarted = true;
+    console.log('🎵 Playing interview_round_intro.mp3');
+    introAudio.addEventListener('ended', launchRound);
+    introAudio.addEventListener('error', () => {
+      console.error('❌ interview_round_intro.mp3 failed to load');
+      setTimeout(launchRound, 1000);
+    });
+    introAudio.play()
+      .then(() => console.log('🔊 Playing interview_round_intro'))
+      .catch(err => {
+        console.warn('⚠️ interview_round_intro blocked, falling back:', err.message);
+        // Audio not found / blocked — fallback after 3 s
+        setTimeout(launchRound, 3000);
+      });
+  };
 
-  // Safety fallback: never wait more than 30 s
+  // Play music first — voice follows once music ends
+  introMusic.addEventListener('ended', playInterviewVoice);
+  introMusic.addEventListener('error', () => {
+    console.warn('⚠️ interview_round_intro_music.mp3 failed to load — skipping to voice');
+    playInterviewVoice();
+  });
+  introMusic.play()
+    .then(() => console.log('🔊 Playing interview_round_intro_music'))
+    .catch(err => {
+      // Only skip to voice if audio genuinely can't play
+      if (!introMusic || introMusic.paused) {
+        console.warn('⚠️ interview_round_intro_music blocked, skipping to voice:', err.message);
+        playInterviewVoice();
+      }
+    });
+
+  // Safety fallback: never wait more than 45 s (extended for music + voice)
   setTimeout(() => {
     if (document.getElementById('round3-intro')) launchRound();
-  }, 30000);
+  }, 45000);
 }
 
 // Track whether names are revealed yet for each question, and the latest submissions
@@ -8020,8 +8063,15 @@ function resumeAllAudio() {
       } else if (!shouldBePaused && _gamePaused) {
         _gamePaused = false;
         resumeAllAudio();
-        // Restart Round 2 countdown if it was mid-game when paused
-        if (round2TimeLeft > 0 && document.getElementById('countdown-timer')) {
+        // Restart Round 2 countdown ONLY if Round 2 was mid-game when paused.
+        // The countdown-timer element is part of the static round 2 markup and
+        // is always present in the DOM, so we must also confirm the round 2
+        // screen is actually the active one — otherwise a pause/resume during
+        // any other round would silently spin up a Round 2 timer in the
+        // background and trigger endRound2() ~30s later.
+        const _round2El = document.getElementById('round2-screen');
+        const _round2Active = _round2El && _round2El.classList.contains('active');
+        if (round2TimeLeft > 0 && _round2Active) {
           round2Timer = setInterval(() => {
             round2TimeLeft--;
             const timerEl = document.getElementById('countdown-timer');
