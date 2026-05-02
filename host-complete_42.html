@@ -4384,14 +4384,46 @@ function loadRound3Question(index) {
   gameRef.child('round3/' + index).remove();
   gameRef.update({ currentRound3Question: index });
 
-  // Give each player 4 random answer options from the pool
+  // Deal 4 unique answer options to each player WITHOUT overlap across
+  // players. Shuffle the pool once and slice 4 entries per player off the
+  // front of the shuffled deck — that way no two players see the same
+  // option for this question. If we ever have more players than the pool
+  // can support (4 per player) we fall back to per-player shuffling so
+  // people still get options, accepting overlap in that edge case.
   const playerIds = Object.keys(players);
   const playerNames = playerIds.map(pid => players[pid]?.name).filter(Boolean);
 
-  playerIds.forEach(playerId => {
-    // Shuffle and pick 4 random answers
-    const shuffled = [...ROUND_3_ANSWER_POOL].sort(() => Math.random() - 0.5);
-    const playerOptions = shuffled.slice(0, 4).map(answer => {
+  const optionsPerPlayer = 4;
+  const totalNeeded = playerIds.length * optionsPerPlayer;
+
+  // Fisher-Yates shuffle of the pool (more uniform than .sort(() => Math.random()-0.5))
+  const shuffledPool = [...ROUND_3_ANSWER_POOL];
+  for (let i = shuffledPool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffledPool[i], shuffledPool[j]] = [shuffledPool[j], shuffledPool[i]];
+  }
+
+  const havePoolForUnique = shuffledPool.length >= totalNeeded;
+  if (!havePoolForUnique) {
+    console.warn(`⚠️ Round 3: pool (${shuffledPool.length}) too small for ${playerIds.length} players × ${optionsPerPlayer} unique options each — falling back to overlapping shuffles.`);
+  }
+
+  playerIds.forEach((playerId, idx) => {
+    let raw;
+    if (havePoolForUnique) {
+      // Take a fresh slice from the shared shuffled deck — no overlap.
+      raw = shuffledPool.slice(idx * optionsPerPlayer, (idx + 1) * optionsPerPlayer);
+    } else {
+      // Fallback: independent shuffle per player (overlap possible).
+      const fallback = [...ROUND_3_ANSWER_POOL];
+      for (let i = fallback.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [fallback[i], fallback[j]] = [fallback[j], fallback[i]];
+      }
+      raw = fallback.slice(0, optionsPerPlayer);
+    }
+
+    const playerOptions = raw.map(answer => {
       // Substitute {player} with a random other player's name
       if (!answer.includes('{player}')) return answer;
       const others = playerNames.filter(n => n !== players[playerId]?.name);
