@@ -1021,10 +1021,10 @@ const ROUND_3_QUESTIONS = [
     question: "What are you most concerned about in the next game?"
   },
   {
-    question: "What would you say is your biggest strength?"
+    question: "What are you most excited about?"
   },
   {
-    question: "What are you most excited about?"
+    question: "What would you say is your biggest strength?"
   }
 ];
 
@@ -3090,8 +3090,11 @@ async function startPlayerMicRecording(teamNumber) {
       };
       reader.readAsDataURL(commentaryAudioBlob);
     };
-    commentaryMediaRecorder.start();
-    console.log('🎙️ Mic recording started');
+    // NOTE: do NOT start the recorder here. We wait until the player taps
+    // "I'm Ready!" so the audio aligns with the video. Starting on screen
+    // load would prepend several seconds of silence to the recording and
+    // throw playback out of sync.
+    console.log('🎙️ Mic primed — recording will start when player taps Ready');
 
     // Stop when host signals recording is over
     const stopRef = gameRef.child(`commentary/team${teamNumber}/commentatorRecording`);
@@ -3119,10 +3122,23 @@ async function startPlayerMicRecording(teamNumber) {
   }
 }
 
-// Called when the commentator presses "I'm Ready!" — starts video on their phone and signals host
+// Called when the commentator presses "I'm Ready!" — starts mic recording,
+// signals host to play timing video, and shows local video on commentator's phone.
+// Recording start is aligned with this tap so the audio/video stay in sync on playback.
 function signalCommentaryReady(teamNumber) {
   const btn = document.getElementById('commentary-ready-btn');
   if (btn) { btn.disabled = true; btn.textContent = '⏳ Starting…'; }
+
+  // Start the mic recording NOW — this is the t=0 of the audio track.
+  // It must happen as close as possible to the host's video.play().
+  if (commentaryMediaRecorder && commentaryMediaRecorder.state === 'inactive') {
+    try {
+      commentaryMediaRecorder.start();
+      console.log('🎙️ Mic recording started (on Ready tap)');
+    } catch (e) {
+      console.error('❌ Failed to start mic recording:', e);
+    }
+  }
 
   // Signal host to start the hidden timing video
   gameRef.update({ commentaryCommentatorReady: true });
@@ -4293,6 +4309,22 @@ function playerBonusVerdict(passed) {
 // PHASE 2: MATCH DRAW - PLAYER SIDE
 // ═══════════════════════════════════════════════════════════════════════════
 
+// Each round of Match Draw has two chain steps: drawing then guessing.
+// Step index increments through the entire game so chain ownership rotates
+// (step 0 = own chain, step 1 = previous player's chain, step 2 = two back, …).
+function _matchDrawStepIndex(currentRound, currentPhase) {
+  return (currentRound - 1) * 2 + (currentPhase === 'guessing' ? 1 : 0);
+}
+
+// Which chain THIS player is contributing to right now.
+function _matchDrawMyChainOwner(playerOrder, myPlayerId, stepIndex) {
+  const N = playerOrder.length;
+  const myIndex = playerOrder.indexOf(myPlayerId);
+  if (myIndex === -1 || N === 0) return myPlayerId;
+  // Wrap negatives safely with +N
+  return playerOrder[((myIndex - stepIndex) % N + N) % N];
+}
+
 function showPlayerSubject() {
   if (document.getElementById('player-subject')) return;
 
@@ -4301,21 +4333,24 @@ function showPlayerSubject() {
     if (!md) return;
 
     const currentRound = md.currentRound || 1;
+    const playerOrder = md.playerOrder || [];
     let subject = '';
 
     if (currentRound === 1) {
+      // Round 1 draw: chain owner == playerId. Use the assigned subject.
       subject = md.subjects ? md.subjects[playerId] : '';
     } else {
-      // Later rounds: draw based on the previous player's guess
-      const playerOrder = md.playerOrder || [];
-      const myIndex = playerOrder.indexOf(playerId);
-      const prevIndex = (myIndex - 1 + playerOrder.length) % playerOrder.length;
-      const prevPlayerId = playerOrder[prevIndex];
-      const prevChain = md.chains && md.chains[prevPlayerId];
-      if (prevChain && prevChain.rounds) {
-        const rounds = Object.values(prevChain.rounds);
-        const lastRound = rounds[rounds.length - 1];
-        subject = lastRound && lastRound.guess ? lastRound.guess : '(no guess yet)';
+      // Round 2+ draw: chain rotates. Read the most recent guess from the
+      // chain THIS player is now contributing to (NOT the chain whose owner
+      // sits one place behind, which previously surfaced this player's own
+      // guess back at them).
+      const stepIndex = _matchDrawStepIndex(currentRound, 'drawing');
+      const chainOwner = _matchDrawMyChainOwner(playerOrder, playerId, stepIndex);
+      const chain = md.chains && md.chains[chainOwner];
+      if (chain && chain.rounds) {
+        const rounds = Object.values(chain.rounds);
+        const lastGuess = [...rounds].reverse().find(r => r.type === 'guess');
+        subject = lastGuess && lastGuess.guess ? lastGuess.guess : '(no guess yet)';
       }
     }
 
@@ -4445,8 +4480,15 @@ function saveDrawing() {
     const md = snap.val();
     if (!md) return;
     const roundNum = md.currentRound;
-    gameRef.child('matchDraw/chains/' + playerId + '/rounds').push({
+    const playerOrder = md.playerOrder || [];
+    // Write into the chain this player is currently contributing to. In
+    // round 1 that's still their own chain (step 0); in later rounds it
+    // rotates so each chain accumulates one contribution per player.
+    const stepIndex = _matchDrawStepIndex(roundNum, 'drawing');
+    const targetChain = _matchDrawMyChainOwner(playerOrder, playerId, stepIndex) || playerId;
+    gameRef.child('matchDraw/chains/' + targetChain + '/rounds').push({
       roundNumber: roundNum,
+      stepIndex: stepIndex,
       type: 'drawing',
       drawing: dataURL,
       by: playerId,
@@ -4463,12 +4505,16 @@ function showGuessingScreen() {
     if (!md) return;
 
     const playerOrder = md.playerOrder || [];
-    const myIndex = playerOrder.indexOf(playerId);
-    const prevIndex = (myIndex - 1 + playerOrder.length) % playerOrder.length;
-    const prevPlayerId = playerOrder[prevIndex];
+    const currentRound = md.currentRound || 1;
+    // Find the chain this player is now contributing to (one step further
+    // around the table than the drawing they just did).
+    const stepIndex = _matchDrawStepIndex(currentRound, 'guessing');
+    const targetChain = _matchDrawMyChainOwner(playerOrder, playerId, stepIndex) || playerId;
 
-    // Store so submitGuess() knows whose chain to write into
-    window._matchDrawPrevPlayerId = prevPlayerId;
+    // Store so submitGuess() writes into the same chain we're reading from.
+    window._matchDrawTargetChain = targetChain;
+    // Keep the legacy var name working for older code paths.
+    window._matchDrawPrevPlayerId = targetChain;
 
     const div = document.createElement('div');
     div.id = 'player-guessing';
@@ -4488,9 +4534,10 @@ function showGuessingScreen() {
 
     setTimeout(() => { const inp = document.getElementById('guess-input'); if (inp) inp.focus(); }, 200);
 
-    // Watch for the previous player's drawing to appear (handles race condition where
-    // their saveDrawing() hasn't finished uploading when this screen first loads)
-    const drawingListener = gameRef.child('matchDraw/chains/' + prevPlayerId + '/rounds').on('value', (roundsSnap) => {
+    // Watch for the latest drawing in the chain we're contributing to
+    // (handles race condition where the drawing's saveDrawing() hasn't
+    // finished uploading when this screen first loads)
+    const drawingListener = gameRef.child('matchDraw/chains/' + targetChain + '/rounds').on('value', (roundsSnap) => {
       const rounds = roundsSnap.val();
       if (!rounds) return;
       const roundValues = Object.values(rounds);
@@ -4502,7 +4549,7 @@ function showGuessingScreen() {
         container.innerHTML = `<img src="${lastDrawing.drawing}" style="max-width: 100%; max-height: 100%; object-fit: contain;">`;
       }
       // Unsubscribe once we have the drawing
-      gameRef.child('matchDraw/chains/' + prevPlayerId + '/rounds').off('value', drawingListener);
+      gameRef.child('matchDraw/chains/' + targetChain + '/rounds').off('value', drawingListener);
     });
 
     gameRef.child('matchDraw/guessingTimeLeft').on('value', (snap) => {
@@ -4513,7 +4560,7 @@ function showGuessingScreen() {
     gameRef.child('matchDraw/currentPhase').on('value', (snap) => {
       if (snap.val() !== 'guessing') {
         // Clean up drawing listener before removing screen
-        gameRef.child('matchDraw/chains/' + prevPlayerId + '/rounds').off('value', drawingListener);
+        gameRef.child('matchDraw/chains/' + targetChain + '/rounds').off('value', drawingListener);
         const el = document.getElementById('player-guessing');
         if (el) el.remove();
       }
@@ -4530,11 +4577,14 @@ function submitGuess() {
   gameRef.child('matchDraw').once('value', (snap) => {
     const md = snap.val();
     if (!md) return;
-    // Save the guess into the PREVIOUS player's chain so the host
-    // sees drawing + guess together when revealing that player's chain
-    const targetChain = window._matchDrawPrevPlayerId || playerId;
+    // Save the guess into the chain this player is contributing to (computed
+    // in showGuessingScreen via _matchDrawMyChainOwner). Falls back to the
+    // legacy "previous player" var if needed.
+    const targetChain = window._matchDrawTargetChain || window._matchDrawPrevPlayerId || playerId;
+    const stepIndex = _matchDrawStepIndex(md.currentRound, 'guessing');
     gameRef.child('matchDraw/chains/' + targetChain + '/rounds').push({
       roundNumber: md.currentRound,
+      stepIndex: stepIndex,
       type: 'guess',
       guess: guess,
       by: playerId,
@@ -4554,60 +4604,91 @@ function submitGuess() {
 function showPlayerReveal() {
   if (document.getElementById('player-reveal')) return;
 
-  gameRef.child('players').once('value', (snap) => {
-    const allPlayers = snap.val() || {};
-    const firstPlayerId = Object.keys(allPlayers)[0];
-    const isReferee = firstPlayerId === playerId;
+  // Prefer the explicit refereeId set by the host when match draw started.
+  // Fall back to Object.keys() order only if it's missing (older sessions).
+  gameRef.child('matchDraw/refereeId').once('value', (refSnap) => {
+    let refereeId = refSnap.val();
+    const proceed = (resolvedRefereeId) => {
+      const isReferee = resolvedRefereeId === playerId;
 
-    const div = document.createElement('div');
-    div.id = 'player-reveal';
-    div.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, #0a1628 0%, #1a2540 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 30px; text-align: center;';
+      const div = document.createElement('div');
+      div.id = 'player-reveal';
+      div.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, #0a1628 0%, #1a2540 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 30px; text-align: center;';
 
-    if (isReferee) {
-      div.innerHTML = `
-        <div style="font-family: 'Bebas Neue', sans-serif; font-size: 44px; color: #ffc629; margin-bottom: 16px;">🎭 THE REVEAL</div>
-        <div style="font-family: 'Barlow', sans-serif; font-size: 20px; color: rgba(255,255,255,0.8); margin-bottom: 40px;">You're controlling the reveal</div>
-        <button id="reveal-next-btn" onclick="refereeRevealNext()" style="display: none; width: 100%; max-width: 300px; padding: 22px; background: linear-gradient(135deg, #4dd4e8, #ffc629); color: #0a1628; border: none; border-radius: 16px; font-family: 'Bebas Neue', sans-serif; font-size: 40px; letter-spacing: 3px; cursor: pointer; box-shadow: 0 6px 30px rgba(77,212,232,0.4); -webkit-tap-highlight-color: transparent;">Next →</button>
-        <div id="reveal-waiting-msg" style="font-family: 'Barlow', sans-serif; font-size: 16px; color: rgba(255,255,255,0.4); margin-top: 20px;">Loading...</div>
-      `;
-      document.body.appendChild(div);
+      if (isReferee) {
+        // Show the button by default — the listener below will hide it again
+        // if awaitingRevealNext is currently false. This avoids the case
+        // where the listener attaches AFTER host already wrote `true`,
+        // never sees the false→true transition, and leaves the button
+        // hidden forever.
+        div.innerHTML = `
+          <div style="font-family: 'Bebas Neue', sans-serif; font-size: 44px; color: #ffc629; margin-bottom: 16px;">🎭 THE REVEAL</div>
+          <div style="font-family: 'Barlow', sans-serif; font-size: 20px; color: rgba(255,255,255,0.8); margin-bottom: 40px;">You're controlling the reveal</div>
+          <button id="reveal-next-btn" onclick="refereeRevealNext()" style="display: block; width: 100%; max-width: 300px; padding: 22px; background: linear-gradient(135deg, #4dd4e8, #ffc629); color: #0a1628; border: none; border-radius: 16px; font-family: 'Bebas Neue', sans-serif; font-size: 40px; letter-spacing: 3px; cursor: pointer; box-shadow: 0 6px 30px rgba(77,212,232,0.4); -webkit-tap-highlight-color: transparent;">Next →</button>
+          <div id="reveal-waiting-msg" style="display: none; font-family: 'Barlow', sans-serif; font-size: 16px; color: rgba(255,255,255,0.4); margin-top: 20px;">Loading next step...</div>
+        `;
+        document.body.appendChild(div);
 
-      // Show/hide the Next button based on host signalling
-      const awaitingListener = gameRef.child('matchDraw/awaitingRevealNext').on('value', (snap) => {
-        const btn = document.getElementById('reveal-next-btn');
-        const msg = document.getElementById('reveal-waiting-msg');
-        if (snap.val() === true) {
-          if (btn) { btn.style.display = 'block'; btn.disabled = false; }
-          if (msg) msg.style.display = 'none';
-        } else {
-          if (btn) btn.style.display = 'none';
-          if (msg) { msg.style.display = 'block'; msg.textContent = 'Loading next step...'; }
-        }
-      });
+        // Show/hide the Next button based on host signalling
+        const awaitingListener = gameRef.child('matchDraw/awaitingRevealNext').on('value', (snap) => {
+          const btn = document.getElementById('reveal-next-btn');
+          const msg = document.getElementById('reveal-waiting-msg');
+          if (snap.val() === true) {
+            if (btn) { btn.style.display = 'block'; btn.disabled = false; }
+            if (msg) msg.style.display = 'none';
+          } else {
+            if (btn) btn.style.display = 'none';
+            if (msg) { msg.style.display = 'block'; msg.textContent = 'Loading next step...'; }
+          }
+        });
 
-      // Clean up listener when phase changes
-      gameRef.child('matchDraw/currentPhase').on('value', (phaseSnap) => {
-        if (phaseSnap.val() !== 'reveal') {
-          gameRef.child('matchDraw/awaitingRevealNext').off('value', awaitingListener);
-          const el = document.getElementById('player-reveal');
-          if (el) el.remove();
-        }
-      });
+        // Safety: if no awaiting signal arrives within 4s, force-show the
+        // button so the referee is never stuck on a screen with no controls.
+        setTimeout(() => {
+          const btn = document.getElementById('reveal-next-btn');
+          const msg = document.getElementById('reveal-waiting-msg');
+          if (btn && btn.style.display === 'none') {
+            btn.style.display = 'block';
+            btn.disabled = false;
+            if (msg) msg.style.display = 'none';
+            console.warn('⚠️ Awaiting signal timeout — force-showing Next button');
+          }
+        }, 4000);
 
+        // Clean up listener when phase changes
+        gameRef.child('matchDraw/currentPhase').on('value', (phaseSnap) => {
+          if (phaseSnap.val() !== 'reveal') {
+            gameRef.child('matchDraw/awaitingRevealNext').off('value', awaitingListener);
+            const el = document.getElementById('player-reveal');
+            if (el) el.remove();
+          }
+        });
+
+      } else {
+        // Non-referee: just watch the big screen
+        div.innerHTML = `
+          <div style="font-family: 'Bebas Neue', sans-serif; font-size: 56px; color: #ffc629; margin-bottom: 20px;">🎭 THE REVEAL</div>
+          <div style="font-family: 'Barlow', sans-serif; font-size: 22px; color: rgba(255,255,255,0.8);">Watch the big screen to see how the chains turned out!</div>
+          <div style="font-size: 80px; margin: 30px 0;">👀</div>
+        `;
+        document.body.appendChild(div);
+
+        gameRef.child('matchDraw/currentPhase').on('value', (snap) => {
+          if (snap.val() !== 'reveal') {
+            const el = document.getElementById('player-reveal');
+            if (el) el.remove();
+          }
+        });
+      }
+    };
+
+    if (refereeId) {
+      proceed(refereeId);
     } else {
-      // Non-referee: just watch the big screen
-      div.innerHTML = `
-        <div style="font-family: 'Bebas Neue', sans-serif; font-size: 56px; color: #ffc629; margin-bottom: 20px;">🎭 THE REVEAL</div>
-        <div style="font-family: 'Barlow', sans-serif; font-size: 22px; color: rgba(255,255,255,0.8);">Watch the big screen to see how the chains turned out!</div>
-        <div style="font-size: 80px; margin: 30px 0;">👀</div>
-      `;
-      document.body.appendChild(div);
-
-      gameRef.child('matchDraw/currentPhase').on('value', (snap) => {
-        if (snap.val() !== 'reveal') {
-          const el = document.getElementById('player-reveal');
-          if (el) el.remove();
-        }
+      // Fallback for sessions started before the refereeId field existed
+      gameRef.child('players').once('value', (snap) => {
+        const allPlayers = snap.val() || {};
+        proceed(Object.keys(allPlayers)[0]);
       });
     }
   });
@@ -4622,32 +4703,43 @@ function refereeRevealNext() {
 function showPlayerScoring() {
   if (document.getElementById('player-md-scoring')) return;
 
-  gameRef.child('players').once('value', (snap) => {
-    const allPlayers = snap.val() || {};
-    const firstPlayerId = Object.keys(allPlayers)[0];
-    const isReferee = firstPlayerId === playerId;
+  // Read the explicit refereeId, falling back to player ordering for old sessions
+  gameRef.child('matchDraw/refereeId').once('value', (refSnap) => {
+    let refereeId = refSnap.val();
+    const finish = (resolvedRefereeId) => {
+      const isReferee = resolvedRefereeId === playerId;
 
-    if (!isReferee) {
-      const div = document.createElement('div');
-      div.id = 'player-md-scoring';
-      div.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, #0a1628 0%, #1a2540 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; text-align: center; padding: 30px;';
-      div.innerHTML = `
-        <div style="font-family: 'Bebas Neue', sans-serif; font-size: 48px; color: #4dd4e8; margin-bottom: 20px;">⚖️ REFEREE SCORING</div>
-        <div style="font-family: 'Barlow', sans-serif; font-size: 20px; color: rgba(255,255,255,0.7);">The referee is judging the drawings...</div>
-        <div style="margin-top: 30px; width: 50px; height: 50px; border: 4px solid #3e5c8f; border-top-color: #4dd4e8; border-radius: 50%; animation: spin 1s linear infinite;"></div>
-      `;
-      document.body.appendChild(div);
-      gameRef.child('matchDraw/currentPhase').on('value', (snap) => {
-        if (snap.val() !== 'scoring') {
-          const el = document.getElementById('player-md-scoring');
-          if (el) el.remove();
-        }
+      if (!isReferee) {
+        const div = document.createElement('div');
+        div.id = 'player-md-scoring';
+        div.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, #0a1628 0%, #1a2540 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; text-align: center; padding: 30px;';
+        div.innerHTML = `
+          <div style="font-family: 'Bebas Neue', sans-serif; font-size: 48px; color: #4dd4e8; margin-bottom: 20px;">⚖️ REFEREE SCORING</div>
+          <div style="font-family: 'Barlow', sans-serif; font-size: 20px; color: rgba(255,255,255,0.7);">The referee is judging the drawings...</div>
+          <div style="margin-top: 30px; width: 50px; height: 50px; border: 4px solid #3e5c8f; border-top-color: #4dd4e8; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+        `;
+        document.body.appendChild(div);
+        gameRef.child('matchDraw/currentPhase').on('value', (snap) => {
+          if (snap.val() !== 'scoring') {
+            const el = document.getElementById('player-md-scoring');
+            if (el) el.remove();
+          }
+        });
+        return;
+      }
+
+      // Referee UI — listen for which player to score
+      showRefereeMatchDrawScoring();
+    };
+
+    if (refereeId) {
+      finish(refereeId);
+    } else {
+      gameRef.child('players').once('value', (snap) => {
+        const allPlayers = snap.val() || {};
+        finish(Object.keys(allPlayers)[0]);
       });
-      return;
     }
-
-    // Referee UI — listen for which player to score
-    showRefereeMatchDrawScoring();
   });
 }
 

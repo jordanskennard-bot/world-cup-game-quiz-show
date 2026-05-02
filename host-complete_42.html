@@ -1721,7 +1721,7 @@ const ROUND_3_ANSWER_POOL = [
   "Jehova",
   "The fourth meat",
   "Gordon Brown in a dressing gown",
-  "Jonathan Dimbleby squatting",
+  "David Dimbleby squatting",
   "David Ginola flavoured Worthers Originals",
   "Timothy at the opera",
   "Free velcro",
@@ -1927,6 +1927,10 @@ let players = {};
 let currentRound = 1;
 
 function getRefereeName() {
+  // Prefer the explicitly-assigned refereeId (written when match draw starts)
+  // so host text and player detection always agree.
+  const explicit = window._matchDrawRefereeId;
+  if (explicit && players[explicit]) return players[explicit].name;
   const firstId = Object.keys(players)[0];
   return (firstId && players[firstId]) ? players[firstId].name : 'Referee';
 }
@@ -4639,8 +4643,8 @@ function awardRound3Points(votes, questionIndex) {
 
     const advanceAfterAnswer = () => nextRound3Question();
 
-    // Special case: Jonathan Dimbleby squatting
-    if (winningAnswer && winningAnswer.trim().toLowerCase() === 'jonathan dimbleby squatting') {
+    // Special case: David Dimbleby squatting
+    if (winningAnswer && winningAnswer.trim().toLowerCase() === 'david dimbleby squatting') {
       const dimblesquat = new Audio('dimblesquat.mp3');
       dimblesquat.volume = 0.9;
       dimblesquat.play().catch(() => {});
@@ -5168,16 +5172,30 @@ function startMatchDraw() {
     chains[pid] = { originalSubject: subjects[pid], rounds: [] };
   });
 
+  // Each round = draw + guess (2 chain steps). Cap totalRounds so each chain
+  // never loops back to the same contributor — i.e. 2 * totalRounds <= N.
+  // For N=4 → 2 rounds (4 steps), N=5 → 2, N=6 → 3, N=8 → 4.
+  const totalRounds = Math.max(1, Math.floor(playerCount / 2));
+
+  // Pick a referee deterministically and write it to Firebase so both host and
+  // player agree (relying on Object.keys()[0] in two places caused the
+  // "no Next button" bug).
+  const refereeId = playerIds[0];
+
   gameRef.child('matchDraw').set({
     active: true,
     playerOrder: playerIds,
     hardPlayer: hardPlayerId,
     subjects: subjects,
     currentRound: 0,
-    totalRounds: playerCount,
+    totalRounds: totalRounds,
     currentPhase: 'intro',
-    chains: chains
+    chains: chains,
+    refereeId: refereeId
   });
+
+  // Cache refereeId so getRefereeName() can find it without another DB read.
+  window._matchDrawRefereeId = refereeId;
 
   showMatchDrawIntro();
 }
@@ -5196,18 +5214,39 @@ function showMatchDrawIntro() {
   document.body.appendChild(introDiv);
   gameRef.update({ matchDrawIntroActive: true });
 
-  window.matchDrawExplainerAudio = new Audio('matchdraw_explainer.mp3?v=2');
-  window.matchDrawExplainerAudio.volume = 0.6;
-  window.matchDrawExplainerAudio.play().catch(e => console.log('Explainer audio optional:', e));
-
   let started = false;
-  window.matchDrawExplainerAudio.addEventListener('ended', () => {
-    window.matchDrawExplainerAudio = null;
-    if (!started) { started = true; introDiv.remove(); startMatchDrawRound(1); }
+  const launchExplainer = () => {
+    if (started) return;
+    window.matchDrawExplainerAudio = new Audio('matchdraw_explainer.mp3?v=2');
+    window.matchDrawExplainerAudio.volume = 0.6;
+    window.matchDrawExplainerAudio.play().catch(e => console.log('Explainer audio optional:', e));
+    window.matchDrawExplainerAudio.addEventListener('ended', () => {
+      window.matchDrawExplainerAudio = null;
+      if (!started) { started = true; introDiv.remove(); startMatchDrawRound(1); }
+    });
+  };
+
+  // Play the intro music sting first, then the voice explainer
+  console.log('🎵 Playing match_draw_intro_music.mp3');
+  const matchDrawMusic = new Audio('match_draw_intro_music.mp3?v=2');
+  matchDrawMusic.volume = 0.5;
+  window.matchDrawIntroMusic = matchDrawMusic;
+  matchDrawMusic.addEventListener('ended', launchExplainer);
+  matchDrawMusic.addEventListener('error', () => {
+    console.warn('⚠️ match_draw_intro_music.mp3 failed — skipping to explainer');
+    launchExplainer();
   });
+  matchDrawMusic.play()
+    .then(() => console.log('🔊 Playing match_draw_intro_music'))
+    .catch(err => {
+      console.warn('⚠️ match_draw_intro_music blocked, skipping to explainer:', err.message);
+      launchExplainer();
+    });
+
+  // Safety: never block longer than 20s waiting for music + explainer
   setTimeout(() => {
     if (!started) { started = true; window.matchDrawExplainerAudio = null; if (document.getElementById('match-draw-intro')) introDiv.remove(); startMatchDrawRound(1); }
-  }, 12000);
+  }, 20000);
 }
 
 function startMatchDrawRound(roundNumber) {
@@ -5271,19 +5310,9 @@ function startDrawingPhase(roundNumber) {
       if (window.matchDrawMusic) { window.matchDrawMusic.pause(); window.matchDrawMusic = null; }
       if (document.getElementById('md-drawing-timer')) document.getElementById('md-drawing-timer').remove();
 
-      // Odd rounds draw→guess, even rounds draw→next draw OR finish
-      gameRef.child('matchDraw').once('value', (snap) => {
-        const md = snap.val();
-        if (md.currentRound % 2 === 1) {
-          startGuessingPhase(md.currentRound);
-        } else {
-          if (md.currentRound >= md.totalRounds) {
-            startMatchDrawReveal();
-          } else {
-            startMatchDrawRound(md.currentRound + 1);
-          }
-        }
-      });
+      // Every drawing phase is followed by a guessing phase (no more odd/even quirk —
+      // the old logic produced an inconsistent chain shape).
+      startGuessingPhase(roundNumber);
     }
   }, 1000);
 }
@@ -5832,51 +5861,88 @@ function startCommentaryPlayback(teamNumber, commentatorId, videoFile) {
   gameRef.child(`commentary/team${teamNumber}/recordingURL`).once('value', (snap) => {
     const recordingURL = snap.val();
 
-    // Shared helper: start muted video + mic recording in tight sync
-    const playCommentaryRecording = () => {
+    // Tight A/V sync helper:
+    //   1. Wait for BOTH media to fully buffer (canplaythrough)
+    //   2. Pause both, reset currentTime = 0
+    //   3. Fire .play() on both in the same microtask
+    //   4. Run a drift checker: if video and audio drift > 150ms apart,
+    //      yank the video clock to match the audio clock (audio is the
+    //      canonical timeline since it carries the commentary)
+    let driftInterval = null;
+    const playCommentaryRecording = async () => {
       const v = document.getElementById(`commentary-playback-video-${teamNumber}`);
       if (!v || !document.getElementById(pbId)) return;
       v.muted = true;
+      v.preload = 'auto';
 
-      if (recordingURL) {
-        const recordingAudio = new Audio(recordingURL);
-        recordingAudio.preload = 'auto';
-
-        // Wait for both to signal canplay, then fire play() on both in the same tick
-        const videoReady = new Promise(res => {
-          if (v.readyState >= 3) res();
-          else v.addEventListener('canplay', res, { once: true });
-        });
-        const audioReady = new Promise(res => {
-          if (recordingAudio.readyState >= 3) res();
-          else recordingAudio.addEventListener('canplay', res, { once: true });
-        });
-
-        // Also store ref so finishPlayback can listen for video end
-        window._commentaryPlaybackAudio = recordingAudio;
-
-        Promise.all([videoReady, audioReady]).then(() => {
-          if (!document.getElementById(pbId)) return; // screen already gone
-          v.play().catch(e => console.log('Playback video play failed:', e));
-          recordingAudio.play().catch(e => console.log('Commentary recording play failed:', e));
-          console.log('🎙️ Playing video + mic recording in sync for Team', teamNumber);
-        });
-
-        // Fallback: if canplay takes too long, just play anyway
-        setTimeout(() => {
-          if (v.paused) v.play().catch(() => {});
-          if (recordingAudio.paused) recordingAudio.play().catch(() => {});
-        }, 3000);
-      } else {
+      if (!recordingURL) {
         v.play().catch(e => console.log('Playback video play failed:', e));
         console.warn('⚠️ No recording URL found — playing video muted');
+        return;
       }
+
+      const recordingAudio = new Audio();
+      recordingAudio.preload = 'auto';
+      recordingAudio.src = recordingURL;
+      window._commentaryPlaybackAudio = recordingAudio;
+
+      // Wait for canplaythrough on both, with a 5s safety timeout
+      const waitFor = (el, evt, timeoutMs) => new Promise(res => {
+        let done = false;
+        const ok = () => { if (!done) { done = true; res(); } };
+        const ready = (evt === 'canplaythrough' && el.readyState >= 4) ||
+                      (evt === 'canplay' && el.readyState >= 3);
+        if (ready) { ok(); return; }
+        el.addEventListener(evt, ok, { once: true });
+        setTimeout(ok, timeoutMs);
+      });
+
+      try {
+        await Promise.all([
+          waitFor(v, 'canplaythrough', 5000),
+          waitFor(recordingAudio, 'canplaythrough', 5000),
+        ]);
+      } catch (e) { /* fall through and try anyway */ }
+
+      if (!document.getElementById(pbId)) return; // user already moved on
+
+      // Pause + rewind both right before playing, so the start frame is identical
+      try { v.pause(); v.currentTime = 0; } catch (e) {}
+      try { recordingAudio.pause(); recordingAudio.currentTime = 0; } catch (e) {}
+
+      // Fire both .play() calls in the same microtask
+      const playV = v.play();
+      const playA = recordingAudio.play();
+      Promise.allSettled([playV, playA]).then(results => {
+        results.forEach((r, i) => {
+          if (r.status === 'rejected') {
+            console.warn(`Commentary ${i === 0 ? 'video' : 'audio'} play rejected:`, r.reason);
+          }
+        });
+      });
+      console.log('🎙️ Playing video + mic recording in sync for Team', teamNumber);
+
+      // Drift checker — audio is the canonical clock; nudge video to match
+      driftInterval = setInterval(() => {
+        if (!v || !recordingAudio || v.paused || recordingAudio.paused) return;
+        const drift = v.currentTime - recordingAudio.currentTime;
+        if (Math.abs(drift) > 0.15) {
+          try { v.currentTime = recordingAudio.currentTime; } catch (e) {}
+          console.log(`⏱️ A/V drift ${drift.toFixed(2)}s — resyncing video to audio`);
+        }
+      }, 500);
     };
 
     playCommentaryRecording();
 
     const finishPlayback = () => {
       if (!document.getElementById(pbId)) return;
+      if (driftInterval) { clearInterval(driftInterval); driftInterval = null; }
+      // Stop the audio too — playback ends when the video ends, but the audio
+      // might be slightly longer; cut it cleanly so it doesn't bleed into the
+      // referee scoring screen.
+      const ra = window._commentaryPlaybackAudio;
+      if (ra) { try { ra.pause(); } catch (e) {} window._commentaryPlaybackAudio = null; }
       playbackDiv.remove();
       showCommentaryRefereeScoring(teamNumber);
     };
@@ -8647,11 +8713,34 @@ function showTeamTalkIntro() {
     startTeamTalkTurn(1);
   };
 
-  playAudio('team_talk_intro.mp3', {
-    onEnded: advance,
-    onError: () => setTimeout(advance, 0),
+  // Music sting first, then voice explainer
+  const playVoice = () => {
+    playAudio('team_talk_intro.mp3', {
+      onEnded: advance,
+      onError: () => setTimeout(advance, 0),
+    });
+  };
+
+  console.log('🎵 Playing team_talk_intro_music.mp3');
+  const teamTalkMusic = new Audio('team_talk_intro_music.mp3?v=2');
+  teamTalkMusic.volume = 0.5;
+  window.teamTalkIntroMusic = teamTalkMusic;
+  let voiceStarted = false;
+  const startVoiceOnce = () => { if (!voiceStarted) { voiceStarted = true; playVoice(); } };
+  teamTalkMusic.addEventListener('ended', startVoiceOnce);
+  teamTalkMusic.addEventListener('error', () => {
+    console.warn('⚠️ team_talk_intro_music.mp3 failed — skipping to voice');
+    startVoiceOnce();
   });
-  setTimeout(advance, 4000);
+  teamTalkMusic.play()
+    .then(() => console.log('🔊 Playing team_talk_intro_music'))
+    .catch(err => {
+      console.warn('⚠️ team_talk_intro_music blocked, skipping to voice:', err.message);
+      startVoiceOnce();
+    });
+
+  // Hard safety: never let the intro screen hang longer than 15s total
+  setTimeout(advance, 15000);
 }
 
 // ─── Turn start ──────────────────────────────────────────────────────────────
