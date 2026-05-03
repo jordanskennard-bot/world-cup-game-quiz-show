@@ -1926,6 +1926,26 @@ const gameRef = database.ref('games/' + gameCode);
 let players = {};
 let currentRound = 1;
 
+// Audio-gate helper. Browsers report `audio.paused === false` for autoplay-
+// blocked audio that never actually started, so flow logic that gates
+// progression on either the `ended` event firing OR `audio.paused` being
+// true can hang forever. This helper guarantees `onDone` fires exactly
+// once — on `ended`, on `error`, or after `timeoutMs`. Use everywhere a
+// flow advancement depends on audio finishing.
+function _audioGate(audio, onDone, timeoutMs) {
+  let fired = false;
+  const fire = (reason) => {
+    if (fired) return;
+    fired = true;
+    try { onDone(reason); } catch (e) { console.error('audio gate cb error:', e); }
+  };
+  if (audio && typeof audio.addEventListener === 'function') {
+    audio.addEventListener('ended', () => fire('ended'), { once: true });
+    audio.addEventListener('error', () => fire('error'), { once: true });
+  }
+  setTimeout(() => fire('timeout'), timeoutMs || 12000);
+}
+
 function getRefereeName() {
   // Prefer the explicitly-assigned refereeId (written when match draw starts)
   // so host text and player detection always agree.
@@ -2392,14 +2412,16 @@ function showRound1Explainer() {
       }
     });
 
-    // Fallback: unlock after 30s if audio never ends
+    // Fallback: unlock after 12s if audio never ends. Reduced from 30s — when
+    // autoplay is blocked the audio just sits silent and 30s is far too long
+    // for a hosted party game to hang.
     setTimeout(() => {
       if (!introReadySet) {
         introReadySet = true;
         console.log('⚠️ round_1_intro timeout — unlocking start button anyway');
         gameRef.update({ round1IntroReady: true });
       }
-    }, 30000);
+    }, 12000);
   }; // end playRound1Voice
 
   // Play music first — voice follows once music ends
@@ -3101,21 +3123,17 @@ function revealAnswer() {
     .then(() => console.log(`🔊 Answer ${questionNumber} audio playing`))
     .catch(err => console.error('Answer audio play failed:', err));
 
-  // Auto-advance to next question when audio ends
-  answerAudio.addEventListener('ended', () => {
+  // Auto-advance to next question when audio ends OR after 12s timeout.
+  // Drop the previous `paused`-gated fallback — that was unreliable because
+  // autoplay-blocked audio reports paused as false even when it never started.
+  let _answerAdvanced = false;
+  const advanceQuestion = () => {
+    if (_answerAdvanced) return;
+    _answerAdvanced = true;
     window.currentAnswerAudio = null;
-    setTimeout(() => {
-      nextQuestion();
-    }, 1500); // 1.5 second pause after audio before next question
-  });
-  
-  // Fallback in case audio doesn't play or load
-  setTimeout(() => {
-    if (!answerAudio.ended && answerAudio.paused) {
-      console.log('Audio not playing, auto-advancing anyway');
-      nextQuestion();
-    }
-  }, 8000); // 8 second max wait
+    setTimeout(() => { nextQuestion(); }, 1500);
+  };
+  _audioGate(answerAudio, advanceQuestion, 12000);
 }
 
 function nextQuestion() {
@@ -3425,27 +3443,18 @@ async function generateScoresCommentary(leadText, team1Score, team2Score) {
     window._commentaryAudio.play().catch(err => console.error('Commentary audio play failed:', err));
     console.log('🔊 Playing generated commentary');
 
+    // Advance unconditionally on end/error/timeout. Drop the previous
+    // `paused`-gated guard — autoplay-blocked audio reports paused as false
+    // and was preventing the fallback from firing.
     let routeTriggered = false;
-
-    // 3. When commentary finishes, play contextual reaction
-    window._commentaryAudio.addEventListener('ended', () => {
+    const advanceCommentary = (reason) => {
+      if (routeTriggered) return;
+      routeTriggered = true;
       window._commentaryAudio = null;
-      if (!routeTriggered) {
-        routeTriggered = true;
-        console.log('✅ Commentary finished, playing contextual scores reaction');
-        playContextualReaction(team1Score, team2Score);
-      }
-    });
-
-    // Fallback — only fire if audio genuinely hasn't played (not just ended)
-    const _ca = window._commentaryAudio;
-    setTimeout(() => {
-      if (!routeTriggered && _ca && !_ca.ended && _ca.paused) {
-        routeTriggered = true;
-        console.log('⚠️ Commentary audio not playing, playing contextual reaction anyway');
-        playContextualReaction(team1Score, team2Score);
-      }
-    }, 15000);
+      console.log(`✅ Commentary finished (${reason}), playing contextual scores reaction`);
+      playContextualReaction(team1Score, team2Score);
+    };
+    _audioGate(window._commentaryAudio, advanceCommentary, 15000);
 
   } catch (error) {
     console.error('❌ ElevenLabs error:', error);
@@ -3470,25 +3479,18 @@ function playContextualReaction(team1Score, team2Score) {
     .then(() => console.log('🔊 Playing contextual scores reaction'))
     .catch(err => console.error('contextual_reaction play failed:', err));
 
+  // Advance once on ended, error, or timeout — drop the unreliable
+  // `paused/currentTime===0` gating that was blocking the timeout fallback
+  // when autoplay was suppressed.
   let reactionEnded = false;
-
-  reactionAudio.addEventListener('ended', () => {
+  const finishReaction = (reason) => {
+    if (reactionEnded) return;
+    reactionEnded = true;
     window._audioRefs = window._audioRefs.filter(a => a !== reactionAudio);
-    if (!reactionEnded) {
-      reactionEnded = true;
-      console.log('✅ Contextual reaction finished');
-      routeAfterScoresReview();
-    }
-  });
-
-  // Fallback
-  setTimeout(() => {
-    if (!reactionEnded && (reactionAudio.paused || reactionAudio.currentTime === 0)) {
-      reactionEnded = true;
-      console.log('⚠️ Contextual reaction timeout, routing anyway');
-      routeAfterScoresReview();
-    }
-  }, 12000);
+    console.log(`✅ Contextual reaction finished (${reason})`);
+    routeAfterScoresReview();
+  };
+  _audioGate(reactionAudio, finishReaction, 12000);
 }
 
 function playScoresReaction(team1Score, team2Score) {
@@ -3502,27 +3504,16 @@ function playScoresReaction(team1Score, team2Score) {
     .then(() => console.log('🔊 Playing scores reaction'))
     .catch(err => console.error('scores_reaction play failed:', err));
 
+  // Drop unreliable `paused`-gating; advance unconditionally on end/error/timeout.
   let reactionEnded = false;
-
-  // When reaction finishes, route to correct next round
-  window.scoresReactionAudio.addEventListener('ended', () => {
+  const finishReaction2 = (reason) => {
+    if (reactionEnded) return;
+    reactionEnded = true;
     window.scoresReactionAudio = null;
-    if (!reactionEnded) {
-      console.log('✅ Reaction finished');
-      reactionEnded = true;
-      routeAfterScoresReview();
-    }
-  });
-
-  // Fallback
-  setTimeout(() => {
-    const ra = window.scoresReactionAudio;
-    if (!reactionEnded && (!ra || ra.paused || ra.currentTime === 0)) {
-      console.log('⚠️ Reaction timeout, routing anyway');
-      reactionEnded = true;
-      routeAfterScoresReview();
-    }
-  }, 8000);
+    console.log(`✅ Reaction finished (${reason})`);
+    routeAfterScoresReview();
+  };
+  _audioGate(window.scoresReactionAudio, finishReaction2, 12000);
 
   // Store which scores review this is so we can route to correct next round
   window.scoresReviewSource = window.scoresReviewSource || 'round1';
@@ -3635,37 +3626,31 @@ function showRound2Explainer() {
   window.round2IntroMusic.addEventListener('ended', playRound2Voice);
   window.round2IntroMusic.addEventListener('error', playRound2Voice);
   window.round2IntroMusic.play().catch(err => {
-    if (!window.round2IntroMusic || window.round2IntroMusic.paused) playRound2Voice();
+    // Drop the paused gate — autoplay-blocked audio reports paused as
+    // false but never actually plays, so the music's `ended` event would
+    // never fire and the voice phase would hang.
+    console.warn('⚠️ round_2_intro_music blocked or failed:', err && err.message);
+    playRound2Voice();
   });
-  
+  // Hard safety: if neither end nor catch fires, force voice after 5s.
+  setTimeout(playRound2Voice, 5000);
+
   // Notify players to show explainer
   gameRef.update({
     showRound2Explainer: true
   });
-  
-  let gameplayStarted = false;
-  
-  // Wait for audio to finish, then start round
-  window.round2IntroAudio.addEventListener('ended', () => {
-    window.round2IntroAudio = null;
-    if (!gameplayStarted) {
-      console.log('✅ Round 2 intro finished, starting round');
-      gameplayStarted = true;
-      explainerDiv.remove();
-      startRound2Gameplay();
-    }
-  });
 
-  // Fallback: start after 10 seconds if audio doesn't play
-  setTimeout(() => {
-    const r2a = window.round2IntroAudio;
-    if (!gameplayStarted && (!r2a || r2a.paused || r2a.currentTime === 0)) {
-      console.log('⚠️ Audio timeout, starting round anyway');
-      gameplayStarted = true;
-      explainerDiv.remove();
-      startRound2Gameplay();
-    }
-  }, 10000);
+  let gameplayStarted = false;
+  const startGameplay = (reason) => {
+    if (gameplayStarted) return;
+    gameplayStarted = true;
+    window.round2IntroAudio = null;
+    console.log(`✅ Round 2 intro finished (${reason}), starting round`);
+    explainerDiv.remove();
+    startRound2Gameplay();
+  };
+  // Wait for audio to finish (or end/error/timeout), then start round
+  _audioGate(window.round2IntroAudio, startGameplay, 12000);
 }
 
 function startRound2Gameplay() {
@@ -3959,22 +3944,18 @@ function showPunReviewIntro() {
     .then(() => console.log('🔊 Playing puns review intro'))
     .catch(err => console.error('puns_review_intro play failed:', err));
 
-  // When audio finishes, start reviewing puns
-  window.reviewIntroAudio.addEventListener('ended', () => {
+  // Advance unconditionally on end/error/timeout. Drop the unreliable
+  // `paused`-gated guard.
+  let _reviewAdvanced = false;
+  const advanceReview = (reason) => {
+    if (_reviewAdvanced) return;
+    _reviewAdvanced = true;
     window.reviewIntroAudio = null;
-    reviewDiv.remove();
+    if (document.body.contains(reviewDiv)) reviewDiv.remove();
     currentPunIndex = 0;
     reviewNextPun();
-  });
-  
-  // Fallback — only fire if audio genuinely hasn't played (and hasn't already ended)
-  setTimeout(() => {
-    if (window.reviewIntroAudio && (window.reviewIntroAudio.paused || window.reviewIntroAudio.currentTime === 0)) {
-      reviewDiv.remove();
-      currentPunIndex = 0;
-      reviewNextPun();
-    }
-  }, 5000);
+  };
+  _audioGate(window.reviewIntroAudio, advanceReview, 8000);
 }
 
 async function reviewNextPun() {
@@ -4391,12 +4372,13 @@ function startRound3() {
   introMusic.play()
     .then(() => console.log('🔊 Playing interview_round_intro_music'))
     .catch(err => {
-      // Only skip to voice if audio genuinely can't play
-      if (!introMusic || introMusic.paused) {
-        console.warn('⚠️ interview_round_intro_music blocked, skipping to voice:', err.message);
-        playInterviewVoice();
-      }
+      // Drop the paused-gate — autoplay-blocked audio reports paused as
+      // false and would silently skip the cascade.
+      console.warn('⚠️ interview_round_intro_music blocked, skipping to voice:', err && err.message);
+      playInterviewVoice();
     });
+  // Hard safety: ensure we move on to voice within 5s no matter what.
+  setTimeout(playInterviewVoice, 5000);
 
   // Safety fallback: never wait more than 45 s (extended for music + voice)
   setTimeout(() => {
@@ -4865,11 +4847,16 @@ function showBonusOffer() {
   window.bonusAlertAudio = new Audio('bonus_alert.mp3?v=2');
   window.bonusAlertAudio.volume = 0.7;
   window.bonusAlertAudio.play().catch(e => console.log('Bonus alert audio:', e));
-  window.bonusAlertAudio.addEventListener('ended', () => {
+  // Cascade alert → explainer on end/error/timeout (alert is short, ~3s).
+  let _bonusExplainerStarted = false;
+  const playBonusExplainer = () => {
+    if (_bonusExplainerStarted) return;
+    _bonusExplainerStarted = true;
     window.bonusExplainerAudio = new Audio('bonus_explainer.mp3?v=2');
     window.bonusExplainerAudio.volume = 0.6;
     window.bonusExplainerAudio.play().catch(e => console.log('Bonus explainer audio:', e));
-  });
+  };
+  _audioGate(window.bonusAlertAudio, playBonusExplainer, 5000);
 
   // Write null first, THEN attach listener so stale values from previous games don't fire
   let bonusAutoSkipTimer = null;
