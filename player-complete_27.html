@@ -5488,24 +5488,32 @@ function generateDefaultAvatar(name) {
     gameRef.child('captionContest/phase').on('value', (snap) => {
       const phase = snap.val();
 
-      // Remove all blow ball / goal post / sabotage screens as soon as caption
-      // contest starts. Photographers and other lingering players were getting
-      // stuck on these because the prior cleanup only covered four IDs.
+      // Remove all blow ball / goal post / bog / sabotage screens as soon as
+      // caption contest starts. Players were getting stuck on these because
+      // the original cleanup only covered four IDs. List below is verified
+      // against actual `.id =` and `id="..."` declarations in this file.
       if (phase) {
         [
+          // Blow Ball
           'player-photographer-selection',
           'waiting-blowball',
           'player-blowball-emotion',
           'blowball-get-ready-screen',
           'player-blowball-judging',
           'waiting-blowball-scoring',
-          'blowball-full-time-container',
-          'blowball-full-time-btn',
-          // also clear lingering goal-post / bog screens just in case
-          'player-goalpost',
-          'player-bog-explainer',
+          'blowball-full-time-container',  // legacy / defensive
+          'blowball-full-time-btn',        // legacy / defensive
+          // Bog rolling
           'player-bog-timer',
-          'sabotage-card-screen',
+          'bog-roll-helper-overlay',
+          // Goal Post Glory
+          'player-goalpost-timer',
+          'player-goalpost-judging',
+          // Sabotage tasks (Quick Pass / Hat Trick / etc.)
+          'sabotage-reminder',
+          'sabotage-completion-interface',
+          'sabotage-referee-scoring',
+          'sabotage-task-view',
         ].forEach(id => {
           const el = document.getElementById(id);
           if (el) el.remove();
