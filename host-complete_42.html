@@ -7124,6 +7124,77 @@ const CAPTION_ROUNDS = [
 // Three rotating 45-second music tracks (create these files; falls back gracefully on error)
 const CAPTION_MUSIC_FILES = ['caption_music_1.mp3', 'caption_music_2.mp3', 'caption_music_3.mp3'];
 
+// Team Talk background music — pulled from Match Draw + Caption Contest pools
+// since they share the "timed creative chaos" pacing. Each track is 30-45s,
+// so we queue 4 random tracks back-to-back to comfortably cover the 2-minute turn.
+const TEAM_TALK_MUSIC_FILES = [
+  'matchdraw_music_30sec_1.mp3',
+  'matchdraw_music_30sec_2.mp3',
+  'caption_music_1.mp3',
+  'caption_music_2.mp3',
+  'caption_music_3.mp3',
+];
+
+// Bg music helpers ────────────────────────────────────────────────────────────
+function _shuffleArr(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function startTeamTalkBgMusic() {
+  // Stop any previous turn's queue first (defensive — endTeamTalkTurn already does this)
+  stopTeamTalkBgMusic();
+
+  // Shuffle and pick 4 tracks (covers ~150s, comfortably > 120s turn)
+  window._ttBgQueue = _shuffleArr(TEAM_TALK_MUSIC_FILES).slice(0, 4);
+  window._ttBgVolume = 0.18;  // sit well under spoken voice
+  window._ttBgPlaying = true;
+  console.log('🎵 Team Talk bg music queue:', window._ttBgQueue.join(' → '));
+  _playNextTeamTalkBgTrack();
+}
+
+function _playNextTeamTalkBgTrack() {
+  if (!window._ttBgPlaying) return;
+  const next = window._ttBgQueue && window._ttBgQueue.shift();
+  if (!next) {
+    // Queue exhausted — refill with another shuffled batch in case the turn runs long
+    window._ttBgQueue = _shuffleArr(TEAM_TALK_MUSIC_FILES).slice(0, 2);
+    if (!window._ttBgQueue.length) return;
+    return _playNextTeamTalkBgTrack();
+  }
+  console.log('🎵 Team Talk bg → ' + next);
+  window._ttBgCurrentAudio = playAudio(`${next}?v=1`, {
+    volume: window._ttBgVolume || 0.18,
+    onEnded: _playNextTeamTalkBgTrack,
+    onError: _playNextTeamTalkBgTrack,
+    timeoutMs: 60000,
+  });
+}
+
+function duckTeamTalkBgMusic() {
+  // Lower volume during the 15-sec countdown audio so it reads cleanly
+  window._ttBgVolume = 0.06;
+  if (window._ttBgCurrentAudio) {
+    try { window._ttBgCurrentAudio.volume = window._ttBgVolume; } catch (e) {}
+  }
+}
+
+function stopTeamTalkBgMusic() {
+  window._ttBgPlaying = false;
+  window._ttBgQueue = [];
+  if (window._ttBgCurrentAudio) {
+    try {
+      window._ttBgCurrentAudio.pause();
+      window._ttBgCurrentAudio.src = '';
+    } catch (e) {}
+    window._ttBgCurrentAudio = null;
+  }
+}
+
 window._captionPhotos        = [];   // [url, url, url, url, url] — one per round
 window._captionCurrentAudio  = null;
 window._captionReviewStarted = -1;
@@ -9143,6 +9214,9 @@ function startTeamTalkCountdown() {
   // Render the active turn screen
   renderTeamTalkActiveScreen();
 
+  // Kick off bg music underneath the gameplay (sits quietly under voice)
+  startTeamTalkBgMusic();
+
   // Reset per-turn flags
   _ttCountdownPlayed = false;
 
@@ -9153,9 +9227,11 @@ function startTeamTalkCountdown() {
     updateTeamTalkTimerDisplay();
     updateTeamTalkInstructions();
 
-    // Play quiet 15-sec countdown audio once when 15 seconds remain
+    // Play quiet 15-sec countdown audio once when 15 seconds remain.
+    // Duck the bg music so the countdown reads cleanly on top of it.
     if (_ttTimeLeft === 15 && !_ttCountdownPlayed) {
       _ttCountdownPlayed = true;
+      duckTeamTalkBgMusic();
       playAudio('countdown_15sec.mp3?v=2', { volume: 0.25 });
     }
 
@@ -9391,6 +9467,10 @@ function endTeamTalkTurn() {
     _ttWordActionRef.off();
     _ttWordActionRef = null;
   }
+
+  // Stop bg music — the per-turn music should not bleed into the next turn
+  // or into the results screen (those have their own audio).
+  stopTeamTalkBgMusic();
 
   // Remove active screen
   const activeEl = document.getElementById('team-talk-active');

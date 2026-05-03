@@ -2251,7 +2251,10 @@ function showPhotographerSnapScreen(roundNumber) {
   if (!emotionDiv) {
     emotionDiv = document.createElement('div');
     emotionDiv.id = 'player-blowball-emotion';
-    emotionDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, #0a1628 0%, #1a2b4a 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 30px; text-align: center;';
+    // overflow-y: auto + justify-content: flex-start so the capture button is
+    // always reachable on shorter / desktop viewports (was being clipped below
+    // the fold when the screen was vertically centered with no scroll).
+    emotionDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, #0a1628 0%, #1a2b4a 100%); display: flex; flex-direction: column; align-items: center; justify-content: flex-start; overflow-y: auto; z-index: 10000; padding: 30px; text-align: center;';
     document.body.appendChild(emotionDiv);
   }
 
@@ -2277,13 +2280,40 @@ function showPhotographerSnapScreen(roundNumber) {
     <div id="blowball-photo-preview" style="display:none;margin-bottom:12px;">
       <img id="blowball-preview-img" style="width:110px;height:110px;object-fit:cover;border-radius:50%;border:3px solid #4dd4e8;box-shadow:0 0 20px rgba(77,212,232,0.4);">
     </div>
+    <input type="file" id="blowball-photo-fallback-input" accept="image/*" capture="environment"
+           style="display:none;" onchange="handleBlowBallFallbackPick(this)">
     <button id="blowball-capture-btn" onclick="captureBlowBallPhoto()"
-            style="padding: 16px 44px; background: linear-gradient(135deg, #4dd4e8, #ffc629); color: #0a1628; border: none; border-radius: 15px; font-family: 'Bebas Neue', sans-serif; font-size: 28px; cursor: pointer; box-shadow: 0 10px 30px rgba(255,198,41,0.4); -webkit-tap-highlight-color: transparent;">
+            style="padding: 16px 44px; margin-top: 14px; background: linear-gradient(135deg, #4dd4e8, #ffc629); color: #0a1628; border: none; border-radius: 15px; font-family: 'Bebas Neue', sans-serif; font-size: 28px; cursor: pointer; box-shadow: 0 10px 30px rgba(255,198,41,0.4); -webkit-tap-highlight-color: transparent;">
       📸 Take Photo
     </button>
   `;
 
   startBlowBallCamera();
+}
+
+// File-picker fallback: used when camera permission denied / no webcam, OR when
+// the photographer just wants to upload an existing photo. Reuses the same
+// upload pipeline as the live capture path.
+async function handleBlowBallFallbackPick(input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  const btn = document.getElementById('blowball-capture-btn');
+  if (btn) { btn.textContent = '⏳ Uploading…'; btn.disabled = true; }
+  try {
+    const base64 = await convertToBase64(file);
+    const snap = await gameRef.child('blowBallPhotoRound').once('value');
+    const roundNumber = snap.val() || 1;
+    await gameRef.child(`blowBall/photos/${playerId}`).push({
+      photo: base64, round: roundNumber, timestamp: Date.now()
+    });
+    console.log('✅ Blow-ball photo uploaded (fallback path)');
+    if (btn) { btn.textContent = '✅ Photo Taken!'; btn.disabled = true; }
+    const wrap = document.getElementById('blowball-viewfinder-wrap');
+    if (wrap) wrap.style.display = 'none';
+  } catch (err) {
+    console.error('❌ Fallback photo upload failed:', err);
+    if (btn) { btn.textContent = '📸 Take Photo'; btn.disabled = false; }
+  }
 }
 
 // Spectator screen during the hidden snap phase — emotion not shown yet
@@ -2397,25 +2427,32 @@ function convertToBase64(file) {
 // ── Blow-ball live-camera helpers ────────────────────────────────────────────
 
 async function startBlowBallCamera() {
+  // Browsers without secure context (HTTP, some embedded webviews) won't expose
+  // mediaDevices at all — short-circuit straight to the file-input fallback.
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    console.warn('Blow-ball camera not supported in this browser — using file picker');
+    return _switchToBlowBallFilePicker();
+  }
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
     const video = document.getElementById('blowball-camera-video');
     if (video) video.srcObject = stream;
   } catch (err) {
     console.warn('Blow-ball camera not available:', err);
-    // Hide viewfinder and fall back to file-input
-    const wrap = document.getElementById('blowball-viewfinder-wrap');
-    if (wrap) wrap.style.display = 'none';
-    const btn = document.getElementById('blowball-capture-btn');
-    if (btn) {
-      const input = document.createElement('input');
-      input.type = 'file'; input.accept = 'image/*'; input.capture = 'user';
-      input.id = 'photo-capture-fallback'; input.style.display = 'none';
-      input.onchange = () => handlePhotoCapture(input);
-      btn.parentNode.insertBefore(input, btn);
-      btn.textContent = '📂 Choose Photo';
-      btn.onclick = () => input.click();
-    }
+    _switchToBlowBallFilePicker();
+  }
+}
+
+// Re-wires the visible capture button to open the file picker. Called when the
+// camera is unavailable (no permission, no device, insecure context, etc.).
+function _switchToBlowBallFilePicker() {
+  const wrap = document.getElementById('blowball-viewfinder-wrap');
+  if (wrap) wrap.style.display = 'none';
+  const btn = document.getElementById('blowball-capture-btn');
+  const input = document.getElementById('blowball-photo-fallback-input');
+  if (btn && input) {
+    btn.textContent = '📂 Choose Photo';
+    btn.onclick = () => input.click();
   }
 }
 
@@ -2423,7 +2460,15 @@ async function captureBlowBallPhoto() {
   const video  = document.getElementById('blowball-camera-video');
   const canvas = document.getElementById('blowball-camera-canvas');
   const btn    = document.getElementById('blowball-capture-btn');
-  if (!video || !canvas || !video.srcObject) return;
+  // If the live stream isn't available (camera blocked, slow init, desktop
+  // without webcam), fall through to the file picker rather than silently
+  // doing nothing — the previous behaviour left the photographer stuck with
+  // no way to submit a photo.
+  if (!video || !canvas || !video.srcObject) {
+    const input = document.getElementById('blowball-photo-fallback-input');
+    if (input) { _switchToBlowBallFilePicker(); input.click(); }
+    return;
+  }
 
   // Freeze the capture — crop to square to preserve aspect ratio
   canvas.width  = 600;
@@ -2471,15 +2516,47 @@ function showPlayerBlowBallJudging() {
   const ftBtn = document.getElementById('blowball-full-time-btn');
   if (ftBtn) ftBtn.remove();
 
-  // Team 1 captain acts as referee (same as Goal Posts judging)
+  // Eligibility for the referee role, in priority order:
+  //   1. If host explicitly designated a refereeId, only that player is referee.
+  //   2. Otherwise: Team 1 captain (matches Goal Posts judging convention).
+  //   3. Fallback: any Team 1 captain (loose isCaptain check), then any captain,
+  //      then first player by joinedAt (so the screen can never end up on nobody's
+  //      phone — which is what stalls the round at "Full Time / referee is scoring").
   const myData = players[playerId];
-  const isReferee = myData && myData.isCaptain === true && myData.team === 1;
-
-  if (isReferee) {
-    showRefereeBlowBallScoring();
-  } else {
-    showWaitingForBlowBallScoring();
+  if (!myData) {
+    console.warn('🔄 Blow Ball judging fired before my player data loaded — retrying in 600ms');
+    setTimeout(showPlayerBlowBallJudging, 600);
+    return;
   }
+
+  function decideReferee() {
+    const ids = Object.keys(players || {});
+    // Strict: Team 1 captain
+    let ref = ids.find(id => players[id] && players[id].isCaptain === true && players[id].team === 1);
+    if (ref) return ref;
+    // Loose: Team 1 captain via truthy isCaptain
+    ref = ids.find(id => players[id] && players[id].isCaptain && players[id].team === 1);
+    if (ref) return ref;
+    // Any captain
+    ref = ids.find(id => players[id] && players[id].isCaptain);
+    if (ref) return ref;
+    // First player by joinedAt
+    return ids.sort((a, b) => (players[a]?.joinedAt || 0) - (players[b]?.joinedAt || 0))[0];
+  }
+
+  // If host has set blowBallRefereeId, honour it strictly (no fallback chain).
+  gameRef.child('blowBallRefereeId').once('value', (snap) => {
+    const designated = snap.val();
+    const refereeId = designated || decideReferee();
+    const isReferee = refereeId === playerId;
+    console.log(`🏁 Blow Ball judging: refereeId=${refereeId}, me=${playerId}, isReferee=${isReferee}`);
+
+    if (isReferee) {
+      showRefereeBlowBallScoring();
+    } else {
+      showWaitingForBlowBallScoring();
+    }
+  });
 }
 
 function showRefereeBlowBallScoring() {
@@ -5411,13 +5488,34 @@ function generateDefaultAvatar(name) {
     gameRef.child('captionContest/phase').on('value', (snap) => {
       const phase = snap.val();
 
-      // Remove all blow ball screens as soon as caption contest starts
+      // Remove all blow ball / goal post / sabotage screens as soon as caption
+      // contest starts. Photographers and other lingering players were getting
+      // stuck on these because the prior cleanup only covered four IDs.
       if (phase) {
-        ['player-blowball-emotion', 'waiting-blowball-scoring', 'player-blowball-judging',
-         'blowball-full-time-container'].forEach(id => {
+        [
+          'player-photographer-selection',
+          'waiting-blowball',
+          'player-blowball-emotion',
+          'blowball-get-ready-screen',
+          'player-blowball-judging',
+          'waiting-blowball-scoring',
+          'blowball-full-time-container',
+          'blowball-full-time-btn',
+          // also clear lingering goal-post / bog screens just in case
+          'player-goalpost',
+          'player-bog-explainer',
+          'player-bog-timer',
+          'sabotage-card-screen',
+        ].forEach(id => {
           const el = document.getElementById(id);
           if (el) el.remove();
         });
+        // Stop any blow-ball camera stream that may still be running
+        const camVid = document.getElementById('blowball-camera-video');
+        if (camVid && camVid.srcObject) {
+          try { camVid.srcObject.getTracks().forEach(t => t.stop()); } catch (e) {}
+          camVid.srcObject = null;
+        }
       }
 
       // Always clean up Player 1 reading-ready listener + button when phase changes
