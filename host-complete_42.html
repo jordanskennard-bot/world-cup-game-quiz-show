@@ -5933,57 +5933,44 @@ function startCommentaryRound() {
   document.body.appendChild(introDiv);
   gameRef.update({ commentaryPhase: 'intro' });
 
-  // Build the explainer up front so the music sting can hand off to it on end
-  const explainerAudio = new Audio('commentary_explainer.mp3?v=2');
-  explainerAudio.volume = 0.7;
-  // Register with the pause system so the host pause button can pause this audio
-  window._audioRefs.push(explainerAudio);
-  explainerAudio.addEventListener('ended', () => {
-    window._audioRefs = window._audioRefs.filter(a => a !== explainerAudio);
-  });
-
+  // Music sting → voice explainer chain. Routes through playAudio() so:
+  //   1. Autoplay blocks are caught and the unlock-button fallback fires
+  //      (raw new Audio + .play() previously had no such fallback, which
+  //      meant any autoplay block left the user with silent commentary).
+  //   2. The hard timeout inside playAudio guarantees onEnded fires even if
+  //      the browser swallows the `ended` event.
+  // Cache-busted to ?v=3 — the music file was missing from git for a while,
+  // and browsers cached the 404. ?v=3 forces a fresh fetch.
   let explainerTransitioned = false;
   const transitionToTeamSelection = () => {
     if (explainerTransitioned) return;
     explainerTransitioned = true;
-    explainerAudio.pause(); // stop explainer before next audio starts
     if (document.getElementById('commentary-intro')) { introDiv.remove(); startCommentaryTeamSelection(1); }
   };
 
-  explainerAudio.addEventListener('ended', transitionToTeamSelection);
-
-  // Play the music sting first, then the voice explainer (same pattern as
-  // round 1, interview, match draw, team talk).
-  let voiceStarted = false;
   const playExplainer = () => {
-    if (voiceStarted) return;
-    voiceStarted = true;
     console.log('🎵 Playing commentary_explainer.mp3');
-    explainerAudio.play().catch(e => console.log('commentary_explainer not found:', e));
+    window.commentaryExplainerAudio = playAudio('commentary_explainer.mp3?v=2', {
+      volume: 0.7,
+      onEnded: transitionToTeamSelection,
+      onError: transitionToTeamSelection,
+    });
   };
 
   console.log('🎵 Playing commentary_round_intro_music.mp3');
-  const commentaryMusic = new Audio('commentary_round_intro_music.mp3?v=2');
-  commentaryMusic.volume = 0.5;
-  window.commentaryIntroMusic = commentaryMusic;
-  window._audioRefs.push(commentaryMusic);
-  const cleanupMusic = () => {
-    window._audioRefs = window._audioRefs.filter(a => a !== commentaryMusic);
-  };
-  commentaryMusic.addEventListener('ended', () => { cleanupMusic(); playExplainer(); });
-  commentaryMusic.addEventListener('error', () => {
-    console.warn('⚠️ commentary_round_intro_music.mp3 failed — skipping to explainer');
-    cleanupMusic();
-    playExplainer();
-  });
-  commentaryMusic.play()
-    .then(() => console.log('🔊 Playing commentary_round_intro_music'))
-    .catch(err => {
-      console.warn('⚠️ commentary_round_intro_music blocked, skipping to explainer:', err.message);
-      cleanupMusic();
+  window.commentaryIntroMusic = playAudio('commentary_round_intro_music.mp3?v=3', {
+    volume: 0.5,
+    onEnded: playExplainer,
+    onError: () => {
+      console.warn('⚠️ commentary_round_intro_music.mp3 failed — skipping to explainer');
       playExplainer();
-    });
-  setTimeout(transitionToTeamSelection, 75000); // safety fallback only — ended event handles normal flow (extended to allow music + explainer)
+    },
+    timeoutMs: 30000,
+  });
+
+  // Hard safety: if both audios fail to fire onEnded for any reason, advance
+  // anyway after 75s so the round never stalls.
+  setTimeout(transitionToTeamSelection, 75000);
 }
 
 function startCommentaryTeamSelection(teamNumber) {
