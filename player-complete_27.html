@@ -1250,27 +1250,33 @@ function listenForGameStart() {
     return;
   }
   
-  // Check if this is the first player
-  gameRef.child('players').once('value', (snapshot) => {
-    const players = snapshot.val() || {};
-    const playerIds = Object.keys(players);
-    const isFirstPlayer = playerIds.length > 0 && playerIds[0] === playerId;
-    
-    console.log('Player IDs:', playerIds);
-    console.log('My player ID:', playerId);
-    console.log('Is first player:', isFirstPlayer);
-    
-    if (isFirstPlayer) {
+  // Check if this player has been promoted to first/captain. We listen reactively
+  // (instead of a one-shot once('value')) because the host's captain-assignment
+  // runs asynchronously after the player joins, AND because if ghost-player
+  // records were ahead of us in the list they may get cleaned up later — so a
+  // one-shot check at join time can be wrong. Listen to our own isCaptain flag
+  // (the host sets it on the home-team captain, and that's also the referee).
+  let _captainUiShown = false;
+  gameRef.child('players/' + playerId + '/isCaptain').on('value', (snap) => {
+    if (snap.val() !== true || _captainUiShown) return;
+    // Only act if we're the HOME team captain (referee)
+    gameRef.child('players/' + playerId + '/team').once('value', (teamSnap) => {
+      if (teamSnap.val() !== 1) return;
+      _captainUiShown = true;
       window._isPlayer1 = true;
-      // Show start button for first player
-      document.getElementById('waiting-message').textContent = 'You joined first! Select teams when ready.';
+      const wm = document.getElementById('waiting-message');
+      if (wm) wm.textContent = 'You joined first! Select teams when ready.';
       const leadControls = document.getElementById('waiting-lead-controls');
-      leadControls.style.display = 'flex';
-      leadControls.style.justifyContent = 'center';
-      document.getElementById('start-game-note').style.display = 'block';
-      document.getElementById('waiting-spinner').style.display = 'none';
-      console.log('Start button shown for first player');
-    }
+      if (leadControls) {
+        leadControls.style.display = 'flex';
+        leadControls.style.justifyContent = 'center';
+      }
+      const startNote = document.getElementById('start-game-note');
+      if (startNote) startNote.style.display = 'block';
+      const spinner = document.getElementById('waiting-spinner');
+      if (spinner) spinner.style.display = 'none';
+      console.log('🎮 Captain UI activated (reactive to isCaptain flag)');
+    });
   });
   
   // Listen for team assignment

@@ -1801,21 +1801,27 @@ function playAudio(src, options = {}) {
 
   window._audioRefs.push(audio);
 
+  let onEndedFired = false;
   const release = () => {
     window._audioRefs = window._audioRefs.filter(a => a !== audio);
   };
+  // Idempotent onEnded — guarantees the chain progresses exactly once.
+  // Without this, if both `ended` and the safety timeout fire, callbacks would run twice.
+  const fireOnEnded = (reason) => {
+    if (onEndedFired) return;
+    onEndedFired = true;
+    if (options.onEnded) {
+      try { options.onEnded(); } catch (e) { console.error('playAudio onEnded error:', e); }
+    }
+  };
 
-  audio.addEventListener('ended', () => {
-    release();
-    if (options.onEnded) options.onEnded();
-  });
-
+  audio.addEventListener('ended', () => { release(); fireOnEnded('ended'); });
   audio.addEventListener('error', () => {
     console.log('⚠️ Audio load failed:', src);
     release();
-    // Treat error same as ended so game flow isn't blocked
-    if (options.onEnded) options.onEnded();
     if (options.onError) options.onError();
+    // Treat error same as ended so game flow isn't blocked
+    fireOnEnded('error');
   });
 
   audio.play().catch(e => {
@@ -1827,9 +1833,17 @@ function playAudio(src, options = {}) {
     } else {
       console.log('⚠️ Audio play() rejected:', src, e.message);
       release();
-      if (options.onEnded) options.onEnded();
+      fireOnEnded('play rejected');
     }
   });
+
+  // Hard safety: if `onEnded` never fires (autoplay blocked and never unlocked,
+  // or browser quirk), advance the chain after `options.timeoutMs` (default 15s).
+  // This prevents the entire game flow from stalling on a missed audio event,
+  // which is the same class of bug that hits the round transitions.
+  if (options.onEnded) {
+    setTimeout(() => fireOnEnded('timeout'), options.timeoutMs || 15000);
+  }
 
   return audio;
 }
@@ -1925,6 +1939,65 @@ const gameRef = database.ref('games/' + gameCode);
 
 let players = {};
 let currentRound = 1;
+
+// Round-overlay IDs — every full-screen `position: fixed` div the host renders
+// for one round's UI. _clearRoundOverlays() sweeps any of these still in the
+// DOM, called at the top of every round-entry function. This kills the
+// "previous round's celebration / timer / explainer leaks onto the next
+// round's screen" class of bugs (overlays observed: bog-explainer +
+// goalpost-explainer + blowball-intro-screen all visible simultaneously,
+// PASS! +5 POINTS celebration overlaying Team Talk intro, md-countdown
+// rendering through Bonus Round screen, etc.). Persistent UI (header, QR
+// code, pause button, audio-unlock button) deliberately omitted from this
+// list so it survives.
+const ROUND_OVERLAY_IDS = [
+  // Lobby / team selection
+  'team-select-waiting', 'match-card-screen',
+  // Round 1 (Anthem Quiz)
+  'round1-explainer',
+  // Scores review (between rounds)
+  'scores-review',
+  // Round 2 (Punned It) and pun review
+  'round2-explainer', 'pun-review', 'pun-review-screen', 'pun-champion-screen',
+  // Round 3 (Interview)
+  'round3-intro',
+  // Bonus / Karaoke / Futbol face swap
+  'bonus-offer-screen', 'karaoke-screen', 'bonus-judging-screen',
+  'futbol-loading', 'futbol-screen',
+  // Match Draw (intro, sub-phases, scoring, reveal)
+  'match-draw-intro', 'md-countdown', 'md-drawing-timer',
+  'md-guessing-timer', 'md-scoring-screen', 'chain-reveal',
+  // Commentary Round
+  'commentary-intro', 'commentary-selection', 'commentary-countdown',
+  // Toilet paper rounds
+  'toilet-paper-alert',
+  'bog-explainer', 'bog-timer',
+  'goalpost-explainer', 'goalpost-timer', 'goalpost-judging',
+  'blowball-intro-screen', 'blowball-explainer',
+  'photographer-selection', 'blowball-get-ready-host',
+  'blowball-emotion', 'blowball-judging',
+  // Caption Contest
+  'caption-contest-intro', 'caption-round-screen', 'caption-review-screen',
+  'caption-voting-screen', 'caption-winner-screen',
+  // Extra Time / Sabotage Reveals
+  'extra-time-screen', 'sabotage-reveal-card', 'sabotage-reveals',
+  // Team Talk
+  'team-talk-intro', 'team-talk-waiting', 'team-talk-active', 'team-talk-results',
+  // Final / Victory
+  'victory-screen',
+];
+
+function _clearRoundOverlays() {
+  ROUND_OVERLAY_IDS.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.remove();
+  });
+  // Commentary recording/playback/scoring use dynamic per-team IDs
+  // (e.g. commentary-recording-1, commentary-playback-2). Sweep all of them.
+  ['recording','playback','scoring'].forEach(phase => {
+    document.querySelectorAll(`[id^="commentary-${phase}-"]`).forEach(e => e.remove());
+  });
+}
 
 // Audio-gate helper. Browsers report `audio.paused === false` for autoplay-
 // blocked audio that never actually started, so flow logic that gates
@@ -2249,6 +2322,7 @@ function confirmTeams() {
 }
 
 function showMatchCard() {
+  _clearRoundOverlays();
   const existing = document.getElementById('match-card-screen');
   if (existing) existing.remove();
 
@@ -2328,6 +2402,9 @@ function proceedToVoiceGeneration() {
 // ═══════════════════════════════════════════════════════════════════════════
 
 function showRound1Explainer() {
+  _clearRoundOverlays();
+  const _ri = document.getElementById('round-indicator');
+  if (_ri) _ri.textContent = 'Anthem Quiz';
   // Remove match card if still showing
   const matchCardEl = document.getElementById('match-card-screen');
   if (matchCardEl) matchCardEl.remove();
@@ -3087,16 +3164,32 @@ function revealAnswer() {
     }
   }
   
-  // Award points
-  gameRef.child('answers/' + currentQuestion).once('value', (snapshot) => {
-    const answers = snapshot.val() || {};
-    Object.entries(answers).forEach(([playerId, answer]) => {
-      if (answer.answerIndex === q.correct) {
-        const currentScore = players[playerId]?.score || 0;
-        gameRef.child('players/' + playerId).update({ score: currentScore + 1 });
-      }
+  // Award points. Track which players we've credited to avoid double-counting
+  // when we re-check for late-arriving answers.
+  window._round1Credited = window._round1Credited || {};
+  window._round1Credited[currentQuestion] = window._round1Credited[currentQuestion] || {};
+  const creditPass = (label) => {
+    gameRef.child('answers/' + currentQuestion).once('value', (snapshot) => {
+      const answers = snapshot.val() || {};
+      const credited = window._round1Credited[currentQuestion];
+      Object.entries(answers).forEach(([playerId, answer]) => {
+        if (answer.answerIndex === q.correct && !credited[playerId]) {
+          credited[playerId] = true;
+          const currentScore = players[playerId]?.score || 0;
+          gameRef.child('players/' + playerId).update({ score: currentScore + 1 });
+          console.log(`🏆 Credit ${players[playerId]?.name || playerId} (${label})`);
+        }
+      });
     });
-  });
+  };
+  // Initial pass at reveal time…
+  creditPass('initial reveal');
+  // …then again after a few seconds to catch late submissions that arrived
+  // during the answer audio playback. Bug observed: players who tap right
+  // at the auto-reveal threshold lost their points because revealAnswer()
+  // only read answers once, before their write committed.
+  setTimeout(() => creditPass('late catch'), 3000);
+  setTimeout(() => creditPass('final catch'), 7000);
   
   // Play answer audio using R1_Q#_A.mp3 format
   const questionNumber = currentQuestion + 1;
@@ -3168,6 +3261,7 @@ function showScoresReview() {
   _scoresReviewActive = true;
   _scoresReviewRouted = false; // reset route flag for this new review
   console.log('📊 Showing scores review');
+  _clearRoundOverlays();
   
   // Hide game screen and interview screen (round3-screen may be active if coming from Round 3)
   document.getElementById('game-screen').classList.remove('active');
@@ -3196,8 +3290,32 @@ function showScoresReview() {
 
   // Determine leader — pick a random comment from a pool for variety
   const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+  const _isFinal = _src === 'toiletpaper';
   let leadText = '';
-  if (team1Score > team2Score) {
+  if (_isFinal) {
+    // Full Time — use victory phrasing instead of mid-game "early lead" language
+    if (team1Score > team2Score) {
+      leadText = pick([
+        `It's all over! ${team1.name} are your champions with ${team1Score} points to ${team2.name}'s ${team2Score}!`,
+        `Full time — and ${team1.name} have done it! ${team1Score} points to ${team2.name}'s ${team2Score}. What a result!`,
+        `The final whistle goes and ${team1.name} take the trophy ${team1Score}–${team2Score}. ${team2.name} put up a brave fight on ${team2Score}`,
+        `Game over! ${team1.name} are crowned champions ${team1Score}–${team2Score}. ${team2.name} will be back next time`,
+      ]);
+    } else if (team2Score > team1Score) {
+      leadText = pick([
+        `It's all over! ${team2.name} are your champions with ${team2Score} points to ${team1.name}'s ${team1Score}!`,
+        `Full time — and ${team2.name} have done it! ${team2Score} points to ${team1.name}'s ${team1Score}. What a result!`,
+        `The final whistle goes and ${team2.name} take the trophy ${team2Score}–${team1Score}. ${team1.name} put up a brave fight on ${team1Score}`,
+        `Game over! ${team2.name} are crowned champions ${team2Score}–${team1Score}. ${team1.name} will be back next time`,
+      ]);
+    } else {
+      leadText = pick([
+        `Incredible — full time and we have a draw! Both teams finish on ${team1Score}!`,
+        `The final whistle and they couldn't be separated — ${team1Score} apiece!`,
+        `Honours even at full time, ${team1Score} each. What a contest!`,
+      ]);
+    }
+  } else if (team1Score > team2Score) {
     leadText = pick([
       `${team1.name} took an early lead there with ${team1Score} points, meanwhile ${team2.name} are trailing with ${team2Score} points`,
       `${team1.name} are out in front with ${team1Score} points! ${team2.name} will need to pull something out of the bag — they're on ${team2Score}`,
@@ -3559,6 +3677,7 @@ function startRound2() {
     console.log('⚠️ Round 2 already started, skipping duplicate call');
     return;
   }
+  _clearRoundOverlays();
   window._offsideTrapFired = false; // reset for this round
   window._round2VoiceStarted = false;
   
@@ -3618,6 +3737,15 @@ function showRound2Explainer() {
     window.round2IntroAudio.addEventListener('error', (e) => {
       console.error('❌ round_2_intro.mp3 failed to load:', window.round2IntroAudio.error);
     });
+    // Attach the round-2 gameplay-start gate to the actual voice audio (not
+    // the music). Previously _audioGate was called at the bottom of
+    // showRound2Explainer with `window.round2IntroAudio === undefined`,
+    // which meant it just used a fixed 12s timeout — cutting off or
+    // running ahead of the voice depending on length. Now it correctly
+    // listens to the voice's `ended` event.
+    if (typeof _audioGate === 'function') {
+      _audioGate(window.round2IntroAudio, startGameplay, 12000);
+    }
     window.round2IntroAudio.play()
       .then(() => console.log('🔊 Playing round_2_intro'))
       .catch(err => console.error('round_2_intro play failed:', err));
@@ -3646,18 +3774,19 @@ function showRound2Explainer() {
     gameplayStarted = true;
     window.round2IntroAudio = null;
     console.log(`✅ Round 2 intro finished (${reason}), starting round`);
-    explainerDiv.remove();
+    if (document.body.contains(explainerDiv)) explainerDiv.remove();
     startRound2Gameplay();
   };
-  // Wait for audio to finish (or end/error/timeout), then start round
-  _audioGate(window.round2IntroAudio, startGameplay, 12000);
+  // Hard safety: even if neither music NOR voice end fires (cascade
+  // failure), advance into gameplay after 25s total.
+  setTimeout(() => startGameplay('hard safety timeout'), 25000);
 }
 
 function startRound2Gameplay() {
   console.log('🎮 Starting Round 2 gameplay');
   
   document.getElementById('round2-screen').classList.add('active');
-  document.getElementById('round-indicator').textContent = 'Round 6 - Punned It';
+  document.getElementById('round-indicator').textContent = 'Punned It';
   
   // Assign each player a unique random category (shuffle categories, cycle if more players than categories)
   const shuffledCats = [...ROUND_2_CATEGORIES].sort(() => Math.random() - 0.5);
@@ -4286,8 +4415,9 @@ function triggerOffsideTrap() {
 let round3CurrentQ = 0;
 
 function startRound3() {
+  _clearRoundOverlays();
   document.getElementById('game-screen').classList.remove('active');
-  document.getElementById('round-indicator').textContent = 'Round 2 - Interview';
+  document.getElementById('round-indicator').textContent = 'Interview Round';
 
   // Defensive: kill any stale Round 2 (Punned It) timer state. Otherwise a
   // pause/resume here would let the leftover countdown elapse in the
@@ -4823,6 +4953,9 @@ function showBonusOffer() {
     console.log('⚠️ Bonus offer already shown, ignoring duplicate call');
     return;
   }
+  _clearRoundOverlays();
+  const _ri = document.getElementById('round-indicator');
+  if (_ri) _ri.textContent = 'Bonus Round';
   bonusOfferShown = true;
   console.log('🎤 Showing Bonus Round offer');
   document.getElementById('game-screen').classList.remove('active');
@@ -5213,6 +5346,9 @@ function checkForMatchDraw() {
 
 function startMatchDraw() {
   console.log('🎨 Starting Match Draw');
+  _clearRoundOverlays();
+  const _ri = document.getElementById('round-indicator');
+  if (_ri) _ri.textContent = 'Match Draw';
 
   const playerIds = Object.keys(players);
   const playerCount = playerIds.length;
@@ -5325,12 +5461,21 @@ function startMatchDrawRound(roundNumber) {
   `;
   document.body.appendChild(cdDiv);
 
-  const cdInterval = setInterval(() => {
+  if (window._mdCdInterval) clearInterval(window._mdCdInterval);
+  window._mdCdInterval = setInterval(() => {
     countdown--;
     const el = document.getElementById('md-cd-num');
     if (el) el.textContent = countdown > 0 ? countdown : 'DRAW!';
+    // Auto-cancel if UI swept externally
+    if (!document.getElementById('md-countdown') && countdown > 0) {
+      clearInterval(window._mdCdInterval);
+      window._mdCdInterval = null;
+      console.log('🛑 md countdown interval auto-cleared (UI gone)');
+      return;
+    }
     if (countdown <= 0) {
-      clearInterval(cdInterval);
+      clearInterval(window._mdCdInterval);
+      window._mdCdInterval = null;
       setTimeout(() => {
         if (document.getElementById('md-countdown')) document.getElementById('md-countdown').remove();
         startDrawingPhase(roundNumber);
@@ -5360,14 +5505,27 @@ function startDrawingPhase(roundNumber) {
   window.matchDrawMusic = drawAudio;
 
   let timeLeft = 30;
-  const interval = setInterval(() => {
+  // Stash the interval so it can be cleared if the round is interrupted
+  // (e.g. _clearRoundOverlays sweep removes the timer div externally).
+  if (window._mdDrawInterval) clearInterval(window._mdDrawInterval);
+  window._mdDrawInterval = setInterval(() => {
     timeLeft--;
     const el = document.getElementById('md-draw-num');
     if (el) el.textContent = timeLeft;
     gameRef.update({ 'matchDraw/drawingTimeLeft': timeLeft });
 
+    // If the timer's UI has been swept away externally, cancel ourselves so
+    // we don't tick past the round end and trigger the next phase.
+    if (!document.getElementById('md-drawing-timer') && timeLeft > 0) {
+      clearInterval(window._mdDrawInterval);
+      window._mdDrawInterval = null;
+      console.log('🛑 md drawing interval auto-cleared (UI gone)');
+      return;
+    }
+
     if (timeLeft <= 0) {
-      clearInterval(interval);
+      clearInterval(window._mdDrawInterval);
+      window._mdDrawInterval = null;
       if (window.matchDrawMusic) { window.matchDrawMusic.pause(); window.matchDrawMusic = null; }
       if (document.getElementById('md-drawing-timer')) document.getElementById('md-drawing-timer').remove();
 
@@ -5393,14 +5551,24 @@ function startGuessingPhase(roundNumber) {
   document.body.appendChild(timerDiv);
 
   let timeLeft = 15;
-  const interval = setInterval(() => {
+  if (window._mdGuessInterval) clearInterval(window._mdGuessInterval);
+  window._mdGuessInterval = setInterval(() => {
     timeLeft--;
     const el = document.getElementById('md-guess-num');
     if (el) el.textContent = timeLeft;
     gameRef.update({ 'matchDraw/guessingTimeLeft': timeLeft });
 
+    // Auto-cancel if UI swept externally — same defensive pattern as drawing phase
+    if (!document.getElementById('md-guessing-timer') && timeLeft > 0) {
+      clearInterval(window._mdGuessInterval);
+      window._mdGuessInterval = null;
+      console.log('🛑 md guessing interval auto-cleared (UI gone)');
+      return;
+    }
+
     if (timeLeft <= 0) {
-      clearInterval(interval);
+      clearInterval(window._mdGuessInterval);
+      window._mdGuessInterval = null;
       if (document.getElementById('md-guessing-timer')) document.getElementById('md-guessing-timer').remove();
 
       gameRef.child('matchDraw').once('value', (snap) => {
@@ -5417,6 +5585,10 @@ function startGuessingPhase(roundNumber) {
 
 function startMatchDrawReveal() {
   console.log('🎭 Starting Match Draw reveal');
+  // Sweep any lingering Match Draw sub-phase divs (countdown / drawing / guessing)
+  // that may not have been removed when their phase ended.
+  ['md-countdown','md-drawing-timer','md-guessing-timer','md-scoring-screen']
+    .forEach(id => { const e = document.getElementById(id); if (e) e.remove(); });
   gameRef.update({ 'matchDraw/currentPhase': 'reveal', 'matchDraw/currentRevealPlayer': 0 });
   showNextPlayerReveal();
 }
@@ -5743,6 +5915,9 @@ function applyMatchDrawScores(playerOrder) {
 
 function startCommentaryRound() {
   console.log('🎙️ Starting Commentary Round');
+  _clearRoundOverlays();
+  const _ri = document.getElementById('round-indicator');
+  if (_ri) _ri.textContent = 'Commentary Challenge';
   _commentaryRoundEnded = false;
   if (usedCommentaryVideos.length >= COMMENTARY_VIDEOS.length) usedCommentaryVideos = [];
 
@@ -6156,6 +6331,9 @@ function endCommentaryRound() {
 
 function showToiletPaperAlert() {
   console.log('🧻 Showing Toilet Paper Alert');
+  _clearRoundOverlays();
+  const _ri = document.getElementById('round-indicator');
+  if (_ri) _ri.textContent = 'Get the Toilet Paper!';
 
   const alertDiv = document.createElement('div');
   alertDiv.id = 'toilet-paper-alert';
@@ -6331,6 +6509,9 @@ function assignSabotageTasks() {
 }
 
 function startBogRolling() {
+  _clearRoundOverlays();
+  const _ri = document.getElementById('round-indicator');
+  if (_ri) _ri.textContent = 'Bog Rolling The Pitch';
   console.log('🧻 Starting Bog Rolling the Pitch');
 
   const explainerDiv = document.createElement('div');
@@ -6416,6 +6597,9 @@ function startBogRollingTimer() {
 }
 
 function startGoalPosts() {
+  _clearRoundOverlays();
+  const _ri = document.getElementById('round-indicator');
+  if (_ri) _ri.textContent = 'Goal Post Glory';
   console.log('🥅 Starting Goal Post Glory');
 
   const explainerDiv = document.createElement('div');
@@ -6577,6 +6761,9 @@ let blowBallPhotoCount = 0;
 const TOTAL_BLOW_BALL_PHOTOS = 6;
 
 function startBlowBall() {
+  _clearRoundOverlays();
+  const _ri = document.getElementById('round-indicator');
+  if (_ri) _ri.textContent = 'Blow Ball';
   console.log('💨 Starting Blow Ball');
 
   // Blank screen while intro plays
@@ -6944,6 +7131,7 @@ window._captionReviewStarted = -1;
 // ─── Intro & photo selection ─────────────────────────────────────────────────
 
 function showCaptionContestIntro() {
+  _clearRoundOverlays();
   console.log('📸 Caption Contest — checking for blow ball photos');
 
   gameRef.child('blowBall/photos').once('value', (snapshot) => {
@@ -7602,6 +7790,7 @@ function showExtraTimeScreen() {
 }
 
 function startSabotageOneByOne() {
+  _clearRoundOverlays();
   window._sabotageJudgements = {};
   gameRef.child('sabotage').once('value', (snapshot) => {
     const sabotageData = snapshot.val();
@@ -7839,6 +8028,7 @@ function finishSabotageReveals() {
 
 function showVictoryScreen() {
   console.log('🏆 Showing Victory Screen');
+  _clearRoundOverlays();
 
   // Stop everything that might still be playing from previous rounds
   pauseAllAudio();
@@ -8811,6 +9001,9 @@ function playTeamTalkDing(options = {}) {
 // ─── Intro ───────────────────────────────────────────────────────────────────
 
 function showTeamTalkIntro() {
+  _clearRoundOverlays();
+  const _ri = document.getElementById('round-indicator');
+  if (_ri) _ri.textContent = 'Team Talk';
   const div = document.createElement('div');
   div.id = 'team-talk-intro';
   div.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, var(--motd-dark-navy) 0%, var(--motd-navy) 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 40px; text-align: center;';
