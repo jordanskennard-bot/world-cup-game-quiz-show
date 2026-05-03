@@ -4751,13 +4751,23 @@ function showPlayerScoring() {
   // Safety: if the referee enters the scoring phase but the buttons never
   // render within 4s (e.g. listener attached too late, or currentScoringPlayerId
   // hasn't propagated), force a re-fetch.
+  // BUT: don't rebuild if a score for the current player is already in
+  // Firebase — that would re-show the rating UI after the user has already
+  // scored, asking them to rate the same drawing again.
   setTimeout(() => {
     if (document.getElementById('player-md-scoring')) return;
     gameRef.child('matchDraw/currentScoringPlayerId').once('value', (snap) => {
       const id = snap.val();
       if (!id) return;
-      console.warn('⚠️ Scoring buttons missing after 4s — forcing rebuild');
-      showRefereeMatchDrawScoring();
+      // Already scored? Don't rebuild — the host is just mid-fanfare before advancing.
+      gameRef.child('matchDraw/scores/' + id).once('value', (scoreSnap) => {
+        if (scoreSnap.val() !== null && scoreSnap.val() !== undefined) {
+          console.log('✓ Skip safety rebuild — score already submitted for', id);
+          return;
+        }
+        console.warn('⚠️ Scoring buttons missing after 4s — forcing rebuild');
+        showRefereeMatchDrawScoring();
+      });
     });
   }, 4000);
 }

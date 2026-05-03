@@ -5025,14 +5025,18 @@ function showBonusOffer() {
     });
   });
 
-  // Auto-skip bonus round after 30 seconds if no team accepts
+  // Auto-skip bonus round after 30 seconds if no team accepts.
+  // Route FORWARD into Team Talk → Punned It (same path as bonus pass/fail
+  // takes). Previously this fell back into showScoresReview() with no
+  // scoresReviewSource, which defaulted to 'round1' and routed back to
+  // the Interview Round (already played).
   bonusAutoSkipTimer = setTimeout(() => {
     if (document.getElementById('bonus-offer-screen')) {
-      console.log('⏭️ No team accepted bonus, skipping to Scores Review');
+      console.log('⏭️ No team accepted bonus, skipping to Team Talk');
       gameRef.child('bonusTeamAccepted').off();
       bonusDiv.remove();
       gameRef.update({ bonusRoundActive: false, bonusRoundPhase: 'skipped' });
-      showScoresReview();
+      showTeamTalkIntro();
     }
   }, 30000);
 }
