@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Foul Play — Host Screen</title>
+<title>Foul Play: Host Screen</title>
 <!-- VERSION: 8.0 - Full game flow: Bonus Round + Match Draw + Victory Screen - CLEAR CACHE! -->
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:ital,wght@0,400;0,600;0,700;1,400&family=Barlow:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
 
@@ -58,7 +58,7 @@
     padding-top: var(--header-height);
   }
   
-  /* HEADER — fixed so it persists above all game overlays */
+  /* HEADER, fixed so it persists above all game overlays */
   .host-header {
     position: fixed;
     top: 0;
@@ -1422,7 +1422,7 @@ const PUN_KING_URL  = window.location.origin + '/pun_king.jpg';
 const FUTBOL_URL    = window.location.origin + '/futbol.jpeg';
 
 // ═══════════════════════════════════════════════════════════════════════════
-// FAL.AI — PUN KING FACE SWAP
+// FAL.AI, PUN KING FACE SWAP
 // ═══════════════════════════════════════════════════════════════════════════
 
 /**
@@ -1431,7 +1431,7 @@ const FUTBOL_URL    = window.location.origin + '/futbol.jpeg';
  */
 async function generatePunKingPortrait(playerPhotoDataUrl) {
   if (!FAL_AI_KEY || FAL_AI_KEY === 'YOUR_FAL_AI_KEY_HERE') {
-    console.warn('⚠️  FAL_AI_KEY not set — skipping Pun King face swap');
+    console.warn('⚠️  FAL_AI_KEY not set, skipping Pun King face swap');
     return null;
   }
 
@@ -1443,8 +1443,8 @@ async function generatePunKingPortrait(playerPhotoDataUrl) {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        base_image_url: PUN_KING_URL,   // painting — face gets replaced
-        swap_image_url: playerPhotoDataUrl  // player's face — fal.ai accepts base64
+        base_image_url: PUN_KING_URL,   // painting, face gets replaced
+        swap_image_url: playerPhotoDataUrl  // player's face, fal.ai accepts base64
       })
     });
 
@@ -1467,7 +1467,7 @@ async function generatePunKingPortrait(playerPhotoDataUrl) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// FAL.AI — FUTBOL FACE SWAP (bonus round)
+// FAL.AI, FUTBOL FACE SWAP (bonus round)
 // ═══════════════════════════════════════════════════════════════════════════
 
 /**
@@ -1476,7 +1476,7 @@ async function generatePunKingPortrait(playerPhotoDataUrl) {
  */
 async function generateFutbolFaceSwap(playerPhotoDataUrl) {
   if (!FAL_AI_KEY || FAL_AI_KEY === 'YOUR_FAL_AI_KEY_HERE') {
-    console.warn('⚠️  FAL_AI_KEY not set — skipping Futbol face swap');
+    console.warn('⚠️  FAL_AI_KEY not set, skipping Futbol face swap');
     return null;
   }
   try {
@@ -1516,19 +1516,19 @@ const ROUND_1_QUESTIONS = [
     question: "To the King of Spain I have always given honour.",
     answers: ["Netherlands", "Spain", "Ireland", "Argentina"],
     correct: 0,
-    note: "Het Wilhelmus — the oldest national anthem in the world."
+    note: "Het Wilhelmus, the oldest national anthem in the world."
   },
   {
     question: "Mercenary swords, they are feeble reeds... already the Eagle of Austria has lost its feathers.",
     answers: ["Italy", "Austria", "Germany", "Hong Kong"],
     correct: 0,
-    note: "Il Canto degli Italiani — written by Goffredo Mameli in 1847."
+    note: "Il Canto degli Italiani, written by Goffredo Mameli in 1847."
   },
   {
     question: "This country's national anthem is famous for having no official lyrics at all. Which nation?",
     answers: ["Spain", "DR Congo", "Bhutan", "Austria"],
     correct: 0,
-    note: "La Marcha Real — one of only four national anthems with no official lyrics."
+    note: "La Marcha Real, one of only four national anthems with no official lyrics."
   },
   {
     question: "Which one of these was NOT an official World Cup song?",
@@ -1563,7 +1563,7 @@ const ROUND_2_CATEGORIES = [
 // SCORE REACTION CATEGORIES
 // ═══════════════════════════════════════════════════════════════════════════
 
-// Generic reaction — plays BEFORE ElevenLabs commentary
+// Generic reaction, plays BEFORE ElevenLabs commentary
 function getGenericReactionFile() {
   const files = [
     'scores_reaction_1.mp3',
@@ -1581,7 +1581,7 @@ function getGenericReactionFile() {
   return files[Math.floor(Math.random() * files.length)];
 }
 
-// Contextual reaction — plays AFTER ElevenLabs commentary
+// Contextual reaction, plays AFTER ElevenLabs commentary
 function getContextualReactionFile(team1Score, team2Score) {
   const difference = Math.abs(team1Score - team2Score);
   const pick = arr => arr[Math.floor(Math.random() * arr.length)];
@@ -1781,15 +1781,15 @@ const WORLD_CUP_FINALISTS = [
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════
-// AUDIO MANAGER — prevents GC of playing Audio objects
+// AUDIO MANAGER, prevents GC of playing Audio objects
 // ═══════════════════════════════════════════════════════════════════════════
 
 window._audioRefs = [];
 
 /**
  * playAudio(src, options)
- *   src     — filename string, e.g. 'intro_music.mp3?v=2'
- *   options — { volume: 0.6, loop: false, onEnded: fn, onError: fn }
+ *   src    , filename string, e.g. 'intro_music.mp3?v=2'
+ *   options, { volume: 0.6, loop: false, onEnded: fn, onError: fn }
  * Returns the Audio element so callers can pause/null it.
  * The reference is kept in window._audioRefs until the clip ends,
  * preventing garbage-collection mid-play.
@@ -1805,7 +1805,7 @@ function playAudio(src, options = {}) {
   const release = () => {
     window._audioRefs = window._audioRefs.filter(a => a !== audio);
   };
-  // Idempotent onEnded — guarantees the chain progresses exactly once.
+  // Idempotent onEnded, guarantees the chain progresses exactly once.
   // Without this, if both `ended` and the safety timeout fire, callbacks would run twice.
   const fireOnEnded = (reason) => {
     if (onEndedFired) return;
@@ -1826,7 +1826,7 @@ function playAudio(src, options = {}) {
 
   audio.play().catch(e => {
     if (e.name === 'NotAllowedError') {
-      console.log('⚠️ Audio blocked — queued for unlock:', src);
+      console.log('⚠️ Audio blocked, queued for unlock:', src);
       window._audioQueue = window._audioQueue || [];
       window._audioQueue.push({ audio, options, release });
       showAudioUnlockButton();
@@ -1940,7 +1940,7 @@ const gameRef = database.ref('games/' + gameCode);
 let players = {};
 let currentRound = 1;
 
-// Round-overlay IDs — every full-screen `position: fixed` div the host renders
+// Round-overlay IDs, every full-screen `position: fixed` div the host renders
 // for one round's UI. _clearRoundOverlays() sweeps any of these still in the
 // DOM, called at the top of every round-entry function. This kills the
 // "previous round's celebration / timer / explainer leaks onto the next
@@ -2003,7 +2003,7 @@ function _clearRoundOverlays() {
 // blocked audio that never actually started, so flow logic that gates
 // progression on either the `ended` event firing OR `audio.paused` being
 // true can hang forever. This helper guarantees `onDone` fires exactly
-// once — on `ended`, on `error`, or after `timeoutMs`. Use everywhere a
+// once, on `ended`, on `error`, or after `timeoutMs`. Use everywhere a
 // flow advancement depends on audio finishing.
 function _audioGate(audio, onDone, timeoutMs) {
   let fired = false;
@@ -2024,7 +2024,7 @@ function getRefereeName() {
   // so host text and player detection always agree.
   const explicit = window._matchDrawRefereeId;
   if (explicit && players[explicit] && players[explicit].name) return players[explicit].name;
-  // Otherwise fall back to the first player WITH a name set — skip stale
+  // Otherwise fall back to the first player WITH a name set, skip stale
   // records that have a key but no name (these can leak across sessions
   // when the same gameCode is reused).
   const namedFirst = Object.keys(players).find(id => players[id] && players[id].name);
@@ -2141,7 +2141,7 @@ function selectTeam(index) {
     document.getElementById('team-opt-' + index).classList.add('selected');
     updateSelectedTeamsDisplay();
     document.getElementById('confirm-teams-btn').disabled = false;
-    // Both teams known — start fetching intro voice in background immediately
+    // Both teams known, start fetching intro voice in background immediately
     prefetchIntroVoice();
   } else if (team1 && country.name === team1.name) {
     // Deselect team 1
@@ -2247,7 +2247,7 @@ function showTeamSelection() {
     .then(() => console.log('🔊 Playing intro_2 music'))
     .catch(err => {
       if (err.name === 'NotAllowedError') {
-        console.log('⚠️ intro_2 blocked — queued for unlock');
+        console.log('⚠️ intro_2 blocked, queued for unlock');
         window._audioQueue = window._audioQueue || [];
         window._audioQueue.push({ audio: intro2Audio, options: {}, release: () => {} });
         showAudioUnlockButton();
@@ -2290,7 +2290,7 @@ function confirmTeams() {
   if (window.intro2Audio && !window.intro2Audio.paused) {
     console.log('⏳ Waiting for intro_2 to finish...');
     // Wait for intro_2 to finish, then play ElevenLabs voice. Never wait
-    // longer than 12s — if autoplay was blocked or `ended` never fires
+    // longer than 12s, if autoplay was blocked or `ended` never fires
     // (browser quirks), the game would hang on the match card forever.
     let proceeded = false;
     const proceedOnce = (reason) => {
@@ -2359,7 +2359,7 @@ function showMatchCard() {
   // Build interleaved player list: T1P1, T2P1, T1P2, T2P2 …
   const team1Players = Object.values(players).filter(p => p.team === 1);
   const team2Players = Object.values(players).filter(p => p.team === 2);
-  console.log(`🎴 Match card players — team1: ${team1Players.map(p=>p.name)}, team2: ${team2Players.map(p=>p.name)}`);
+  console.log(`🎴 Match card players, team1: ${team1Players.map(p=>p.name)}, team2: ${team2Players.map(p=>p.name)}`);
   const maxLen = Math.max(team1Players.length, team2Players.length);
 
   const queue = []; // { name, teamNum, color }
@@ -2369,7 +2369,7 @@ function showMatchCard() {
   }
 
   // Stagger each player in 220 ms apart, starting after the flag fly-in (800 ms)
-  // NOTE: do NOT set opacity:0 as an inline style — it sits in the author cascade
+  // NOTE: do NOT set opacity:0 as an inline style, it sits in the author cascade
   // and will override the animation's forwards fill, leaving elements invisible.
   // The flyIn keyframes already start from opacity:0.
   queue.forEach((entry, idx) => {
@@ -2450,7 +2450,7 @@ function showRound1Explainer() {
     if (_voiceStarted) return;
     _voiceStarted = true;
     // Use preloaded audio if available, otherwise create new
-    // NOTE: never call .load() on a preloaded Audio — it clears the buffer
+    // NOTE: never call .load() on a preloaded Audio, it clears the buffer
     //       and causes audio to stall after ~2 s while the file re-fetches.
     console.log('🎵 Playing round_1_intro.mp3');
     const round1Audio = window.round1IntroPreload || new Audio('round_1_intro.mp3?v=2');
@@ -2469,7 +2469,7 @@ function showRound1Explainer() {
       .then(() => console.log('🔊 Playing round_1_intro'))
       .catch(err => {
         if (err.name === 'NotAllowedError') {
-          console.log('⚠️ round_1_intro blocked — queued for unlock');
+          console.log('⚠️ round_1_intro blocked, queued for unlock');
           window._audioQueue = window._audioQueue || [];
           window._audioQueue.push({ audio: round1Audio, options: {}, release: () => {} });
           showAudioUnlockButton();
@@ -2484,28 +2484,28 @@ function showRound1Explainer() {
     round1Audio.addEventListener('ended', () => {
       if (!introReadySet) {
         introReadySet = true;
-        console.log('✅ round_1_intro finished — unlocking start button');
+        console.log('✅ round_1_intro finished, unlocking start button');
         gameRef.update({ round1IntroReady: true });
       }
     });
 
-    // Fallback: unlock after 12s if audio never ends. Reduced from 30s — when
+    // Fallback: unlock after 12s if audio never ends. Reduced from 30s, when
     // autoplay is blocked the audio just sits silent and 30s is far too long
     // for a hosted party game to hang.
     setTimeout(() => {
       if (!introReadySet) {
         introReadySet = true;
-        console.log('⚠️ round_1_intro timeout — unlocking start button anyway');
+        console.log('⚠️ round_1_intro timeout, unlocking start button anyway');
         gameRef.update({ round1IntroReady: true });
       }
     }, 12000);
   }; // end playRound1Voice
 
-  // Play music first — voice follows once music ends
+  // Play music first, voice follows once music ends
   window.round1IntroMusic.addEventListener('ended', playRound1Voice);
   window.round1IntroMusic.addEventListener('error', playRound1Voice); // fallback if file missing
   window.round1IntroMusic.play().catch(err => {
-    // Always cascade into the voice — autoplay-blocked audio reports
+    // Always cascade into the voice, autoplay-blocked audio reports
     // `paused === false` even though playback never started, so the
     // previous `paused`-guarded short-circuit silently skipped the
     // fallback and the explainer wait would hang forever.
@@ -2646,7 +2646,7 @@ gameRef.child('players').on('value', (snapshot) => {
 });
 
 // Captain assignment: first player = Home Team captain, second = Away Team captain, rest choose.
-// Filter out nameless / stale records when computing the index — otherwise
+// Filter out nameless / stale records when computing the index, otherwise
 // ghost rows from a previous session can take the Home/Away captain slots
 // and leave the actual joiners stuck without captain UI.
 gameRef.child('players').on('child_added', (snapshot) => {
@@ -2655,7 +2655,7 @@ gameRef.child('players').on('child_added', (snapshot) => {
 
   // Skip if already assigned
   if (playerData && playerData.isCaptain !== undefined) return;
-  // Skip if this record has no name yet — wait for the player to fully join.
+  // Skip if this record has no name yet, wait for the player to fully join.
   if (!playerData || !playerData.name) return;
 
   gameRef.child('players').once('value', (allSnap) => {
@@ -2919,7 +2919,7 @@ async function generateIntroVoiceDirectly() {
     }
 
     if (!audioBlob) {
-      // Cache missed or failed — generate fresh
+      // Cache missed or failed, generate fresh
       const text = `[excited] Thanks Clyde!... It's looking like an interesting game.. We've got ${team1.name} up against ${team2.name}! Certainly one to watch! (given you're already here).`;
       console.log('🎙️ Generating intro voice fresh:', text);
       const response = await fetch('https://api.elevenlabs.io/v1/text-to-speech/rfkTsdZrVWEVhDycUYn9', {
@@ -2958,7 +2958,7 @@ async function generateIntroVoiceDirectly() {
       .then(() => console.log('🔊 Playing intro voice'))
       .catch(err => {
         if (err.name === 'NotAllowedError') {
-          console.log('⚠️ Intro voice blocked — queued for unlock');
+          console.log('⚠️ Intro voice blocked, queued for unlock');
           window._audioQueue = window._audioQueue || [];
           window._audioQueue.push({ audio: voiceAudio, options: {}, release: () => {} });
           showAudioUnlockButton();
@@ -2973,7 +2973,7 @@ async function generateIntroVoiceDirectly() {
     // Fallback if audio doesn't play or `ended` never fires.
     // Note: we deliberately do NOT gate this on `voiceAudio.paused`. When
     // autoplay is blocked, browsers report `paused === false` even though
-    // playback never actually started — so the previous `paused`-guarded
+    // playback never actually started, so the previous `paused`-guarded
     // check would silently skip the fallback and the host would hang on
     // the match card. Just trip the explainer if we haven't already shown it.
     setTimeout(() => {
@@ -3059,13 +3059,13 @@ function activateSabotageForTeam(teamNumber) {
   }, 10000);
 }
 
-// Listen for offside trap usage — deduct 2 points from every player on the target team
+// Listen for offside trap usage, deduct 2 points from every player on the target team
 gameRef.child('offsideTrapUsed').on('value', (snapshot) => {
   const trapData = snapshot.val();
   if (!trapData) return;
 
   const { userId, targetTeam } = trapData;
-  console.log(`🚩 Offside Trap used by ${userId} — deducting 2pts from team ${targetTeam}`);
+  console.log(`🚩 Offside Trap used by ${userId}, deducting 2pts from team ${targetTeam}`);
 
   Object.entries(players).forEach(([pid, player]) => {
     if (player.team === targetTeam) {
@@ -3217,7 +3217,7 @@ function revealAnswer() {
     .catch(err => console.error('Answer audio play failed:', err));
 
   // Auto-advance to next question when audio ends OR after 12s timeout.
-  // Drop the previous `paused`-gated fallback — that was unreliable because
+  // Drop the previous `paused`-gated fallback, that was unreliable because
   // autoplay-blocked audio reports paused as false even when it never started.
   let _answerAdvanced = false;
   const advanceQuestion = () => {
@@ -3255,7 +3255,7 @@ let _scoresReviewRouted = false;
 
 function showScoresReview() {
   if (_scoresReviewActive) {
-    console.warn('⚠️ showScoresReview already active — ignoring duplicate call');
+    console.warn('⚠️ showScoresReview already active, ignoring duplicate call');
     return;
   }
   _scoresReviewActive = true;
@@ -3288,51 +3288,51 @@ function showScoresReview() {
     'toiletpaper': 'full time',
   }[_src] || 'the next round';
 
-  // Determine leader — pick a random comment from a pool for variety
+  // Determine leader, pick a random comment from a pool for variety
   const pick = arr => arr[Math.floor(Math.random() * arr.length)];
   const _isFinal = _src === 'toiletpaper';
   let leadText = '';
   if (_isFinal) {
-    // Full Time — use victory phrasing instead of mid-game "early lead" language
+    // Full Time, use victory phrasing instead of mid-game "early lead" language
     if (team1Score > team2Score) {
       leadText = pick([
         `It's all over! ${team1.name} are your champions with ${team1Score} points to ${team2.name}'s ${team2Score}!`,
-        `Full time — and ${team1.name} have done it! ${team1Score} points to ${team2.name}'s ${team2Score}. What a result!`,
-        `The final whistle goes and ${team1.name} take the trophy ${team1Score}–${team2Score}. ${team2.name} put up a brave fight on ${team2Score}`,
-        `Game over! ${team1.name} are crowned champions ${team1Score}–${team2Score}. ${team2.name} will be back next time`,
+        `Full time, and ${team1.name} have done it! ${team1Score} points to ${team2.name}'s ${team2Score}. What a result!`,
+        `The final whistle goes and ${team1.name} take the trophy ${team1Score}-${team2Score}. ${team2.name} put up a brave fight on ${team2Score}`,
+        `Game over! ${team1.name} are crowned champions ${team1Score}-${team2Score}. ${team2.name} will be back next time`,
       ]);
     } else if (team2Score > team1Score) {
       leadText = pick([
         `It's all over! ${team2.name} are your champions with ${team2Score} points to ${team1.name}'s ${team1Score}!`,
-        `Full time — and ${team2.name} have done it! ${team2Score} points to ${team1.name}'s ${team1Score}. What a result!`,
-        `The final whistle goes and ${team2.name} take the trophy ${team2Score}–${team1Score}. ${team1.name} put up a brave fight on ${team1Score}`,
-        `Game over! ${team2.name} are crowned champions ${team2Score}–${team1Score}. ${team1.name} will be back next time`,
+        `Full time, and ${team2.name} have done it! ${team2Score} points to ${team1.name}'s ${team1Score}. What a result!`,
+        `The final whistle goes and ${team2.name} take the trophy ${team2Score}-${team1Score}. ${team1.name} put up a brave fight on ${team1Score}`,
+        `Game over! ${team2.name} are crowned champions ${team2Score}-${team1Score}. ${team1.name} will be back next time`,
       ]);
     } else {
       leadText = pick([
-        `Incredible — full time and we have a draw! Both teams finish on ${team1Score}!`,
-        `The final whistle and they couldn't be separated — ${team1Score} apiece!`,
+        `Incredible, full time and we have a draw! Both teams finish on ${team1Score}!`,
+        `The final whistle and they couldn't be separated, ${team1Score} apiece!`,
         `Honours even at full time, ${team1Score} each. What a contest!`,
       ]);
     }
   } else if (team1Score > team2Score) {
     leadText = pick([
       `${team1.name} took an early lead there with ${team1Score} points, meanwhile ${team2.name} are trailing with ${team2Score} points`,
-      `${team1.name} are out in front with ${team1Score} points! ${team2.name} will need to pull something out of the bag — they're on ${team2Score}`,
+      `${team1.name} are out in front with ${team1Score} points! ${team2.name} will need to pull something out of the bag, they're on ${team2Score}`,
       `It's looking good for ${team1.name}, they're ahead on ${team1Score} points. ${team2.name} on ${team2Score} will have to fight back in ${nextRoundName}`,
-      `${team1.name} have the edge — ${team1Score} points to ${team2.name}'s ${team2Score}. Can the gap be closed?`,
+      `${team1.name} have the edge, ${team1Score} points to ${team2.name}'s ${team2Score}. Can the gap be closed?`,
     ]);
   } else if (team2Score > team1Score) {
     leadText = pick([
       `${team2.name} took an early lead there with ${team2Score} points, meanwhile ${team1.name} are trailing with ${team1Score} points`,
       `${team2.name} are looking very comfortable up top with ${team2Score} points. ${team1.name} are on ${team1Score} and will need to pick things up`,
       `It's ${team2.name} in the driving seat on ${team2Score} points. ${team1.name} are chasing on ${team1Score}`,
-      `${team2.name} have taken control — ${team2Score} points to ${team1.name}'s ${team1Score}. What a turnaround it would be if ${team1.name} can claw it back in ${nextRoundName}`,
+      `${team2.name} have taken control, ${team2Score} points to ${team1.name}'s ${team1Score}. What a turnaround it would be if ${team1.name} can claw it back in ${nextRoundName}`,
     ]);
   } else {
     leadText = pick([
       `It's all square! Both teams on ${team1Score} points. This is going to be close!`,
-      `Absolutely level! ${team1Score} points each — everything still to play for`,
+      `Absolutely level! ${team1Score} points each, everything still to play for`,
       `You couldn't separate them! Level at ${team1Score} apiece. ${nextRoundName.charAt(0).toUpperCase() + nextRoundName.slice(1)} could decide everything`,
       `It's a draw! ${team1Score} points each. This one is far from over`,
     ]);
@@ -3427,7 +3427,7 @@ function showScoresReview() {
   
   document.body.appendChild(scoresDiv);
   
-  // Update Firebase for players — include scoresHeading so player screens match
+  // Update Firebase for players, include scoresHeading so player screens match
   gameRef.update({
     showScoresReview: true,
     scoresReviewHeading: scoresHeading,
@@ -3435,14 +3435,14 @@ function showScoresReview() {
     team2ScoreAfterRound1: team2Score
   });
   
-  // AUDIO SEQUENCE — branches on whether this is the final scores review (after Blow Ball)
+  // AUDIO SEQUENCE, branches on whether this is the final scores review (after Blow Ball)
   let commentaryTriggered = false;
   const triggerCommentary = (skipGenericReaction = false) => {
     if (commentaryTriggered) return;
     commentaryTriggered = true;
 
     if (skipGenericReaction) {
-      // Final scores — go straight to ElevenLabs (final_scores_intro already played)
+      // Final scores, go straight to ElevenLabs (final_scores_intro already played)
       generateScoresCommentary(leadText, team1Score, team2Score);
       return;
     }
@@ -3533,7 +3533,7 @@ async function generateScoresCommentary(leadText, team1Score, team2Score) {
       window._scoresCommentaryLeadText = null;
     }
 
-    // Cache miss or prefetch failed — fall back to fresh fetch
+    // Cache miss or prefetch failed, fall back to fresh fetch
     if (!audioUrl) {
       console.log('🎙️ Generating ElevenLabs commentary (cache miss):', leadText);
       const response = await fetch('https://api.elevenlabs.io/v1/text-to-speech/rfkTsdZrVWEVhDycUYn9', {
@@ -3562,7 +3562,7 @@ async function generateScoresCommentary(leadText, team1Score, team2Score) {
     console.log('🔊 Playing generated commentary');
 
     // Advance unconditionally on end/error/timeout. Drop the previous
-    // `paused`-gated guard — autoplay-blocked audio reports paused as false
+    // `paused`-gated guard, autoplay-blocked audio reports paused as false
     // and was preventing the fallback from firing.
     let routeTriggered = false;
     const advanceCommentary = (reason) => {
@@ -3578,7 +3578,7 @@ async function generateScoresCommentary(leadText, team1Score, team2Score) {
     console.error('❌ ElevenLabs error:', error);
     commentaryDiv.textContent = `"Well Clyde, ${leadText}"`;
 
-    // Skip to next round even if commentary fails — still play contextual reaction
+    // Skip to next round even if commentary fails, still play contextual reaction
     setTimeout(() => {
       playContextualReaction(team1Score, team2Score);
     }, 3000);
@@ -3597,7 +3597,7 @@ function playContextualReaction(team1Score, team2Score) {
     .then(() => console.log('🔊 Playing contextual scores reaction'))
     .catch(err => console.error('contextual_reaction play failed:', err));
 
-  // Advance once on ended, error, or timeout — drop the unreliable
+  // Advance once on ended, error, or timeout, drop the unreliable
   // `paused/currentTime===0` gating that was blocking the timeout fallback
   // when autoplay was suppressed.
   let reactionEnded = false;
@@ -3639,7 +3639,7 @@ function playScoresReaction(team1Score, team2Score) {
 
 function routeAfterScoresReview() {
   if (_scoresReviewRouted) {
-    console.warn('⚠️ routeAfterScoresReview already called — ignoring duplicate');
+    console.warn('⚠️ routeAfterScoresReview already called, ignoring duplicate');
     return;
   }
   _scoresReviewRouted = true;
@@ -3651,7 +3651,7 @@ function routeAfterScoresReview() {
 
   const source = window.scoresReviewSource || 'round1';
   window.scoresReviewSource = null; // Reset for next use
-  console.log(`📊 Scores review done — routing from: ${source}`);
+  console.log(`📊 Scores review done, routing from: ${source}`);
 
   switch (source) {
     case 'round1':      startRound3();             break; // Anthem Quiz → Interview
@@ -3736,7 +3736,7 @@ function showRound2Explainer() {
     // Attach the round-2 gameplay-start gate to the actual voice audio (not
     // the music). Previously _audioGate was called at the bottom of
     // showRound2Explainer with `window.round2IntroAudio === undefined`,
-    // which meant it just used a fixed 12s timeout — cutting off or
+    // which meant it just used a fixed 12s timeout, cutting off or
     // running ahead of the voice depending on length. Now it correctly
     // listens to the voice's `ended` event.
     if (typeof _audioGate === 'function') {
@@ -3750,7 +3750,7 @@ function showRound2Explainer() {
   window.round2IntroMusic.addEventListener('ended', playRound2Voice);
   window.round2IntroMusic.addEventListener('error', playRound2Voice);
   window.round2IntroMusic.play().catch(err => {
-    // Drop the paused gate — autoplay-blocked audio reports paused as
+    // Drop the paused gate, autoplay-blocked audio reports paused as
     // false but never actually plays, so the music's `ended` event would
     // never fire and the voice phase would hang.
     console.warn('⚠️ round_2_intro_music blocked or failed:', err && err.message);
@@ -3805,7 +3805,7 @@ function startRound2Gameplay() {
   // Show submission count instead of actual puns
   document.getElementById('puns-submitted').innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-muted);">Waiting for players to submit puns...</div>';
 
-  // Play round_2_music during gameplay — play twice (no loop)
+  // Play round_2_music during gameplay, play twice (no loop)
   console.log('🎵 Playing round_2_music.mp3');
   const round2Music = new Audio('round_2_music.mp3?v=2');
   round2Music.loop = false;
@@ -4117,7 +4117,7 @@ async function reviewNextPun() {
 }
 
 function showPunForReview(punData) {
-  // Keep reference to old screen — we'll remove it AFTER the new one is in the DOM
+  // Keep reference to old screen, we'll remove it AFTER the new one is in the DOM
   // so there's never a 1-frame gap where neither screen is showing.
   const existing = document.getElementById('pun-review-screen');
 
@@ -4151,7 +4151,7 @@ function showPunForReview(punData) {
     </div>
   `;
   
-  // Append new screen first, THEN remove old — eliminates the 1-frame gap
+  // Append new screen first, THEN remove old, eliminates the 1-frame gap
   document.body.appendChild(reviewDiv);
   if (existing) existing.remove();
 
@@ -4243,7 +4243,7 @@ function handlePunAccepted() {
   const leaderId = Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0];
   const leaderPhoto = players[leaderId]?.photo;
   if (leaderPhoto && leaderId !== window._punKingSpeculativeId) {
-    // New leader — kick off (or replace) the speculative fetch
+    // New leader, kick off (or replace) the speculative fetch
     window._punKingSpeculativeId = leaderId;
     console.log(`🎨 Speculatively generating portrait for current pun leader: ${players[leaderId]?.name}`);
     window._punKingSpeculativePromise = generatePunKingPortrait(leaderPhoto);
@@ -4269,7 +4269,7 @@ function showPunChampionScreen(championId, acceptCount, onDone) {
   // Find their best accepted pun
   const bestPun = allPuns.filter(p => p.playerId === championId)[0];
 
-  // Portrait placeholder — replaced with fal.ai result when ready
+  // Portrait placeholder, replaced with fal.ai result when ready
   const placeholderPortrait = `
     <div id="pun-king-portrait-wrap" style="position:relative;width:220px;height:220px;margin-bottom:20px;">
       <img id="pun-king-portrait-img" src="pun_king.jpg"
@@ -4296,7 +4296,7 @@ function showPunChampionScreen(championId, acceptCount, onDone) {
 
   window.playPunReactionAudio('accept');
 
-  // Kick off face swap in the background — no await, screen shows immediately
+  // Kick off face swap in the background, no await, screen shows immediately
   // Helper: apply player photo as circular fallback portrait
   const applyPhotoFallback = () => {
     const img = document.getElementById('pun-king-portrait-img');
@@ -4307,7 +4307,7 @@ function showPunChampionScreen(championId, acceptCount, onDone) {
       img.src = player.photo;
       img.style.borderRadius = '50%';
     } else {
-      // No photo at all — replace img with an initial-letter circle
+      // No photo at all, replace img with an initial-letter circle
       const wrap = document.getElementById('pun-king-portrait-wrap');
       if (wrap) {
         wrap.innerHTML = `<div style="width:220px;height:220px;border-radius:50%;background:${teamColor};display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:110px;color:#fff;border:5px solid var(--motd-gold);box-shadow:0 0 50px rgba(255,198,41,0.6);">${initial}</div>`;
@@ -4320,11 +4320,11 @@ function showPunChampionScreen(championId, acceptCount, onDone) {
     gameRef.update({ punKingImageUrl: imageUrl, punKingName: player.name || 'Unknown' });
   };
 
-  // Fallback timeout — if loading overlay still visible after 4s, apply fallback
+  // Fallback timeout, if loading overlay still visible after 4s, apply fallback
   const fallbackTimer = setTimeout(() => {
     const overlay = document.getElementById('pun-king-loading-overlay');
     if (overlay) {
-      console.warn('⚠️ Pun King portrait timed out — applying fallback');
+      console.warn('⚠️ Pun King portrait timed out, applying fallback');
       applyPhotoFallback();
       const finalSrc = document.getElementById('pun-king-portrait-img')?.src || player.photo || '';
       if (finalSrc) broadcastPunKingImage(finalSrc);
@@ -4332,7 +4332,7 @@ function showPunChampionScreen(championId, acceptCount, onDone) {
   }, 4000);
 
   if (player.photo) {
-    // Use the speculative promise if it was started for this exact winner — saves 40–70s
+    // Use the speculative promise if it was started for this exact winner, saves 40–70s
     const portraitPromise = (window._punKingSpeculativeId === championId && window._punKingSpeculativePromise)
       ? (console.log('🎨 Using speculative portrait promise for pun king'), window._punKingSpeculativePromise)
       : generatePunKingPortrait(player.photo);
@@ -4350,7 +4350,7 @@ function showPunChampionScreen(championId, acceptCount, onDone) {
         const img = document.getElementById('pun-king-portrait-img');
         const overlay = document.getElementById('pun-king-loading-overlay');
         if (!img) return;
-        // Remove overlay immediately — no preload dance needed
+        // Remove overlay immediately, no preload dance needed
         document.getElementById('pun-king-loading-overlay')?.remove();
         img.style.opacity = '0';
         img.style.transition = 'opacity 0.8s';
@@ -4369,7 +4369,7 @@ function showPunChampionScreen(championId, acceptCount, onDone) {
     applyPhotoFallback();
   }
 
-  // Screen stays up for 15s (was 12s — extra time for portrait to load)
+  // Screen stays up for 15s (was 12s, extra time for portrait to load)
   const CHAMPION_DURATION = 15000;
   setTimeout(() => {
     div.remove();
@@ -4393,7 +4393,7 @@ function triggerOffsideTrap() {
   if (window._offsideTrapFired) return;
   window._offsideTrapFired = true;
 
-  console.log('🚩 Triggering Offside Trap — broadcasting to ALL players');
+  console.log('🚩 Triggering Offside Trap, broadcasting to ALL players');
 
   // Broadcast globally so every player sees the button simultaneously
   gameRef.child('offsideTrapOpportunity').set({ timestamp: Date.now(), claimed: false });
@@ -4456,7 +4456,7 @@ function startRound3() {
     document.getElementById('round3-screen').classList.add('active');
     round3CurrentQ = 0;
 
-    // Set up a SINGLE 'next question' listener — only here, never inside loadRound3Question.
+    // Set up a SINGLE 'next question' listener, only here, never inside loadRound3Question.
     // Flush any stale value first so it doesn't fire immediately on attach.
     gameRef.child('round3NextQuestion').remove();
     gameRef.child('round3NextQuestion').off();
@@ -4484,21 +4484,21 @@ function startRound3() {
       .then(() => console.log('🔊 Playing interview_round_intro'))
       .catch(err => {
         console.warn('⚠️ interview_round_intro blocked, falling back:', err.message);
-        // Audio not found / blocked — fallback after 3 s
+        // Audio not found / blocked, fallback after 3 s
         setTimeout(launchRound, 3000);
       });
   };
 
-  // Play music first — voice follows once music ends
+  // Play music first, voice follows once music ends
   introMusic.addEventListener('ended', playInterviewVoice);
   introMusic.addEventListener('error', () => {
-    console.warn('⚠️ interview_round_intro_music.mp3 failed to load — skipping to voice');
+    console.warn('⚠️ interview_round_intro_music.mp3 failed to load, skipping to voice');
     playInterviewVoice();
   });
   introMusic.play()
     .then(() => console.log('🔊 Playing interview_round_intro_music'))
     .catch(err => {
-      // Drop the paused-gate — autoplay-blocked audio reports paused as
+      // Drop the paused-gate, autoplay-blocked audio reports paused as
       // false and would silently skip the cascade.
       console.warn('⚠️ interview_round_intro_music blocked, skipping to voice:', err && err.message);
       playInterviewVoice();
@@ -4536,7 +4536,7 @@ function loadRound3Question(index) {
 
   // Deal 4 unique answer options to each player WITHOUT overlap across
   // players. Shuffle the pool once and slice 4 entries per player off the
-  // front of the shuffled deck — that way no two players see the same
+  // front of the shuffled deck, that way no two players see the same
   // option for this question. If we ever have more players than the pool
   // can support (4 per player) we fall back to per-player shuffling so
   // people still get options, accepting overlap in that edge case.
@@ -4555,13 +4555,13 @@ function loadRound3Question(index) {
 
   const havePoolForUnique = shuffledPool.length >= totalNeeded;
   if (!havePoolForUnique) {
-    console.warn(`⚠️ Round 3: pool (${shuffledPool.length}) too small for ${playerIds.length} players × ${optionsPerPlayer} unique options each — falling back to overlapping shuffles.`);
+    console.warn(`⚠️ Round 3: pool (${shuffledPool.length}) too small for ${playerIds.length} players × ${optionsPerPlayer} unique options each, falling back to overlapping shuffles.`);
   }
 
   playerIds.forEach((playerId, idx) => {
     let raw;
     if (havePoolForUnique) {
-      // Take a fresh slice from the shared shuffled deck — no overlap.
+      // Take a fresh slice from the shared shuffled deck, no overlap.
       raw = shuffledPool.slice(idx * optionsPerPlayer, (idx + 1) * optionsPerPlayer);
     } else {
       // Fallback: independent shuffle per player (overlap possible).
@@ -4585,7 +4585,7 @@ function loadRound3Question(index) {
     gameRef.child('round3/' + index + '/playerOptions/' + playerId).set(playerOptions);
   });
 
-  // Listen for submitted answers — store them but hide names until voting done
+  // Listen for submitted answers, store them but hide names until voting done
   window._round3VoteAudioPlayed = window._round3VoteAudioPlayed || {};
   gameRef.child('round3/' + index + '/submissions').on('value', (snapshot) => {
     window._round3LastSubmissions[index] = snapshot.val() || {};
@@ -4600,7 +4600,7 @@ function loadRound3Question(index) {
       const voteAudio = new Audio(`vote_${voteNum}.mp3?v=2`);
       voteAudio.volume = 0.7;
       voteAudio.play().catch(() => {});
-      console.log(`🗳️ All answers in for Q${index + 1} — playing vote_${voteNum}.mp3`);
+      console.log(`🗳️ All answers in for Q${index + 1}, playing vote_${voteNum}.mp3`);
     }
   });
   
@@ -4610,7 +4610,7 @@ function loadRound3Question(index) {
     awardRound3Points(votes, index);
   });
 
-  // NOTE: The 'round3NextQuestion' listener lives in launchRound() — not here.
+  // NOTE: The 'round3NextQuestion' listener lives in launchRound(), not here.
   // It is set up exactly once so it never stacks across multiple question loads.
 }
 
@@ -4648,7 +4648,7 @@ function displaySubmittedAnswers(submissions, questionIndex) {
         : `<div style="width:40px;height:40px;border-radius:50%;background:var(--motd-navy);border:2px solid var(--motd-cyan);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:var(--motd-cyan);flex-shrink:0;">${initials}</div>`;
       nameHtml = `${photoHtml}${sub.playerName}`;
     } else {
-      // Mystery avatar — hide identity until votes are in
+      // Mystery avatar, hide identity until votes are in
       const mysteryAvatar = `<div style="width:40px;height:40px;border-radius:50%;background:var(--motd-dark-navy);border:2px solid rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">🕵️</div>`;
       nameHtml = `${mysteryAvatar}<span style="color:rgba(255,255,255,0.3);font-style:italic;">???</span>`;
     }
@@ -4815,7 +4815,7 @@ function awardRound3Points(votes, questionIndex) {
     displaySubmittedAnswers(window._round3LastSubmissions[questionIndex] || {}, questionIndex);
 
     // Signal the winning player's phone to play accept audio
-    console.log('🎵 Signalling winner', winnerId, 'to play accept audio — question', questionIndex);
+    console.log('🎵 Signalling winner', winnerId, 'to play accept audio, question', questionIndex);
     gameRef.child('round3WinnerAudio').set({ questionIndex, winnerId, timestamp: Date.now() })
       .then(() => gameRef.child('round3WinnerAudio').remove());
 
@@ -4839,7 +4839,7 @@ function awardRound3Points(votes, questionIndex) {
     } else if (winningAnswer) {
       readWinningAnswerAloud(winningAnswer, advanceAfterAnswer);
     } else {
-      // No TTS — still auto-advance after a short pause
+      // No TTS, still auto-advance after a short pause
       setTimeout(advanceAfterAnswer, 3000);
     }
   }
@@ -5042,7 +5042,7 @@ function showBonusOffer() {
 }
 
 function startKaraoke(teamNum, offerDiv) {
-  console.log(`🎤 Team ${teamNum} accepted karaoke — waiting for READY`);
+  console.log(`🎤 Team ${teamNum} accepted karaoke, waiting for READY`);
 
   // Stop any still-playing bonus offer audio
   if (window.bonusAlertAudio) { window.bonusAlertAudio.pause(); window.bonusAlertAudio = null; }
@@ -5063,18 +5063,18 @@ function startKaraoke(teamNum, offerDiv) {
     <div class="spinner"></div>
   `;
 
-  // Notify players — sets phase to 'karaoke' so phones show the Ready button
+  // Notify players, sets phase to 'karaoke' so phones show the Ready button
   gameRef.update({ bonusRoundPhase: 'karaoke', bonusKaraokeTeam: teamNum, karaokeReady: false });
 
   // Play bonus_setup.mp3 ("They'll need to sing along...")
   window.bonusSetupAudio = playAudio('bonus_setup.mp3?v=2', { volume: 0.6 });
 
-  // Wait for players to click Ready — only THEN show the karaoke screen
+  // Wait for players to click Ready, only THEN show the karaoke screen
   gameRef.child('karaokeReady').on('value', (snap) => {
     if (snap.val() === true) {
       gameRef.child('karaokeReady').off();
       if (window.bonusSetupAudio) { window.bonusSetupAudio.pause(); window.bonusSetupAudio = null; }
-      offerDiv.remove(); // Remove offer screen — now transition to karaoke
+      offerDiv.remove(); // Remove offer screen, now transition to karaoke
       beginKaraoke(teamNum, teamInfo);
     }
   });
@@ -5104,7 +5104,7 @@ function beginKaraoke(teamNum, teamInfo) {
   karaokeDiv.id = 'karaoke-screen';
   karaokeDiv.style.cssText = 'position: fixed; inset: 0; background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 20px; text-align: center;';
   karaokeDiv.innerHTML = `
-    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 32px; color: var(--motd-cyan); letter-spacing: 3px; margin-bottom: 10px;">${teamInfo.flag} ${teamInfo.name} — ŚPIEWAJ!</div>
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 32px; color: var(--motd-cyan); letter-spacing: 3px; margin-bottom: 10px;">${teamInfo.flag} ${teamInfo.name}, ŚPIEWAJ!</div>
     <video id="karaoke-video" src="Maryla_Rodowicz_-_Futbol__TVP_1974_.mp4"
       style="width: 100%; max-width: 900px; max-height: 50vh; border-radius: 8px; margin-bottom: 15px;"
       playsinline></video>
@@ -5336,10 +5336,10 @@ function checkForMatchDraw() {
   if (playerCount >= 4) {
     startMatchDraw();
   } else {
-    // Not enough players for Match Draw — go directly to Commentary Round.
+    // Not enough players for Match Draw, go directly to Commentary Round.
     // Do NOT call showScoresReview() again: the interview scores review just played,
     // and calling it again would play the audio sequence a second time.
-    console.log('⏭️ Skipping Match Draw (need 4+ players, have ' + playerCount + ') — going straight to Commentary');
+    console.log('⏭️ Skipping Match Draw (need 4+ players, have ' + playerCount + '), going straight to Commentary');
     startCommentaryRound();
   }
 }
@@ -5370,7 +5370,7 @@ function startMatchDraw() {
   });
 
   // Each round = draw + guess (2 chain steps). Cap totalRounds so each chain
-  // never loops back to the same contributor — i.e. 2 * totalRounds <= N.
+  // never loops back to the same contributor, i.e. 2 * totalRounds <= N.
   // For N=4 → 2 rounds (4 steps), N=5 → 2, N=6 → 3, N=8 → 4.
   const totalRounds = Math.max(1, Math.floor(playerCount / 2));
 
@@ -5405,7 +5405,7 @@ function showMatchDrawIntro() {
     <div style="font-family: 'Bebas Neue', sans-serif; font-size: 80px; color: var(--motd-gold); text-shadow: 0 0 40px rgba(255,198,41,0.8); margin-bottom: 20px; letter-spacing: 6px;">MATCH DRAW</div>
     <div style="font-family: 'Barlow', sans-serif; font-size: 32px; color: var(--text); margin-bottom: 20px; max-width: 800px; line-height: 1.5;">Draw what you see. Guess what they drew.</div>
     <div style="font-size: 100px; margin: 30px 0;">✏️</div>
-    <div style="font-family: 'Barlow', sans-serif; font-size: 22px; color: var(--text-muted);">Players — check your phones for your secret subject!</div>
+    <div style="font-family: 'Barlow', sans-serif; font-size: 22px; color: var(--text-muted);">Players, check your phones for your secret subject!</div>
     <div class="spinner" style="margin-top: 30px;"></div>
   `;
   document.body.appendChild(introDiv);
@@ -5430,7 +5430,7 @@ function showMatchDrawIntro() {
   window.matchDrawIntroMusic = matchDrawMusic;
   matchDrawMusic.addEventListener('ended', launchExplainer);
   matchDrawMusic.addEventListener('error', () => {
-    console.warn('⚠️ match_draw_intro_music.mp3 failed — skipping to explainer');
+    console.warn('⚠️ match_draw_intro_music.mp3 failed, skipping to explainer');
     launchExplainer();
   });
   matchDrawMusic.play()
@@ -5558,7 +5558,7 @@ function startGuessingPhase(roundNumber) {
     if (el) el.textContent = timeLeft;
     gameRef.update({ 'matchDraw/guessingTimeLeft': timeLeft });
 
-    // Auto-cancel if UI swept externally — same defensive pattern as drawing phase
+    // Auto-cancel if UI swept externally, same defensive pattern as drawing phase
     if (!document.getElementById('md-guessing-timer') && timeLeft > 0) {
       clearInterval(window._mdGuessInterval);
       window._mdGuessInterval = null;
@@ -5602,8 +5602,8 @@ function showNextPlayerReveal() {
     console.log(`🎭 showNextPlayerReveal: index ${revealIndex} of ${playerOrder.length}`);
 
     if (revealIndex >= playerOrder.length) {
-      // All players revealed and judged — apply scores
-      console.log('🎭 All chains revealed — applying scores');
+      // All players revealed and judged, apply scores
+      console.log('🎭 All chains revealed, applying scores');
       applyMatchDrawScores(playerOrder);
       return;
     }
@@ -5616,7 +5616,7 @@ function showNextPlayerReveal() {
     // Reset state for each chain so player-side listeners see a phase
     // transition. Without this, phase stays 'scoring' between players 1 and
     // 2 (and beyond), and the referee's reveal/scoring UI never re-attaches
-    // — they end up on a screen with no buttons. We also null out the
+    //, they end up on a screen with no buttons. We also null out the
     // scoring player IDs so the listener inside showRefereeMatchDrawScoring
     // sees a real change when the next player's ID arrives.
     gameRef.update({
@@ -5643,13 +5643,13 @@ function showMatchDrawScoringForPlayer(scoringPlayerId, pName, callback) {
   scoringDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, var(--motd-dark-navy) 0%, var(--motd-navy) 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 40px; text-align: center;';
   scoringDiv.innerHTML = `
     <div style="font-family: 'Bebas Neue', sans-serif; font-size: 56px; color: var(--text); margin-bottom: 20px;">Rate ${pName}'s Drawing</div>
-    <div style="font-family: 'Barlow', sans-serif; font-size: 24px; color: var(--motd-cyan); margin-bottom: 40px;">Referee (${getRefereeName()}) — score on their phone</div>
+    <div style="font-family: 'Barlow', sans-serif; font-size: 24px; color: var(--motd-cyan); margin-bottom: 40px;">Referee (${getRefereeName()}), score on their phone</div>
     <div class="spinner"></div>
   `;
   document.body.appendChild(scoringDiv);
 
   // Clear any leftover score for this player from a previous attempt before
-  // attaching the listener — otherwise a stale value could fire it instantly.
+  // attaching the listener, otherwise a stale value could fire it instantly.
   gameRef.child('matchDraw/scores/' + scoringPlayerId).remove();
 
   gameRef.update({
@@ -5696,7 +5696,7 @@ function showMatchDrawScoringForPlayer(scoringPlayerId, pName, callback) {
   // glitch, listener race etc.), advance anyway so the game doesn't stall.
   setTimeout(() => {
     if (!advanced) {
-      console.warn(`⚠️ No score received for ${pName} within 45s — auto-advancing`);
+      console.warn(`⚠️ No score received for ${pName} within 45s, auto-advancing`);
       advance('timeout');
     }
   }, 45000);
@@ -5869,7 +5869,7 @@ function showNextMatchDrawScoring(playerOrder, index) {
   scoringDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, var(--motd-dark-navy) 0%, var(--motd-navy) 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 40px; text-align: center;';
   scoringDiv.innerHTML = `
     <div style="font-family: 'Bebas Neue', sans-serif; font-size: 56px; color: var(--text); margin-bottom: 20px;">Rate ${pName}'s Drawing</div>
-    <div style="font-family: 'Barlow', sans-serif; font-size: 24px; color: var(--motd-cyan); margin-bottom: 40px;">Referee (${getRefereeName()}) — score on their phone</div>
+    <div style="font-family: 'Barlow', sans-serif; font-size: 24px; color: var(--motd-cyan); margin-bottom: 40px;">Referee (${getRefereeName()}), score on their phone</div>
     <div class="spinner"></div>
   `;
   document.body.appendChild(scoringDiv);
@@ -5939,7 +5939,7 @@ function startCommentaryRound() {
   //      meant any autoplay block left the user with silent commentary).
   //   2. The hard timeout inside playAudio guarantees onEnded fires even if
   //      the browser swallows the `ended` event.
-  // Cache-busted to ?v=3 — the music file was missing from git for a while,
+  // Cache-busted to ?v=3, the music file was missing from git for a while,
   // and browsers cached the 404. ?v=3 forces a fresh fetch.
   let explainerTransitioned = false;
   const transitionToTeamSelection = () => {
@@ -5962,7 +5962,7 @@ function startCommentaryRound() {
     volume: 0.5,
     onEnded: playExplainer,
     onError: () => {
-      console.warn('⚠️ commentary_round_intro_music.mp3 failed — skipping to explainer');
+      console.warn('⚠️ commentary_round_intro_music.mp3 failed, skipping to explainer');
       playExplainer();
     },
     timeoutMs: 30000,
@@ -6022,7 +6022,7 @@ function startCommentaryTeamSelection(teamNumber) {
     volunteerRef.off('value', volunteerListener);
     if (!document.getElementById('commentary-selection')) return;
     selectionDiv.remove();
-    console.log(`⚠️ No volunteer from Team ${teamNumber} — -5 points`);
+    console.log(`⚠️ No volunteer from Team ${teamNumber}, -5 points`);
     const updates = {};
     Object.entries(players).forEach(([pid, player]) => {
       if (player.team === teamNumber) {
@@ -6065,7 +6065,7 @@ function startCommentaryCountdown(teamNumber, commentatorId, videoFile) {
 }
 
 function startCommentaryRecording(teamNumber, commentatorId, videoFile) {
-  console.log(`🎙️ Commentary recording Team ${teamNumber} — ${videoFile}`);
+  console.log(`🎙️ Commentary recording Team ${teamNumber}, ${videoFile}`);
   const recId = `commentary-recording-${teamNumber}`;
   const commentatorName = players[commentatorId]?.name || 'Commentator';
 
@@ -6079,7 +6079,7 @@ function startCommentaryRecording(teamNumber, commentatorId, videoFile) {
       <div style="font-family: 'Barlow', sans-serif; font-size: 26px; color: rgba(255,255,255,0.7); margin-bottom: 32px;">Waiting to start recording…</div>
       <div class="spinner"></div>
     </div>
-    <!-- Hidden timing video — keeps the ended event; not shown to audience -->
+    <!-- Hidden timing video, keeps the ended event; not shown to audience -->
     <video id="commentary-video-${teamNumber}" src="${videoFile}" style="display: none;" playsinline muted></video>
   `;
   document.body.appendChild(recordingDiv);
@@ -6113,11 +6113,11 @@ function startCommentaryRecording(teamNumber, commentatorId, videoFile) {
     }
   });
 
-  // Fallback — start video after 45 s if player never presses Ready
+  // Fallback, start video after 45 s if player never presses Ready
   let videoStarted = false;
   setTimeout(() => {
     if (!videoStarted && document.getElementById(recId)) {
-      console.warn('⚠️ Commentator never pressed Ready — starting timing video anyway');
+      console.warn('⚠️ Commentator never pressed Ready, starting timing video anyway');
       startVideo();
     }
   }, 45000);
@@ -6146,7 +6146,7 @@ function startCommentaryPlayback(teamNumber, commentatorId, videoFile) {
   playbackDiv.innerHTML = `
     <div style="font-family: 'Bebas Neue', sans-serif; font-size: 32px; color: var(--motd-cyan); margin-bottom: 16px; letter-spacing: 3px;">🎙️ ${commentatorName}'s Commentary</div>
     <video id="commentary-playback-video-${teamNumber}" src="${videoFile}" style="width: 100%; max-width: 900px; max-height: 55vh; border-radius: 8px; margin-bottom: 16px;" playsinline muted></video>
-    <div style="font-family: 'Barlow', sans-serif; font-size: 22px; color: rgba(255,255,255,0.7);">Listen carefully — the referee is scoring!</div>
+    <div style="font-family: 'Barlow', sans-serif; font-size: 22px; color: rgba(255,255,255,0.7);">Listen carefully, the referee is scoring!</div>
   `;
   document.body.appendChild(playbackDiv);
   gameRef.update({ commentaryPhase: `team${teamNumber}Playback` });
@@ -6171,7 +6171,7 @@ function startCommentaryPlayback(teamNumber, commentatorId, videoFile) {
 
       if (!recordingURL) {
         v.play().catch(e => console.log('Playback video play failed:', e));
-        console.warn('⚠️ No recording URL found — playing video muted');
+        console.warn('⚠️ No recording URL found, playing video muted');
         return;
       }
 
@@ -6216,13 +6216,13 @@ function startCommentaryPlayback(teamNumber, commentatorId, videoFile) {
       });
       console.log('🎙️ Playing video + mic recording in sync for Team', teamNumber);
 
-      // Drift checker — audio is the canonical clock; nudge video to match
+      // Drift checker, audio is the canonical clock; nudge video to match
       driftInterval = setInterval(() => {
         if (!v || !recordingAudio || v.paused || recordingAudio.paused) return;
         const drift = v.currentTime - recordingAudio.currentTime;
         if (Math.abs(drift) > 0.15) {
           try { v.currentTime = recordingAudio.currentTime; } catch (e) {}
-          console.log(`⏱️ A/V drift ${drift.toFixed(2)}s — resyncing video to audio`);
+          console.log(`⏱️ A/V drift ${drift.toFixed(2)}s, resyncing video to audio`);
         }
       }, 500);
     };
@@ -6232,7 +6232,7 @@ function startCommentaryPlayback(teamNumber, commentatorId, videoFile) {
     const finishPlayback = () => {
       if (!document.getElementById(pbId)) return;
       if (driftInterval) { clearInterval(driftInterval); driftInterval = null; }
-      // Stop the audio too — playback ends when the video ends, but the audio
+      // Stop the audio too, playback ends when the video ends, but the audio
       // might be slightly longer; cut it cleanly so it doesn't bleed into the
       // referee scoring screen.
       const ra = window._commentaryPlaybackAudio;
@@ -6259,7 +6259,7 @@ function showCommentaryRefereeScoring(teamNumber) {
   scoringDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, var(--motd-dark-navy) 0%, var(--motd-navy) 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 40px; text-align: center;';
   scoringDiv.innerHTML = `
     <div style="font-family: 'Bebas Neue', sans-serif; font-size: 52px; color: var(--motd-gold); margin-bottom: 12px; letter-spacing: 4px;">⚽ Rate the Commentary</div>
-    <div style="font-family: 'Barlow', sans-serif; font-size: 26px; color: rgba(255,255,255,0.7); margin-bottom: 40px;">${team ? team.flag + ' ' + team.name : 'Team ' + teamNumber} — Waiting for referee to score...</div>
+    <div style="font-family: 'Barlow', sans-serif; font-size: 26px; color: rgba(255,255,255,0.7); margin-bottom: 40px;">${team ? team.flag + ' ' + team.name : 'Team ' + teamNumber}, Waiting for referee to score...</div>
     <div class="spinner"></div>
   `;
   document.body.appendChild(scoringDiv);
@@ -6280,7 +6280,7 @@ function showCommentaryRefereeScoring(teamNumber) {
     scoreRef.off('value', scoreListener);
     const el = document.getElementById(scId);
     if (el) el.remove();
-    console.log(`⚠️ Referee didn't score Team ${teamNumber} in time — no points`);
+    console.log(`⚠️ Referee didn't score Team ${teamNumber} in time, no points`);
     applyCommentaryScore(teamNumber, 0);
   }, 30000);
 }
@@ -6430,7 +6430,7 @@ function assignSabotageTasks() {
     {
       id: 'extra_time',
       name: 'Extra Time',
-      description: 'Wrap as much toilet paper as possible around one of your limbs — like a cast or bandage. Each full wrap counts as one point at judging, but only if it\'s still on you. Tell no one.',
+      description: 'Wrap as much toilet paper as possible around one of your limbs, like a cast or bandage. Each full wrap counts as one point at judging, but only if it\'s still on you. Tell no one.',
       pointsPerPiece: 1
     },
     {
@@ -6471,7 +6471,7 @@ function assignSabotageTasks() {
     ...team2Players.slice(0, maxPerTeam),
   ];
 
-  // Stagger missions — each player gets theirs at a different time
+  // Stagger missions, each player gets theirs at a different time
   let taskIdx = 0;
   let cumulativeDelay = 0;
   allAssigned.forEach((pid) => {
@@ -6680,7 +6680,7 @@ function startGoalPostsTimer() {
 // ═══════════════════════════════════════════════════════════════════════════
 
 function showGoalPostsJudging() {
-  console.log('⚖️ Goal Posts Judging — sending to Player 1');
+  console.log('⚖️ Goal Posts Judging, sending to Player 1');
 
   // Find Team 1 captain name for display
   const captain1 = Object.values(players).find(p => p.team === 1 && p.isCaptain);
@@ -6841,12 +6841,12 @@ function selectPhotographers() {
 
   checkPhotographers = setInterval(startBlowBallIfReady, 500);
 
-  // Timeout fallback — show Get Ready anyway after 30 s
+  // Timeout fallback, show Get Ready anyway after 30 s
   setTimeout(() => {
     if (document.getElementById('photographer-selection')) {
       clearInterval(checkPhotographers);
       selectionDiv.remove();
-      console.log('⚠️ Photographer selection timed out — showing Get Ready screen');
+      console.log('⚠️ Photographer selection timed out, showing Get Ready screen');
       showBlowBallGetReadyHost();
     }
   }, 30000);
@@ -6867,7 +6867,7 @@ function showBlowBallGetReadyHost() {
   // Signal all players to show the Get Ready screen
   gameRef.update({ blowBallGetReady: true });
 
-  // Listen for the referee pressing Ready — flush any stale value first
+  // Listen for the referee pressing Ready, flush any stale value first
   gameRef.child('blowBallReady').off();
   gameRef.child('blowBallReady').remove();
   gameRef.child('blowBallReady').on('value', (snap) => {
@@ -6923,7 +6923,7 @@ function showNextEmotion() {
 
   document.body.appendChild(emotionDiv);
 
-  // Signal players: new snap round starting — emotion deliberately withheld
+  // Signal players: new snap round starting, emotion deliberately withheld
   gameRef.update({
     blowBallSnapActive: roundNumber,
     blowBallEmotion: null,
@@ -6975,13 +6975,13 @@ function showNextEmotion() {
 }
 
 function finishBlowBall() {
-  console.log('✅ Blow Ball photos done — starting judging');
+  console.log('✅ Blow Ball photos done, starting judging');
   gameRef.update({ blowBallActive: false, blowBallComplete: true });
   startBlowBallJudging();
 }
 
 function startBlowBallJudging() {
-  console.log('⚽ Full Time — waiting for referee scores');
+  console.log('⚽ Full Time, waiting for referee scores');
 
   gameRef.update({ blowBallJudgingActive: true });
 
@@ -7028,12 +7028,12 @@ function startBlowBallJudging() {
 
   scoreWait = setInterval(checkScores, 500);
 
-  // Fallback timeout — skip scoring after 60 s
+  // Fallback timeout, skip scoring after 60 s
   setTimeout(() => {
     if (document.getElementById('blowball-judging')) {
       clearInterval(scoreWait);
       judgingDiv.remove();
-      console.log('⚠️ Blow Ball scoring timed out — skipping to Caption Contest');
+      console.log('⚠️ Blow Ball scoring timed out, skipping to Caption Contest');
       showCaptionContestIntro();
     }
   }, 60000);
@@ -7111,7 +7111,7 @@ const CAPTION_ROUNDS = [
 // Three rotating 45-second music tracks (create these files; falls back gracefully on error)
 const CAPTION_MUSIC_FILES = ['caption_music_1.mp3', 'caption_music_2.mp3', 'caption_music_3.mp3'];
 
-// Team Talk background music — pulled from Match Draw + Caption Contest pools
+// Team Talk background music, pulled from Match Draw + Caption Contest pools
 // since they share the "timed creative chaos" pacing. Each track is 30-45s,
 // so we queue 4 random tracks back-to-back to comfortably cover the 2-minute turn.
 const TEAM_TALK_MUSIC_FILES = [
@@ -7133,7 +7133,7 @@ function _shuffleArr(arr) {
 }
 
 function startTeamTalkBgMusic() {
-  // Stop any previous turn's queue first (defensive — endTeamTalkTurn already does this)
+  // Stop any previous turn's queue first (defensive, endTeamTalkTurn already does this)
   stopTeamTalkBgMusic();
 
   // Shuffle and pick 4 tracks (covers ~150s, comfortably > 120s turn)
@@ -7148,7 +7148,7 @@ function _playNextTeamTalkBgTrack() {
   if (!window._ttBgPlaying) return;
   const next = window._ttBgQueue && window._ttBgQueue.shift();
   if (!next) {
-    // Queue exhausted — refill with another shuffled batch in case the turn runs long
+    // Queue exhausted, refill with another shuffled batch in case the turn runs long
     window._ttBgQueue = _shuffleArr(TEAM_TALK_MUSIC_FILES).slice(0, 2);
     if (!window._ttBgQueue.length) return;
     return _playNextTeamTalkBgTrack();
@@ -7182,7 +7182,7 @@ function stopTeamTalkBgMusic() {
   }
 }
 
-window._captionPhotos        = [];   // [url, url, url, url, url] — one per round
+window._captionPhotos        = [];   // [url, url, url, url, url], one per round
 window._captionCurrentAudio  = null;
 window._captionReviewStarted = -1;
 
@@ -7190,13 +7190,13 @@ window._captionReviewStarted = -1;
 
 function showCaptionContestIntro() {
   _clearRoundOverlays();
-  console.log('📸 Caption Contest — checking for blow ball photos');
+  console.log('📸 Caption Contest, checking for blow ball photos');
 
   gameRef.child('blowBall/photos').once('value', (snapshot) => {
     const photosData = snapshot.val();
 
     if (!photosData) {
-      console.log('📸 No blow ball photos — skipping Caption Contest');
+      console.log('📸 No blow ball photos, skipping Caption Contest');
       window.scoresReviewSource = 'toiletpaper';
       showScoresReview();
       return;
@@ -7214,7 +7214,7 @@ function showCaptionContestIntro() {
 
     const all = [...teamPhotos[1], ...teamPhotos[2]];
     if (all.length === 0) {
-      console.log('📸 No usable photos — skipping Caption Contest');
+      console.log('📸 No usable photos, skipping Caption Contest');
       window.scoresReviewSource = 'toiletpaper';
       showScoresReview();
       return;
@@ -7281,7 +7281,7 @@ function startCaptionRound(roundIndex) {
     totalPlayers: Object.keys(players).length,
   });
 
-  document.getElementById('round-indicator').textContent = `Caption Contest — ${roundIndex + 1}/5`;
+  document.getElementById('round-indicator').textContent = `Caption Contest, ${roundIndex + 1}/5`;
 
   const div = document.createElement('div');
   div.id = 'caption-round-screen';
@@ -7720,7 +7720,7 @@ function showCaptionWinner(roundIndex, votes) {
     // 1. "[Name] wins this round!" via ElevenLabs
     await announceCaptionWinner(winner.playerName);
 
-    // 2. Accept fanfare — wait for BOTH the audio to end AND a 2s minimum hold
+    // 2. Accept fanfare, wait for BOTH the audio to end AND a 2s minimum hold
     //    (whichever finishes last), so audio never bleeds into the next screen
     const acceptIdx = (roundIndex % 10) + 1;
     await new Promise(resolve => {
@@ -7773,20 +7773,20 @@ function moveToNextCaptionRound(roundIndex) {
 // EXTRA TIME + SABOTAGE REVEALS (ONE BY ONE)
 // ═══════════════════════════════════════════════════════════════════════════
 
-// Pool of question variants — picked in order (cycling) so no immediate repeats
+// Pool of question variants, picked in order (cycling) so no immediate repeats
 const SABOTAGE_QUESTION_VARIANTS = [
-  (name) => `${name}! Let's start with you — what was your task and how did you do?`,
-  (name) => `And now it's over to ${name} — what were you up to?`,
-  (name) => `${name}, your turn — what was the mission and how did it go?`,
-  (name) => `Right then ${name}, spill the beans — what were you secretly up to?`,
-  (name) => `Now over to ${name} — what was your task and did you pull it off?`,
+  (name) => `${name}! Let's start with you, what was your task and how did you do?`,
+  (name) => `And now it's over to ${name}, what were you up to?`,
+  (name) => `${name}, your turn, what was the mission and how did it go?`,
+  (name) => `Right then ${name}, spill the beans, what were you secretly up to?`,
+  (name) => `Now over to ${name}, what was your task and did you pull it off?`,
   (name) => `${name}! What was your secret mission and how did you get on?`,
-  (name) => `Eyes on ${name} — what were you doing behind everyone's backs?`,
-  (name) => `It's ${name}'s turn to come clean — what was the task?`,
+  (name) => `Eyes on ${name}, what were you doing behind everyone's backs?`,
+  (name) => `It's ${name}'s turn to come clean, what was the task?`,
   (name) => `And ${name}, what mischief were you getting up to?`,
-  (name) => `Let's hear from ${name} — what was your mission and how many points are you claiming?`,
-  (name) => `${name}, the floor is yours — what was your sabotage and how well did you do?`,
-  (name) => `Right, ${name} — don't hold back. What was the task and how did it go?`,
+  (name) => `Let's hear from ${name}, what was your mission and how many points are you claiming?`,
+  (name) => `${name}, the floor is yours, what was your sabotage and how well did you do?`,
+  (name) => `Right, ${name}, don't hold back. What was the task and how did it go?`,
 ];
 let _sabotageQuestionIndex = 0;
 
@@ -7879,7 +7879,7 @@ function showSabotagePlayerReveal(index) {
 
   const entries = window._sabotageRevealEntries || [];
   if (index >= entries.length) {
-    // All done — clear Firebase signal and tally points
+    // All done, clear Firebase signal and tally points
     gameRef.child('sabotageReveal').remove();
     awardSabotageAndContinue();
     return;
@@ -7899,7 +7899,7 @@ function showSabotagePlayerReveal(index) {
   card.style.cssText = 'position: fixed; top: var(--header-height); left: 0; right: 0; bottom: 0; background: linear-gradient(135deg, var(--motd-dark-navy) 0%, var(--motd-navy) 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 40px; text-align: center;';
   card.innerHTML = `
     <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;color:rgba(255,255,255,0.3);letter-spacing:3px;margin-bottom:32px;">
-      🕵️ SABOTAGE REVEALS &nbsp;—&nbsp; ${index + 1} / ${entries.length}
+      🕵️ SABOTAGE REVEALS  /  ${index + 1} / ${entries.length}
     </div>
 
     <div style="margin-bottom:28px;">${photoHtml}</div>
@@ -7918,7 +7918,7 @@ function showSabotagePlayerReveal(index) {
   `;
   document.body.appendChild(card);
 
-  // Auto-award tasks (e.g. Golden Boot) — skip ref judging entirely
+  // Auto-award tasks (e.g. Golden Boot), skip ref judging entirely
   if (data.autoAward) {
     const autoPoints = data.completed ? (data.pointsPerPiece || 50) : 0;
     const autoStatus = data.completed ? 'completed' : 'notdone';
@@ -7965,12 +7965,12 @@ function showSabotagePlayerReveal(index) {
     showSabotagePlayerReveal(index + 1);
   });
 
-  // Ask the player about their task — dynamic ElevenLabs with player name
+  // Ask the player about their task, dynamic ElevenLabs with player name
   playSabotageQuestion(playerName);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// SABOTAGE REVEALS (legacy — all-at-once fallback, kept for reference)
+// SABOTAGE REVEALS (legacy, all-at-once fallback, kept for reference)
 // ═══════════════════════════════════════════════════════════════════════════
 
 function showSabotageReveals() {
@@ -8043,7 +8043,7 @@ function showSabotageReveals() {
             </button>
           </div>
 
-          <!-- Points input — only visible when Completed -->
+          <!-- Points input, only visible when Completed -->
           <div id="sabot-pts-row-${pid}" style="display:${initStatus==='completed'?'flex':'none'};align-items:center;gap:14px;">
             <label style="font-family:'Barlow Condensed',sans-serif;font-size:18px;color:rgba(255,255,255,0.8);">Points to award:</label>
             <input type="number" id="sabot-pts-${pid}" value="${initPts}" min="0" max="50"
@@ -8090,7 +8090,7 @@ function showVictoryScreen() {
 
   // Stop everything that might still be playing from previous rounds
   pauseAllAudio();
-  window._pausedAudioRefs = []; // game is over — nothing should ever resume
+  window._pausedAudioRefs = []; // game is over, nothing should ever resume
 
   document.getElementById('round3-screen').classList.remove('active');
   document.getElementById('round-indicator').textContent = 'Full Time';
@@ -8101,7 +8101,7 @@ function showVictoryScreen() {
 
     let team1Total = 0;
     let team2Total = 0;
-    let mvp = { name: '—', score: 0, photo: null };
+    let mvp = { name: '-', score: 0, photo: null };
     const team1Players = [];
     const team2Players = [];
 
@@ -8132,7 +8132,7 @@ function showVictoryScreen() {
 
       <div style="background: rgba(255,255,255,0.08); border: 3px solid var(--motd-gold); border-radius: 20px; padding: 30px 50px; margin-bottom: 30px; text-align: center;">
         <div style="font-family: 'Bebas Neue', sans-serif; font-size: 56px; color: var(--text);">${teamDisplay}</div>
-        <div style="font-family: 'Bebas Neue', sans-serif; font-size: 100px; color: var(--motd-cyan); text-shadow: 0 0 40px rgba(77,212,232,0.6); line-height: 1;">${team1Total} — ${team2Total}</div>
+        <div style="font-family: 'Bebas Neue', sans-serif; font-size: 100px; color: var(--motd-cyan); text-shadow: 0 0 40px rgba(77,212,232,0.6); line-height: 1;">${team1Total}, ${team2Total}</div>
         ${team1 && team2 ? `<div style="font-family: 'Barlow Condensed', sans-serif; font-size: 24px; color: var(--text-muted);">${team1.flag} ${team1.name} vs ${team2.flag} ${team2.name}</div>` : ''}
       </div>
 
@@ -8171,7 +8171,7 @@ function showVictoryScreen() {
         </div>
       </div>
 
-      <!-- Full-time commentary banner — populated by generateFullTimeCommentary() -->
+      <!-- Full-time commentary banner, populated by generateFullTimeCommentary() -->
       <div id="victory-commentary-banner" style="display:none; width:100%; max-width:900px; margin-bottom:30px; background:rgba(255,198,41,0.1); border:2px solid rgba(255,198,41,0.4); border-radius:16px; padding:24px 32px; text-align:center;">
         <div style="font-family:'Barlow Condensed',sans-serif;font-size:16px;color:rgba(255,255,255,0.5);letter-spacing:3px;text-transform:uppercase;margin-bottom:10px;">🎙️ Post-Match Commentary</div>
         <div id="victory-commentary-text" style="font-family:'Barlow',sans-serif;font-size:22px;color:rgba(255,255,255,0.9);line-height:1.6;font-style:italic;"></div>
@@ -8239,7 +8239,7 @@ async function generateFullTimeCommentary({ team1Total, team2Total, mvp, t1Playe
   const t2Name = team2 ? `${team2.flag} ${team2.name}` : 'Team 2';
   const resultLine = winnerTeam
     ? `${winnerTeam.flag || ''} ${winnerTeam.name} win ${Math.max(team1Total, team2Total)} to ${Math.min(team1Total, team2Total)}`
-    : `it finishes all square — ${team1Total} points apiece`;
+    : `it finishes all square, ${team1Total} points apiece`;
 
   // Build a mention of the runner-up and a wooden spoon player for flavour
   const allPlayers = [...t1Players, ...t2Players].sort((a, b) => (b.score || 0) - (a.score || 0));
@@ -8250,13 +8250,13 @@ async function generateFullTimeCommentary({ team1Total, team2Total, mvp, t1Playe
     ? `${runnerUp.name} also deserves a mention with ${runnerUp.score || 0} points.`
     : '';
   const lastPlaceLine = lastPlace && lastPlace.name !== mvp.name
-    ? `And ${lastPlace.name} — well, there's always next time.`
+    ? `And ${lastPlace.name}, well, there's always next time.`
     : '';
 
   const scriptText = [
-    `[excited] And that really is the end now — what an evening of Foul Play!`,
-    `[happy] The final score: ${t1Name} finish with ${team1Total} points, ${t2Name} with ${team2Total} — and ${resultLine}!`,
-    `[impressed] But the standout performer tonight, without any doubt, is ${mvp.name} — an absolutely extraordinary showing, racking up ${mvp.score} points.`,
+    `[excited] And that really is the end now, what an evening of Foul Play!`,
+    `[happy] The final score: ${t1Name} finish with ${team1Total} points, ${t2Name} with ${team2Total}, and ${resultLine}!`,
+    `[impressed] But the standout performer tonight, without any doubt, is ${mvp.name}, an absolutely extraordinary showing, racking up ${mvp.score} points.`,
     runnerUpLine,
     lastPlaceLine,
     (() => {
@@ -8447,7 +8447,7 @@ const _AUDIO_VAR_NAMES = [
   'matchDrawExplainerAudio', 'matchDrawMusic',
   'bogExplainerAudio', 'bogRollingMusic',
   'goalPostExplainerAudio', 'goalPostsMusic',
-  '_currentTTSAudio',  // ElevenLabs TTS — caption readings, sabotage questions, winner announcements
+  '_currentTTSAudio',  // ElevenLabs TTS, caption readings, sabotage questions, winner announcements
 ];
 window._currentTTSAudio = null;
 
@@ -8488,7 +8488,7 @@ function resumeAllAudio() {
   window._pausedAudioRefs = [];
 }
 
-// Listen to Firebase 'paused' — reacts to Player 1's pause button on their phone
+// Listen to Firebase 'paused', reacts to Player 1's pause button on their phone
 (function setupHostPauseListener() {
   const check = setInterval(() => {
     if (!gameRef) return;
@@ -8512,7 +8512,7 @@ function resumeAllAudio() {
         // Restart Round 2 countdown ONLY if Round 2 was mid-game when paused.
         // The countdown-timer element is part of the static round 2 markup and
         // is always present in the DOM, so we must also confirm the round 2
-        // screen is actually the active one — otherwise a pause/resume during
+        // screen is actually the active one, otherwise a pause/resume during
         // any other round would silently spin up a Round 2 timer in the
         // background and trigger endRound2() ~30s later.
         const _round2El = document.getElementById('round2-screen');
@@ -8569,7 +8569,7 @@ function createPauseButton() {
 }
 
 function togglePause() {
-  // Drive everything through Firebase — the listener above handles the UI response
+  // Drive everything through Firebase, the listener above handles the UI response
   gameRef.child('paused').set(!_gamePaused);
 }
 
@@ -8643,7 +8643,7 @@ function downloadChampionsPhoto() {
 
   ctx.fillStyle = '#fff';
   ctx.font = 'bold 48px Arial';
-  ctx.fillText(`FINAL SCORE: ${team1Score} – ${team2Score}`, 600, 145);
+  ctx.fillText(`FINAL SCORE: ${team1Score} - ${team2Score}`, 600, 145);
 
   // Draw all player photos
   const allPlayers = Object.values(players);
@@ -9012,7 +9012,7 @@ const TEAM_TALK_WORDS = [
 const TT_VOCAL_INSTRUCTIONS = [
   'You must speak in rhyme',
   'You cannot use the letter P',
-  'Start slow — you can only talk faster',
+  'Start slow, you can only talk faster',
   'Deepest voice possible',
   'Highest voice possible',
   'Always give a new compliment when you speak',
@@ -9031,7 +9031,7 @@ const TT_PHYSICAL_LIST_A = [
   'Be an airplane',
 ];
 
-// List B is the same pool — we just pick a DIFFERENT entry from List A
+// List B is the same pool, we just pick a DIFFERENT entry from List A
 const TT_PHYSICAL_LIST_B = TT_PHYSICAL_LIST_A;
 
 // ─── State ───────────────────────────────────────────────────────────────────
@@ -9112,7 +9112,7 @@ function showTeamTalkIntro() {
   const startVoiceOnce = () => { if (!voiceStarted) { voiceStarted = true; playVoice(); } };
   teamTalkMusic.addEventListener('ended', startVoiceOnce);
   teamTalkMusic.addEventListener('error', () => {
-    console.warn('⚠️ team_talk_intro_music.mp3 failed — skipping to voice');
+    console.warn('⚠️ team_talk_intro_music.mp3 failed, skipping to voice');
     startVoiceOnce();
   });
   teamTalkMusic.play()
@@ -9392,7 +9392,7 @@ function pickNextTeamTalkWord() {
 function advanceToNextWord() {
   _ttCurrentWord = pickNextTeamTalkWord();
   if (!_ttCurrentWord) {
-    // Ran out of words — show placeholder
+    // Ran out of words, show placeholder
     _ttCurrentWord = { id: -1, word: '(No more words!)', difficulty: 1, points: 0 };
   }
   gameRef.child('teamTalk/currentWord').set(_ttCurrentWord);
@@ -9455,7 +9455,7 @@ function endTeamTalkTurn() {
     _ttWordActionRef = null;
   }
 
-  // Stop bg music — the per-turn music should not bleed into the next turn
+  // Stop bg music, the per-turn music should not bleed into the next turn
   // or into the results screen (those have their own audio).
   stopTeamTalkBgMusic();
 
@@ -9479,7 +9479,7 @@ function endTeamTalkTurn() {
       },
     });
   } else {
-    // Both teams done — play ding then results
+    // Both teams done, play ding then results
     playTeamTalkDing({
       onEnded: () => showTeamTalkResults(),
       onError: () => setTimeout(() => showTeamTalkResults(), 500),
@@ -9502,14 +9502,14 @@ async function showTeamTalkResults() {
   resultsDiv.id = 'team-talk-results';
   resultsDiv.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, var(--motd-dark-navy) 0%, var(--motd-navy) 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 40px; text-align: center;';
   resultsDiv.innerHTML = `
-    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 50px; color: var(--motd-gold); letter-spacing: 5px; margin-bottom: 40px;">TEAM TALK — FINAL SCORES</div>
+    <div style="font-family: 'Bebas Neue', sans-serif; font-size: 50px; color: var(--motd-gold); letter-spacing: 5px; margin-bottom: 40px;">TEAM TALK, FINAL SCORES</div>
     <div style="display: flex; gap: 80px; align-items: center; justify-content: center; margin-bottom: 40px;">
       <div style="text-align: center;">
         <div style="font-size: 60px; margin-bottom: 10px;">${team1.flag}</div>
         <div style="font-family: 'Bebas Neue', sans-serif; font-size: 32px; color: var(--text); margin-bottom: 12px;">${team1.name}</div>
         <div style="font-family: 'Bebas Neue', sans-serif; font-size: 90px; color: #4dd4e8; text-shadow: 0 0 30px rgba(77,212,232,0.6);">${_ttTeam1Score}</div>
       </div>
-      <div style="font-family: 'Bebas Neue', sans-serif; font-size: 60px; color: var(--text-muted);">–</div>
+      <div style="font-family: 'Bebas Neue', sans-serif; font-size: 60px; color: var(--text-muted);">-</div>
       <div style="text-align: center;">
         <div style="font-size: 60px; margin-bottom: 10px;">${team2.flag}</div>
         <div style="font-family: 'Bebas Neue', sans-serif; font-size: 32px; color: var(--text); margin-bottom: 12px;">${team2.name}</div>

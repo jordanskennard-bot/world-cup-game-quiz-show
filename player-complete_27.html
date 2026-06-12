@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Foul Play — Join the Game</title>
+<title>Foul Play: Join the Game</title>
 <!-- VERSION: 7.0 - Full game: Bonus Round + Match Draw + Victory Screen - CLEAR CACHE! -->
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:ital,wght@0,400;0,600;0,700;1,400&family=Barlow:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
 
@@ -1253,7 +1253,7 @@ function listenForGameStart() {
   // Check if this player has been promoted to first/captain. We listen reactively
   // (instead of a one-shot once('value')) because the host's captain-assignment
   // runs asynchronously after the player joins, AND because if ghost-player
-  // records were ahead of us in the list they may get cleaned up later — so a
+  // records were ahead of us in the list they may get cleaned up later, so a
   // one-shot check at join time can be wrong. Listen to our own isCaptain flag
   // (the host sets it on the home-team captain, and that's also the referee).
   let _captainUiShown = false;
@@ -1319,14 +1319,14 @@ function listenForGameStart() {
   });
   
   // Listen for team selection phase
-  // Guard: skip on rejoin — game is already underway, team is already assigned
+  // Guard: skip on rejoin, game is already underway, team is already assigned
   gameRef.child('teamSelectionStarted').on('value', (snapshot) => {
     if (snapshot.val() === true && !window._startPlayingCalled) {
       showTeamSelectionScreen();
     }
   });
 
-  // ── TEAM TALK — must be active BEFORE 'started:true' because team talk
+  // ── TEAM TALK, must be active BEFORE 'started:true' because team talk
   //    is the pre-game intro that runs while players are on the waiting screen ──
   gameRef.child('teamTalk/phase').on('value', (snap) => {
     const phase = snap.val();
@@ -1335,7 +1335,7 @@ function listenForGameStart() {
   });
 
   // Listen for Round 1 explainer
-  // Guard: skip on rejoin — player is already mid-game
+  // Guard: skip on rejoin, player is already mid-game
   gameRef.child('showRound1Explainer').on('value', (snapshot) => {
     if (snapshot.val() === true && !window._startPlayingCalled) {
       showPlayerRound1Explainer();
@@ -1363,7 +1363,7 @@ function listenForGameStart() {
   // ── BONUS ROUND LISTENER ──
   gameRef.child('bonusRoundPhase').on('value', (snapshot) => {
     const phase = snapshot.val();
-    // Bail out when no bonus round is active — avoids hiding game-screen on
+    // Bail out when no bonus round is active, avoids hiding game-screen on
     // initial subscription fire (null) or on rejoin after the bonus round has ended.
     if (!phase) return;
     // Synchronously hide Round 1 screen and remove ANY existing bonus overlays
@@ -1404,7 +1404,7 @@ function listenForGameStart() {
   });
 
   // ── ROUND 2 LISTENERS ──
-  // Guard: skip on rejoin — round2Active listener will put player straight into gameplay
+  // Guard: skip on rejoin, round2Active listener will put player straight into gameplay
   gameRef.child('showRound2Explainer').on('value', (snapshot) => {
     if (snapshot.val() === true && !window._startPlayingCalled) {
       showPlayerRound2Explainer();
@@ -1445,14 +1445,14 @@ function listenForGameStart() {
   });
 
   // ── OFFSIDE TRAP LISTENERS ──
-  // Global broadcast — all players see the button simultaneously
+  // Global broadcast, all players see the button simultaneously
   gameRef.child('offsideTrapOpportunity').on('value', (snapshot) => {
     const data = snapshot.val();
     if (data && !data.claimed) {
-      console.log('🚩 Offside Trap opportunity — showing button!');
+      console.log('🚩 Offside Trap opportunity, showing button!');
       showOffsideTrapButton();
     } else {
-      // Claimed or removed — hide button if still showing
+      // Claimed or removed, hide button if still showing
       hideOffsideTrapButton(window.offsideTrapTimer);
     }
   });
@@ -1503,7 +1503,7 @@ function listenForGameStart() {
     }
   });
 
-  // ── ROUND 2 TIME UP — lock pun submission and show "Crack on" to home team captain ──
+  // ── ROUND 2 TIME UP, lock pun submission and show "Crack on" to home team captain ──
   gameRef.child('round2TimeUp').on('value', (snapshot) => {
     if (snapshot.val() === true) {
       // Lock pun submission for ALL players
@@ -1532,7 +1532,7 @@ function listenForGameStart() {
     }
   });
 
-  // ── CRACKEDON — hide button once host confirms transition ──
+  // ── CRACKEDON, hide button once host confirms transition ──
   gameRef.child('crackedOn').on('value', (snapshot) => {
     if (snapshot.val() === true) {
       const crackOnBtn = document.getElementById('crack-on-btn');
@@ -1548,7 +1548,7 @@ function listenForGameStart() {
     showCommentaryScreen(snapshot.val());
   });
 
-  // ── GOAL POSTS JUDGING — shown to Team 1 captain only ──
+  // ── GOAL POSTS JUDGING, shown to Team 1 captain only ──
   gameRef.child('goalPostsJudging').on('value', (snapshot) => {
     if (snapshot.val() === true) {
       showGoalPostsJudgingOnPlayer();
@@ -1605,7 +1605,7 @@ function listenForGameStart() {
 function showPlayerToiletPaperAlert() {
   if (document.getElementById('player-tp-alert')) return;
 
-  // In sandbox, no teams are selected so nobody gets isCaptain — fall back to player 1
+  // In sandbox, no teams are selected so nobody gets isCaptain, fall back to player 1
   const isCaptain = (players[playerId]?.isCaptain === true && players[playerId]?.team === 1)
                     || window._isPlayer1 === true;
 
@@ -1758,7 +1758,7 @@ function startGameAsLead() {
     startBtn.textContent = '📯 Blowing…';
   }
 
-  // Play whistle — only signal Firebase AFTER it finishes so the next
+  // Play whistle, only signal Firebase AFTER it finishes so the next
   // audio on the host doesn't overlap with the whistle still sounding.
   const whistleAudio = new Audio('full_time_whistle.mp3');
   whistleAudio.volume = 0.9;
@@ -1845,13 +1845,13 @@ function startPlaying() {
     }
   });
 
-  // Fires when a new snap round starts — emotion is still hidden
+  // Fires when a new snap round starts, emotion is still hidden
   gameRef.child('blowBallSnapActive').on('value', (snapshot) => {
     const roundNumber = snapshot.val();
     if (roundNumber) showPlayerBlowBallSnap(roundNumber);
   });
 
-  // Fires at REVEAL (after 10 s) — update the existing snap screen to show the emotion
+  // Fires at REVEAL (after 10 s), update the existing snap screen to show the emotion
   gameRef.child('blowBallEmotion').on('value', (snapshot) => {
     const emotion = snapshot.val();
     if (emotion) revealBlowBallEmotion(emotion);
@@ -1906,7 +1906,7 @@ function startPlaying() {
     else { const d = document.getElementById('player-futbol-screen'); if (d) d.remove(); }
   });
 
-  // Game complete — show thanks screen then email capture
+  // Game complete, show thanks screen then email capture
   gameRef.child('gameComplete').on('value', (snapshot) => {
     if (snapshot.val() === true) {
       showPlayerGameComplete();
@@ -1923,7 +1923,7 @@ function showSabotageTask(sabotageData) {
 
   const alertDiv = document.getElementById('player-tp-alert');
   if (!alertDiv) {
-    // Toilet paper alert already gone — create standalone display
+    // Toilet paper alert already gone, create standalone display
     createStandaloneSabotageDisplay(sabotageData);
     return;
   }
@@ -1940,7 +1940,7 @@ function showSabotageTask(sabotageData) {
       <div style="font-family: 'Barlow', sans-serif; font-size: 17px; color: rgba(255,255,255,0.9); margin-bottom: 18px; line-height: 1.6;">
         ${sabotageData.description}
       </div>
-      ${(sabotageData.pointsDisplay || sabotageData.pointsPerPiece) ? `<div style="font-family: 'Barlow', sans-serif; font-size: 15px; color: rgba(255,255,255,0.65); margin-bottom: 20px; font-style: italic;">${sabotageData.pointsDisplay || sabotageData.pointsPerPiece + ' point per piece'} — don't get caught!</div>` : ''}
+      ${(sabotageData.pointsDisplay || sabotageData.pointsPerPiece) ? `<div style="font-family: 'Barlow', sans-serif; font-size: 15px; color: rgba(255,255,255,0.65); margin-bottom: 20px; font-style: italic;">${sabotageData.pointsDisplay || sabotageData.pointsPerPiece + ' point per piece'}, don't get caught!</div>` : ''}
       <button id="sabotage-understood-btn" onclick="acknowledgeSabotage()"
               style="width: 100%; padding: 15px; background: linear-gradient(135deg, #4dd4e8, #ffc629); color: #0a1628; border: none; border-radius: 12px; font-family: 'Bebas Neue', sans-serif; font-size: 24px; cursor: default; box-shadow: 0 8px 20px rgba(77,212,232,0.4); -webkit-tap-highlight-color: transparent; opacity: 0.4;"
               disabled>
@@ -2188,7 +2188,7 @@ function volunteerAsPhotographer() {
   const playerTeam = players[playerId]?.team;
 
   if (!playerTeam) {
-    // Sandbox: no teams assigned — fill both slots so the host can proceed
+    // Sandbox: no teams assigned, fill both slots so the host can proceed
     gameRef.child('blowBall/photographers/team1').set(playerId);
     gameRef.child('blowBall/photographers/team2').set(playerId);
   } else {
@@ -2213,7 +2213,7 @@ function volunteerAsPhotographer() {
   document.body.appendChild(waitDiv);
 }
 
-// Called when a new snap round starts — emotion is still HIDDEN
+// Called when a new snap round starts, emotion is still HIDDEN
 function showPlayerBlowBallSnap(roundNumber) {
   // Remove Get Ready screen and photographer waiting screen if present
   const getReadyDiv = document.getElementById('blowball-get-ready-screen');
@@ -2234,7 +2234,7 @@ function showPlayerBlowBallSnap(roundNumber) {
   });
 }
 
-// Called at REVEAL — update the existing screen to show the emotion
+// Called at REVEAL, update the existing screen to show the emotion
 function revealBlowBallEmotion(emotion) {
   const revealEl = document.getElementById('blowball-player-reveal');
   if (revealEl) {
@@ -2245,7 +2245,7 @@ function revealBlowBallEmotion(emotion) {
   if (hiddenEl) hiddenEl.style.display = 'none';
 }
 
-// Photographer screen during the hidden snap phase — camera ready, no emotion shown
+// Photographer screen during the hidden snap phase, camera ready, no emotion shown
 function showPhotographerSnapScreen(roundNumber) {
   let emotionDiv = document.getElementById('player-blowball-emotion');
   if (!emotionDiv) {
@@ -2316,7 +2316,7 @@ async function handleBlowBallFallbackPick(input) {
   }
 }
 
-// Spectator screen during the hidden snap phase — emotion not shown yet
+// Spectator screen during the hidden snap phase, emotion not shown yet
 function showSpectatorSnapScreen(roundNumber) {
   let emotionDiv = document.getElementById('player-blowball-emotion');
   if (!emotionDiv) {
@@ -2428,9 +2428,9 @@ function convertToBase64(file) {
 
 async function startBlowBallCamera() {
   // Browsers without secure context (HTTP, some embedded webviews) won't expose
-  // mediaDevices at all — short-circuit straight to the file-input fallback.
+  // mediaDevices at all, short-circuit straight to the file-input fallback.
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    console.warn('Blow-ball camera not supported in this browser — using file picker');
+    console.warn('Blow-ball camera not supported in this browser, using file picker');
     return _switchToBlowBallFilePicker();
   }
   try {
@@ -2462,7 +2462,7 @@ async function captureBlowBallPhoto() {
   const btn    = document.getElementById('blowball-capture-btn');
   // If the live stream isn't available (camera blocked, slow init, desktop
   // without webcam), fall through to the file picker rather than silently
-  // doing nothing — the previous behaviour left the photographer stuck with
+  // doing nothing, the previous behaviour left the photographer stuck with
   // no way to submit a photo.
   if (!video || !canvas || !video.srcObject) {
     const input = document.getElementById('blowball-photo-fallback-input');
@@ -2470,7 +2470,7 @@ async function captureBlowBallPhoto() {
     return;
   }
 
-  // Freeze the capture — crop to square to preserve aspect ratio
+  // Freeze the capture, crop to square to preserve aspect ratio
   canvas.width  = 600;
   canvas.height = 600;
   const ctx = canvas.getContext('2d');
@@ -2484,7 +2484,7 @@ async function captureBlowBallPhoto() {
   // Stop the live stream
   video.srcObject.getTracks().forEach(t => t.stop());
 
-  // Hide the viewfinder — don't show the photo back to the player
+  // Hide the viewfinder, don't show the photo back to the player
   const wrap = document.getElementById('blowball-viewfinder-wrap');
   if (wrap) wrap.style.display = 'none';
 
@@ -2521,10 +2521,10 @@ function showPlayerBlowBallJudging() {
   //   2. Otherwise: Team 1 captain (matches Goal Posts judging convention).
   //   3. Fallback: any Team 1 captain (loose isCaptain check), then any captain,
   //      then first player by joinedAt (so the screen can never end up on nobody's
-  //      phone — which is what stalls the round at "Full Time / referee is scoring").
+  //      phone, which is what stalls the round at "Full Time / referee is scoring").
   const myData = players[playerId];
   if (!myData) {
-    console.warn('🔄 Blow Ball judging fired before my player data loaded — retrying in 600ms');
+    console.warn('🔄 Blow Ball judging fired before my player data loaded, retrying in 600ms');
     setTimeout(showPlayerBlowBallJudging, 600);
     return;
   }
@@ -2587,7 +2587,7 @@ function showRefereeBlowBallScoring() {
              oninput="onBlowBallSlider(1, this.value)"
              style="width: 100%; height: 40px; cursor: pointer; accent-color: #4dd4e8; -webkit-appearance: none; background: transparent;">
       <div style="display: flex; justify-content: space-between; color: rgba(255,255,255,0.35); font-family: 'Barlow', sans-serif; font-size: 12px; margin-top: 2px;">
-        <span>0 — Poor</span><span>23 — Excellent</span>
+        <span>0, Poor</span><span>23, Excellent</span>
       </div>
     </div>
 
@@ -2598,7 +2598,7 @@ function showRefereeBlowBallScoring() {
              oninput="onBlowBallSlider(2, this.value)"
              style="width: 100%; height: 40px; cursor: pointer; accent-color: #d4145a; -webkit-appearance: none; background: transparent;">
       <div style="display: flex; justify-content: space-between; color: rgba(255,255,255,0.35); font-family: 'Barlow', sans-serif; font-size: 12px; margin-top: 2px;">
-        <span>0 — Poor</span><span>23 — Excellent</span>
+        <span>0, Poor</span><span>23, Excellent</span>
       </div>
     </div>
 
@@ -2765,7 +2765,7 @@ function showPlayerScoresReview() {
   playerScoresReviewShown = true;
   console.log('📊 Showing scores review on player screen');
 
-  // End interview round — prevents the currentRound3Question listener from firing
+  // End interview round, prevents the currentRound3Question listener from firing
   window._round3Active = false;
 
   // Remove any lingering screens that might be covering us
@@ -2779,7 +2779,7 @@ function showPlayerScoresReview() {
   const nqBtn = document.getElementById('round3-next-q-btn');
   if (nqBtn) nqBtn.remove();
 
-  // Hide other screens (optional chaining — not all elements exist in every player state)
+  // Hide other screens (optional chaining, not all elements exist in every player state)
   document.getElementById('game-screen')?.classList.remove('active');
   document.getElementById('question-screen')?.classList.remove('active');
   document.getElementById('voting-screen')?.classList.remove('active');
@@ -2953,7 +2953,7 @@ function displayMySubmittedPun(punText) {
 
 function submitPun() {
   if (window._punTimeUp) {
-    return; // clock has stopped — silently block late submissions
+    return; // clock has stopped, silently block late submissions
   }
 
   const punInput = document.getElementById('pun-input');
@@ -3032,7 +3032,7 @@ function showCommentaryScreen(phase) {
       else { showCommentaryWaiting('Recording in progress...', '🔴'); }
     });
   } else if (phase === 'team1Playback' || phase === 'team2Playback') {
-    // Commentary audio plays on the host screen — all players just watch
+    // Commentary audio plays on the host screen, all players just watch
     showCommentaryWaiting('Watch the screen!', '📺');
   } else if (phase === 'team1Scoring' || phase === 'team2Scoring') {
     const t = phase === 'team1Scoring' ? 1 : 2;
@@ -3089,22 +3089,22 @@ function volunteerAsCommentator(teamNumber) {
   const btn = document.getElementById('commentary-im-up-btn');
   if (btn) { btn.disabled = true; btn.textContent = '⏳ Claiming spot...'; }
 
-  // Request mic permission NOW — before the countdown — so the browser prompt
+  // Request mic permission NOW, before the countdown, so the browser prompt
   // doesn't appear mid-recording and cause a jarring interruption.
   navigator.mediaDevices.getUserMedia({ audio: true })
     .then(stream => {
-      // Permission granted — stop immediately, we'll re-request when recording actually starts
+      // Permission granted, stop immediately, we'll re-request when recording actually starts
       stream.getTracks().forEach(t => t.stop());
       console.log('🎙️ Mic permission granted early');
     })
     .catch(err => {
       console.warn('🎙️ Mic permission denied or unavailable:', err);
-      // Don't block — let them volunteer anyway; recording will handle the error gracefully
+      // Don't block, let them volunteer anyway; recording will handle the error gracefully
     });
 
   gameRef.child(`commentary/team${teamNumber}/commentator`).transaction((current) => {
     if (current === null) return playerId;
-    return; // Already claimed — abort
+    return; // Already claimed, abort
   }, (err, committed) => {
     if (!committed) {
       const div = document.getElementById('player-commentary-selection');
@@ -3144,11 +3144,11 @@ async function startPlayerMicRecording(teamNumber) {
   const div = document.createElement('div');
   div.id = 'player-commentary-recording';
   div.style.cssText = 'position: fixed; inset: 0; background: #0a0a0a; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 30px; text-align: center;';
-  // Show "get ready" state first — mic starts recording immediately but video waits
+  // Show "get ready" state first, mic starts recording immediately but video waits
   div.innerHTML = `
     <div style="font-size: 64px; margin-bottom: 20px;">🎙️</div>
     <div style="font-family: 'Bebas Neue', sans-serif; font-size: 36px; color: var(--motd-gold, #ffc629); letter-spacing: 3px; margin-bottom: 12px;">GET READY!</div>
-    <div style="font-family: 'Barlow', sans-serif; font-size: 20px; color: rgba(255,255,255,0.7); line-height: 1.6; margin-bottom: 32px;">Hold your phone up to your mouth.<br>Press Ready when you're set — the video will start.</div>
+    <div style="font-family: 'Barlow', sans-serif; font-size: 20px; color: rgba(255,255,255,0.7); line-height: 1.6; margin-bottom: 32px;">Hold your phone up to your mouth.<br>Press Ready when you're set, the video will start.</div>
     <button id="commentary-ready-btn" onclick="signalCommentaryReady(${teamNumber})"
             style="padding: 18px 48px; background: linear-gradient(135deg, #4dd4e8, #00bcd4); color: #0a1628; border: none; border-radius: 14px; font-family: 'Bebas Neue', sans-serif; font-size: 32px; letter-spacing: 2px; cursor: pointer; box-shadow: 0 8px 30px rgba(77,212,232,0.5); -webkit-tap-highlight-color: transparent;">
       🎙️ I'm Ready!
@@ -3177,7 +3177,7 @@ async function startPlayerMicRecording(teamNumber) {
     // "I'm Ready!" so the audio aligns with the video. Starting on screen
     // load would prepend several seconds of silence to the recording and
     // throw playback out of sync.
-    console.log('🎙️ Mic primed — recording will start when player taps Ready');
+    console.log('🎙️ Mic primed, recording will start when player taps Ready');
 
     // Stop when host signals recording is over
     const stopRef = gameRef.child(`commentary/team${teamNumber}/commentatorRecording`);
@@ -3205,14 +3205,14 @@ async function startPlayerMicRecording(teamNumber) {
   }
 }
 
-// Called when the commentator presses "I'm Ready!" — starts mic recording,
+// Called when the commentator presses "I'm Ready!", starts mic recording,
 // signals host to play timing video, and shows local video on commentator's phone.
 // Recording start is aligned with this tap so the audio/video stay in sync on playback.
 function signalCommentaryReady(teamNumber) {
   const btn = document.getElementById('commentary-ready-btn');
   if (btn) { btn.disabled = true; btn.textContent = '⏳ Starting…'; }
 
-  // Start the mic recording NOW — this is the t=0 of the audio track.
+  // Start the mic recording NOW, this is the t=0 of the audio track.
   // It must happen as close as possible to the host's video.play().
   if (commentaryMediaRecorder && commentaryMediaRecorder.state === 'inactive') {
     try {
@@ -3236,14 +3236,14 @@ function signalCommentaryReady(teamNumber) {
                style="width: 100%; max-height: 70vh; border-radius: 8px; display: block;"></video>
         <div style="display: flex; align-items: center; gap: 10px; margin-top: 14px; justify-content: center;">
           <div style="width: 14px; height: 14px; background: #ff0000; border-radius: 50%; animation: pulse 1s infinite;"></div>
-          <div style="font-family: 'Bebas Neue', sans-serif; font-size: 26px; color: #ff4444; letter-spacing: 3px;">LIVE — YOU'RE ON!</div>
+          <div style="font-family: 'Bebas Neue', sans-serif; font-size: 26px; color: #ff4444; letter-spacing: 3px;">LIVE, YOU'RE ON!</div>
         </div>
       `;
     } else if (div) {
       div.innerHTML = `
         <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 20px;">
           <div style="width: 18px; height: 18px; background: #ff0000; border-radius: 50%; animation: pulse 1s infinite;"></div>
-          <div style="font-family: 'Bebas Neue', sans-serif; font-size: 32px; color: #ff4444; letter-spacing: 3px;">LIVE — YOU'RE ON!</div>
+          <div style="font-family: 'Bebas Neue', sans-serif; font-size: 32px; color: #ff4444; letter-spacing: 3px;">LIVE, YOU'RE ON!</div>
         </div>
         <div style="font-size: 64px; margin-bottom: 20px;">🎙️</div>
         <div style="font-family: 'Barlow', sans-serif; font-size: 22px; color: rgba(255,255,255,0.8); line-height: 1.6;">Commentate out loud!<br>Keep talking!</div>
@@ -3567,7 +3567,7 @@ function rejectPunAsPlayer() {
 // ═══════════════════════════════════════════════════════════════════════════
 
 function startRound3() {
-  // Flag: interview round is active — used to gate the currentRound3Question listener
+  // Flag: interview round is active, used to gate the currentRound3Question listener
   window._round3Active = true;
 
   // Clean up any lingering Round 2 screens
@@ -3595,7 +3595,7 @@ function startRound3() {
     }
   });
 
-  // Listen for Round 3 questions — guarded so it only fires during the interview phase
+  // Listen for Round 3 questions, guarded so it only fires during the interview phase
   gameRef.child('currentRound3Question').on('value', (snapshot) => {
     if (!window._round3Active) return;
     const questionIndex = snapshot.val();
@@ -3649,7 +3649,7 @@ function showRound3AnswerOptions(options, questionIndex) {
   `).join('') + `
     <div style="margin-top: 20px; width: 100%;">
       <div style="font-family: 'Barlow', sans-serif; font-size: 14px; color: rgba(255,255,255,0.6); margin-bottom: 8px; text-align: center;">
-        — or write your own —
+       , or write your own,
       </div>
       <textarea id="round3-custom-answer"
                 maxlength="120"
@@ -3691,7 +3691,7 @@ function submitRound3Answer(answer, questionIndex) {
     timestamp: Date.now()
   });
   
-  // Clear the answer options immediately — replace with a clean waiting state
+  // Clear the answer options immediately, replace with a clean waiting state
   // (avoids the grey disabled-buttons box)
   document.getElementById('vote-options').innerHTML = `
     <div style="text-align: center; padding: 30px 20px;">
@@ -3729,7 +3729,7 @@ function showVotingOptions(submissions, questionIndex) {
   document.getElementById('voting-header-text').textContent = 'Vote for the best answer!';
   const optionsContainer = document.getElementById('vote-options');
 
-  // All players can vote for any answer — including their own
+  // All players can vote for any answer, including their own
   optionsContainer.innerHTML = submissions.map((sub, i) => `
     <button class="vote-btn" id="vote-option-${i}"
             onclick="voteForAnswer('${sub.playerId}', ${questionIndex})">
@@ -3775,7 +3775,7 @@ function voteForAnswer(targetPlayerId, questionIndex) {
 
     // Add haptic feedback
     if (navigator.vibrate) navigator.vibrate(50);
-    // Auto-advance is handled by the host after accept audio plays — no button needed.
+    // Auto-advance is handled by the host after accept audio plays, no button needed.
   });
 }
 
@@ -4003,9 +4003,9 @@ function useOffsideTrap() {
   // Hide the button immediately so the player can't tap twice
   hideOffsideTrapButton(window.offsideTrapTimer);
 
-  // Claim the opportunity via transaction — only the first tapper wins
+  // Claim the opportunity via transaction, only the first tapper wins
   gameRef.child('offsideTrapOpportunity').transaction((current) => {
-    if (!current || current.claimed) return; // already claimed or expired — abort
+    if (!current || current.claimed) return; // already claimed or expired, abort
     return { ...current, claimed: true, claimedBy: playerId };
   }, (error, committed) => {
     if (!committed) {
@@ -4013,7 +4013,7 @@ function useOffsideTrap() {
       return;
     }
 
-    // We won — write the result so host and other players react
+    // We won, write the result so host and other players react
     const myTeam = players[playerId]?.team;
     const targetTeam = myTeam === 1 ? 2 : 1;
     console.log(`🚩 Offside Trap claimed! Targeting team ${targetTeam}`);
@@ -4130,7 +4130,7 @@ function showPlayerRound1Explainer() {
     const isFirst = playerIds.indexOf(playerId) === 0;
 
     if (isFirst) {
-      console.log('🎮 Player 1 — waiting for intro audio before showing start button');
+      console.log('🎮 Player 1, waiting for intro audio before showing start button');
       // Show a "please wait" message while audio plays
       document.getElementById('round1-wait-message').textContent = '🎵 Intro playing...';
 
@@ -4144,7 +4144,7 @@ function showPlayerRound1Explainer() {
           if (controls) controls.style.display = 'flex';
           if (waitMsg) waitMsg.style.display = 'none';
           if (waitSpinner) waitSpinner.style.display = 'none';
-          console.log('🎮 Intro finished — start button unlocked');
+          console.log('🎮 Intro finished, start button unlocked');
         }
       });
     } else {
@@ -4184,7 +4184,7 @@ function showPlayerBonusOffer() {
     <button onclick="acceptBonusRound()" style="background: linear-gradient(135deg, #ffc629, #d4a317); color: #000; border: none; font-family: 'Bebas Neue', sans-serif; font-size: 36px; letter-spacing: 3px; padding: 20px 50px; border-radius: 12px; cursor: pointer; box-shadow: 0 6px 30px rgba(255,198,41,0.5); -webkit-tap-highlight-color: transparent;">
       ✋ ACCEPT CHALLENGE
     </button>
-    <div style="font-family: 'Barlow', sans-serif; font-size: 16px; color: rgba(255,255,255,0.5); margin-top: 20px;">Tap fast — first team wins!</div>
+    <div style="font-family: 'Barlow', sans-serif; font-size: 16px; color: rgba(255,255,255,0.5); margin-top: 20px;">Tap fast, first team wins!</div>
   `;
   document.body.appendChild(div);
   // Cleanup is handled by the outer bonusRoundPhase listener in waitForGame()
@@ -4248,7 +4248,7 @@ function showPlayerBonusKaraoke() {
 
       if (isSinging) {
         div.innerHTML = `
-          <div style="font-family: 'Bebas Neue', sans-serif; font-size: 44px; color: #ffc629; text-shadow: 0 0 30px rgba(255,198,41,0.6); margin-bottom: 12px;">🎤 KARAOKE — TWOJA KOLEJ!</div>
+          <div style="font-family: 'Bebas Neue', sans-serif; font-size: 44px; color: #ffc629; text-shadow: 0 0 30px rgba(255,198,41,0.6); margin-bottom: 12px;">🎤 KARAOKE, TWOJA KOLEJ!</div>
           <div style="font-family: 'Barlow', sans-serif; font-size: 18px; color: rgba(255,255,255,0.8); line-height: 1.5; margin-bottom: 24px; max-width: 420px;">
             Patrz na duży ekran i śpiewaj!<br>
             <span style="color:#ffc629;">Naciśnij Gotowy, gdy jesteś gotowy!</span>
@@ -4342,7 +4342,7 @@ function signalKaraokeReady() {
 function showPlayerBonusJudging() {
   if (document.getElementById('player-bonus-judging')) return;
 
-  // Append placeholder immediately (synchronous) — prevents question flash
+  // Append placeholder immediately (synchronous), prevents question flash
   const div = document.createElement('div');
   div.id = 'player-bonus-judging';
   div.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, #0a1628 0%, #1a2540 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; text-align: center; padding: 30px;';
@@ -4367,7 +4367,7 @@ function showPlayerBonusJudging() {
       return;
     }
 
-    // Referee — get the team being judged, then show buttons
+    // Referee, get the team being judged, then show buttons
     gameRef.child('bonusJudgingTeam').once('value', (teamSnap) => {
       if (!document.getElementById('player-bonus-judging')) return;
       div.innerHTML = `
@@ -4445,7 +4445,7 @@ function showPlayerSubject() {
     div.innerHTML = `
       <div style="font-family: 'Barlow', sans-serif; font-size: 18px; color: rgba(255,255,255,0.6); text-transform: uppercase; letter-spacing: 3px; margin-bottom: 20px;">Your Subject to Draw</div>
       <div style="font-family: 'Bebas Neue', sans-serif; font-size: 52px; color: #ffc629; text-shadow: 0 0 30px rgba(255,198,41,0.6); margin-bottom: 20px;">${subject}</div>
-      <div style="font-family: 'Barlow', sans-serif; font-size: 18px; color: rgba(255,255,255,0.5);">Memorise this — drawing starts in 15 seconds!</div>
+      <div style="font-family: 'Barlow', sans-serif; font-size: 18px; color: rgba(255,255,255,0.5);">Memorise this, drawing starts in 15 seconds!</div>
     `;
     document.body.appendChild(div);
 
@@ -4699,7 +4699,7 @@ function showPlayerReveal() {
       div.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, #0a1628 0%, #1a2540 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 30px; text-align: center;';
 
       if (isReferee) {
-        // Show the button by default — the listener below will hide it again
+        // Show the button by default, the listener below will hide it again
         // if awaitingRevealNext is currently false. This avoids the case
         // where the listener attaches AFTER host already wrote `true`,
         // never sees the false→true transition, and leaves the button
@@ -4734,7 +4734,7 @@ function showPlayerReveal() {
             btn.style.display = 'block';
             btn.disabled = false;
             if (msg) msg.style.display = 'none';
-            console.warn('⚠️ Awaiting signal timeout — force-showing Next button');
+            console.warn('⚠️ Awaiting signal timeout, force-showing Next button');
           }
         }, 4000);
 
@@ -4811,7 +4811,7 @@ function showPlayerScoring() {
         return;
       }
 
-      // Referee UI — listen for which player to score
+      // Referee UI, listen for which player to score
       showRefereeMatchDrawScoring();
     };
 
@@ -4829,20 +4829,20 @@ function showPlayerScoring() {
   // render within 4s (e.g. listener attached too late, or currentScoringPlayerId
   // hasn't propagated), force a re-fetch.
   // BUT: don't rebuild if a score for the current player is already in
-  // Firebase — that would re-show the rating UI after the user has already
+  // Firebase, that would re-show the rating UI after the user has already
   // scored, asking them to rate the same drawing again.
   setTimeout(() => {
     if (document.getElementById('player-md-scoring')) return;
     gameRef.child('matchDraw/currentScoringPlayerId').once('value', (snap) => {
       const id = snap.val();
       if (!id) return;
-      // Already scored? Don't rebuild — the host is just mid-fanfare before advancing.
+      // Already scored? Don't rebuild, the host is just mid-fanfare before advancing.
       gameRef.child('matchDraw/scores/' + id).once('value', (scoreSnap) => {
         if (scoreSnap.val() !== null && scoreSnap.val() !== undefined) {
-          console.log('✓ Skip safety rebuild — score already submitted for', id);
+          console.log('✓ Skip safety rebuild, score already submitted for', id);
           return;
         }
-        console.warn('⚠️ Scoring buttons missing after 4s — forcing rebuild');
+        console.warn('⚠️ Scoring buttons missing after 4s, forcing rebuild');
         showRefereeMatchDrawScoring();
       });
     });
@@ -4876,7 +4876,7 @@ function showRefereeMatchDrawScoring() {
       div.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, #0a1628 0%, #1a2540 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; text-align: center; padding: 30px;';
       div.innerHTML = `
         <div style="font-family: 'Bebas Neue', sans-serif; font-size: 44px; color: #ffc629; margin-bottom: 10px;">⚽ YOU'RE THE REFEREE</div>
-        <div style="font-family: 'Barlow', sans-serif; font-size: 24px; color: rgba(255,255,255,0.9); margin-bottom: 35px;">Rate ${pName}'s drawing (1–5)</div>
+        <div style="font-family: 'Barlow', sans-serif; font-size: 24px; color: rgba(255,255,255,0.9); margin-bottom: 35px;">Rate ${pName}'s drawing (1 to 5)</div>
         <div style="display: flex; gap: 15px; flex-wrap: wrap; justify-content: center;">
           ${[1,2,3,4,5].map(s => `
             <button onclick="scoreMatchDrawPlayer('${scoringPlayerId}', ${s})"
@@ -4945,7 +4945,7 @@ function startRound1() {
 // ═══════════════════════════════════════════════════════════════════════════
 
 // ═══════════════════════════════════════════════════════════════════════════
-// FUTBOL FACE SWAP REVEAL — player screen
+// FUTBOL FACE SWAP REVEAL, player screen
 // ═══════════════════════════════════════════════════════════════════════════
 
 function showFutbolImageScreen(imageUrl) {
@@ -4985,7 +4985,7 @@ function showFutbolImageScreen(imageUrl) {
 }
 
 function closeFutbolImageScreen() {
-  // Just hide locally — futbolImageUrl stays in Firebase for later use
+  // Just hide locally, futbolImageUrl stays in Firebase for later use
   const d = document.getElementById('player-futbol-screen');
   if (d) d.remove();
 }
@@ -5039,7 +5039,7 @@ function showPlayerGameComplete() {
     const finalScore = d.finalScore || '';
     const winner = d.winner || '';
     const scoreLine = document.getElementById('player-final-score-line');
-    if (scoreLine && finalScore) scoreLine.textContent = winner ? `${winner} — ${finalScore}` : finalScore;
+    if (scoreLine && finalScore) scoreLine.textContent = winner ? `${winner}, ${finalScore}` : finalScore;
     const shareMsg = `We just played Foul Play! ⚽🏆 Final score: ${finalScore}. Play your own game: https://foulplay.games`;
     const waBtn = document.getElementById('player-wa-btn');
     const twBtn = document.getElementById('player-tw-btn');
@@ -5088,7 +5088,7 @@ function downloadChampionsPhoto() {
 
   ctx.fillStyle = '#fff';
   ctx.font = 'bold 48px Arial';
-  ctx.fillText(`FINAL SCORE: ${team1Score} – ${team2Score}`, 600, 145);
+  ctx.fillText(`FINAL SCORE: ${team1Score} - ${team2Score}`, 600, 145);
 
   const allPlayers = Object.values(players);
   const photoSize = 140;
@@ -5407,7 +5407,7 @@ async function startCamera() {
       video.style.display = 'none';
       const msg = document.createElement('p');
       msg.style.cssText = 'font-family: Barlow, sans-serif; color: rgba(255,255,255,0.7); font-size: 16px; margin-bottom: 20px;';
-      msg.textContent = 'Camera not available — a default avatar will be used.';
+      msg.textContent = 'Camera not available, a default avatar will be used.';
       video.parentNode.insertBefore(msg, video.nextSibling);
     }
   }
@@ -5473,11 +5473,11 @@ function generateDefaultAvatar(name) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// SABOTAGE REVEAL — REFEREE SCORING (player 1 only)
+// SABOTAGE REVEAL, REFEREE SCORING (player 1 only)
 // ═══════════════════════════════════════════════════════════════════════════
 
 // ═══════════════════════════════════════════════════════════════════════════
-// CAPTION CONTEST — PLAYER SIDE
+// CAPTION CONTEST, PLAYER SIDE
 // ═══════════════════════════════════════════════════════════════════════════
 
 (function setupCaptionContestListener() {
@@ -5636,7 +5636,7 @@ function showCaptionInput(d) {
   `;
   document.body.appendChild(div);
 
-  // Timer — sync with host's Firebase value
+  // Timer, sync with host's Firebase value
   window._captionPlayerTimeLeft = 45;
   window._captionPlayerStyle = d.style;
   window._captionPlayerTimerInterval = setInterval(() => {
@@ -5751,12 +5751,12 @@ function showCaptionVotingPlayer(d) {
   const isDraw   = d.style === 'draw';
   const photoUrl = d.photoUrl || '';
 
-  // All captions shown — players may vote for any entry including their own
+  // All captions shown, players may vote for any entry including their own
   const entries = Object.entries(captions)
     .map(([pid, c]) => ({ pid, text: c.text || '', drawing: c.drawing || null }));
 
   if (entries.length === 0) {
-    // No captions at all — auto-cast a blank vote so the round can proceed
+    // No captions at all, auto-cast a blank vote so the round can proceed
     gameRef.child(`captionContest/votes/${playerId}`).set(playerId);
     return;
   }
@@ -5853,7 +5853,7 @@ function showCaptionNextPlayerButton(canVote) {
       const d = snap.val();
 
       if (!d || !d.active) {
-        // Host finished — remove all sabotage UI
+        // Host finished, remove all sabotage UI
         ['sabotage-referee-scoring', 'sabotage-task-view'].forEach(id => {
           const el = document.getElementById(id);
           if (el) el.remove();
@@ -5890,7 +5890,7 @@ function showRefereeScoring(d) {
 
   div.innerHTML = `
     <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:rgba(255,255,255,0.3);letter-spacing:3px;margin-bottom:20px;">
-      🕵️ REFEREE SCORING &nbsp;—&nbsp; ${d.index + 1} / ${d.total}
+      🕵️ REFEREE SCORING  /  ${d.index + 1} / ${d.total}
     </div>
 
     <div style="font-family:'Bebas Neue',sans-serif;font-size:48px;color:#fff;line-height:1;margin-bottom:6px;">
@@ -5944,7 +5944,7 @@ function showSabotageTaskView(d) {
   div.style.cssText = 'position: fixed; inset: 0; background: linear-gradient(135deg, #0a1628 0%, #1a2b4a 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; padding: 28px; text-align: center; overflow-y: auto;';
   div.innerHTML = `
     <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:rgba(255,255,255,0.3);letter-spacing:3px;margin-bottom:20px;">
-      🕵️ SABOTAGE REVEALS &nbsp;—&nbsp; ${d.index + 1} / ${d.total}
+      🕵️ SABOTAGE REVEALS  /  ${d.index + 1} / ${d.total}
     </div>
     <div style="font-family:'Bebas Neue',sans-serif;font-size:48px;color:#fff;line-height:1;margin-bottom:6px;">
       ${d.playerName}
@@ -5981,7 +5981,7 @@ function submitRefereeScore(pid) {
     ? Math.max(0, parseInt(document.getElementById('ref-pts-input')?.value || '0', 10))
     : 0;
 
-  // Remove scoring UI immediately — listener rebuilds it for next player
+  // Remove scoring UI immediately, listener rebuilds it for next player
   const scoringEl = document.getElementById('sabotage-referee-scoring');
   if (scoringEl) scoringEl.remove();
 
@@ -5989,13 +5989,13 @@ function submitRefereeScore(pid) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// TEAM TALK — PLAYER SIDE
+// TEAM TALK, PLAYER SIDE
 // ═══════════════════════════════════════════════════════════════════════════
 
 let _ttPlayerPhase = null;     // last phase we acted on (prevents duplicate shows)
 let _ttScorerRunningScore = 0; // local running total shown on scorer screen
 
-// IDs of all Team Talk screens — used for cleanup
+// IDs of all Team Talk screens, used for cleanup
 const TT_SCREEN_IDS = [
   'tt-player-intro',
   'tt-player-ready',
@@ -6056,7 +6056,7 @@ function showTeamTalkPlayerTurnScreen(teamNum) {
   // Figure out this player's role
   const myData = players[playerId];
   if (!myData) {
-    // Players object not yet populated — wait briefly and retry
+    // Players object not yet populated, wait briefly and retry
     setTimeout(() => showTeamTalkPlayerTurnScreen(teamNum), 300);
     return;
   }
@@ -6091,10 +6091,10 @@ function showTeamTalkReadyScreen(teamNum) {
   div.innerHTML = `
     <div style="font-family: 'Bebas Neue', sans-serif; font-size: 36px; color: rgba(255,255,255,0.5); letter-spacing: 3px; margin-bottom: 10px;">YOU'RE SCORING</div>
     <div style="font-family: 'Bebas Neue', sans-serif; font-size: 64px; color: #ffc629; text-shadow: 0 0 24px rgba(255,198,41,0.6); letter-spacing: 4px; margin-bottom: 30px;">
-      READY — Start Team ${teamNum}'s turn
+      READY, Start Team ${teamNum}'s turn
     </div>
     <div style="font-family: 'Barlow', sans-serif; font-size: 20px; color: rgba(255,255,255,0.7); margin-bottom: 40px; max-width: 360px; line-height: 1.6;">
-      Tap when your team is ready to start. You'll see <strong style="color:#ffc629;">CORRECT</strong> and <strong style="color:#d4145a;">SKIP</strong> buttons — the word is NOT shown on your screen.
+      Tap when your team is ready to start. You'll see <strong style="color:#ffc629;">CORRECT</strong> and <strong style="color:#d4145a;">SKIP</strong> buttons, the word is NOT shown on your screen.
     </div>
     <button id="tt-ready-btn" onclick="pressTeamTalkReady()"
       style="padding: 24px 60px; background: linear-gradient(135deg, #2ecc71, #27ae60); color: #fff; border: none; border-radius: 18px; font-family: 'Bebas Neue', sans-serif; font-size: 42px; letter-spacing: 3px; cursor: pointer; box-shadow: 0 10px 30px rgba(46,204,113,0.5); -webkit-tap-highlight-color: transparent;">
@@ -6103,7 +6103,7 @@ function showTeamTalkReadyScreen(teamNum) {
   `;
   document.body.appendChild(div);
 
-  // Listen for phase to change to active turn (host confirms ready) — then show scorer UI
+  // Listen for phase to change to active turn (host confirms ready), then show scorer UI
   gameRef.child('teamTalk/phase').once('value', () => {});
   // The phase listener in listenForGameStart will fire handleTeamTalkPhase again if phase changes,
   // but since we're already on the right phase we watch scorerReady feedback via Firebase:
@@ -6150,7 +6150,7 @@ function showTeamTalkScorerActiveScreen() {
       </button>
     </div>
     <div style="font-family: 'Barlow', sans-serif; font-size: 16px; color: rgba(255,255,255,0.35); max-width: 320px; line-height: 1.5;">
-      The word is shown on the host screen — not here.
+      The word is shown on the host screen, not here.
     </div>
   `;
   document.body.appendChild(div);
@@ -6162,11 +6162,11 @@ function showTeamTalkScorerActiveScreen() {
   });
 }
 
-// Which team's score to watch — set when phase fires
+// Which team's score to watch, set when phase fires
 let _ttCurrentScoringTeam = 1;
 
 // Override handleTeamTalkPhase to track scoring team
-const _ttOriginalHandle = window._ttHandleSetup; // unused — handled inline
+const _ttOriginalHandle = window._ttHandleSetup; // unused, handled inline
 const _ttHandlePhaseOrig = (typeof handleTeamTalkPhase === 'function') ? handleTeamTalkPhase : null;
 
 // Patch: track which team is scoring
@@ -6244,14 +6244,14 @@ function showTeamTalkPlayerResults() {
       const team2Flag = gd.team2 ? gd.team2.flag : '⚽';
 
       div.innerHTML = `
-        <div style="font-family: 'Bebas Neue', sans-serif; font-size: 44px; color: #ffc629; letter-spacing: 4px; margin-bottom: 30px;">TEAM TALK — SCORES</div>
+        <div style="font-family: 'Bebas Neue', sans-serif; font-size: 44px; color: #ffc629; letter-spacing: 4px; margin-bottom: 30px;">TEAM TALK, SCORES</div>
         <div style="display: flex; gap: 50px; align-items: center; justify-content: center; margin-bottom: 24px;">
           <div style="text-align: center;">
             <div style="font-size: 44px; margin-bottom: 6px;">${team1Flag}</div>
             <div style="font-family: 'Bebas Neue', sans-serif; font-size: 24px; color: rgba(255,255,255,0.8);">${team1Name}</div>
             <div style="font-family: 'Bebas Neue', sans-serif; font-size: 72px; color: #4dd4e8; text-shadow: 0 0 20px rgba(77,212,232,0.5);">${t1}</div>
           </div>
-          <div style="font-family: 'Bebas Neue', sans-serif; font-size: 44px; color: rgba(255,255,255,0.4);">–</div>
+          <div style="font-family: 'Bebas Neue', sans-serif; font-size: 44px; color: rgba(255,255,255,0.4);">-</div>
           <div style="text-align: center;">
             <div style="font-size: 44px; margin-bottom: 6px;">${team2Flag}</div>
             <div style="font-family: 'Bebas Neue', sans-serif; font-size: 24px; color: rgba(255,255,255,0.8);">${team2Name}</div>
@@ -6294,7 +6294,7 @@ function startHeartbeat() {
         if (!indicator) {
           indicator = document.createElement('div');
           indicator.id = 'player-pause-indicator';
-          // Full-screen overlay — pointer-events:all blocks all taps underneath
+          // Full-screen overlay, pointer-events:all blocks all taps underneath
           indicator.style.cssText = [
             'position: fixed',
             'inset: 0',
@@ -6408,7 +6408,7 @@ window.addEventListener('load', () => {
       }
       const playerData = data.players && data.players[savedPid];
       // Skip the rejoin screen if there's no record OR if the record exists
-      // but has no name — that means the host wiped the players subtree
+      // but has no name, that means the host wiped the players subtree
       // (game restart) and what's left is just a fragment from the rejoin
       // listener writing back. Treating it as stale avoids the
       // "WELCOME BACK! UNDEFINED" screen and lets the user join fresh.
@@ -6435,7 +6435,7 @@ function showRejoinScreen(savedCode, savedPid, savedName, playerData) {
 
   // Fall back if the Firebase player record is missing/stale (no name field).
   // Without this, the screen rendered "WELCOME BACK! UNDEFINED" when a host
-  // restarted the game with the same code — the localStorage rejoin pointed
+  // restarted the game with the same code, the localStorage rejoin pointed
   // at a stale playerId whose name had been cleared.
   const displayName = (playerData && playerData.name) || savedName || 'Player';
 
@@ -6498,14 +6498,14 @@ function rejoinGame(savedCode, savedPid, savedName) {
                          data.gameComplete;
 
     if (gameUnderway) {
-      // Skip the waiting screen — jump straight back into the game.
+      // Skip the waiting screen, jump straight back into the game.
       // startPlaying() sets up all reactive Firebase listeners which will
       // immediately fire with current values and restore the right screen.
       window._startPlayingCalled = false; // reset guard so startPlaying() runs
       startPlaying();
       if (window._isPlayer1) createPlayerPauseButton();
     } else {
-      // Game hasn't started yet — wait as normal
+      // Game hasn't started yet, wait as normal
       document.getElementById('waiting-screen').classList.add('active');
       document.getElementById('waiting-name').textContent = playerName;
       document.getElementById('waiting-code').textContent = gameCode;
