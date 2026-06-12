@@ -1,9 +1,92 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta http-equiv="refresh" content="0; url=host-complete_42.html">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Foul Play — Join the Game</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    min-height: 100vh;
+    background: linear-gradient(135deg, #0a1628 0%, #1a2b4a 100%);
+    font-family: 'Barlow', sans-serif;
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; text-align: center; padding: 1.5rem;
+  }
+  .wrap { max-width: 420px; width: 100%; }
+  .cards { font-size: 3.5rem; margin-bottom: 0.75rem; }
+  h1 { font-family: 'Bebas Neue', sans-serif; font-size: 3.4rem; letter-spacing: 0.1em; }
+  h1 .play { color: #4dd4e8; }
+  .tagline { font-family: 'Bebas Neue', sans-serif; font-size: 1.15rem; color: #ffc629; letter-spacing: 0.18em; margin-bottom: 2rem; }
+  .label { color: rgba(255,255,255,0.7); font-size: 1.05rem; margin-bottom: 0.9rem; }
+  input {
+    width: 100%; padding: 1rem; font-size: 1.4rem; text-align: center;
+    font-family: monospace; letter-spacing: 0.25em; text-transform: uppercase;
+    background: rgba(255,255,255,0.08); border: 2px solid rgba(77,212,232,0.5);
+    border-radius: 10px; color: #fff; outline: none; margin-bottom: 1rem;
+  }
+  input:focus { border-color: #4dd4e8; }
+  button {
+    width: 100%; padding: 1rem; font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.7rem; letter-spacing: 0.1em; color: #0a1628;
+    background: linear-gradient(135deg, #4dd4e8, #ffc629);
+    border: none; border-radius: 50px; cursor: pointer;
+  }
+  .error { color: #ff6b6b; margin-top: 0.9rem; display: none; }
+  .divider { display: flex; align-items: center; gap: 12px; margin: 2.2rem 0 1.4rem; color: rgba(255,255,255,0.35); font-size: 0.85rem; letter-spacing: 0.1em; }
+  .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: rgba(255,255,255,0.15); }
+  .host-link { color: rgba(255,255,255,0.75); font-size: 1rem; }
+  .host-link a { color: #4dd4e8; text-decoration: none; font-weight: 600; }
+  .host-link a:hover { text-decoration: underline; }
+  .buy { margin-top: 2.5rem; font-size: 0.85rem; color: rgba(255,255,255,0.4); }
+  .buy a { color: #4dd4e8; }
+</style>
 </head>
 <body>
-  <p>Redirecting to Foul Play...</p>
+  <div class="wrap">
+    <div class="cards">🟨🟥</div>
+    <h1>FOUL <span class="play">PLAY</span></h1>
+    <div class="tagline">The Football Party Game Show</div>
+
+    <p class="label">Joining a game? Enter the code on the host screen:</p>
+    <input id="join-code" type="text" maxlength="8" placeholder="E.G. DEG4" autocomplete="off" autocapitalize="characters">
+    <button onclick="joinGame()">⚽ JOIN GAME</button>
+    <p class="error" id="join-error">Please enter the short code shown on the host screen.</p>
+
+    <div class="divider">OR</div>
+    <p class="host-link">Hosting on the big screen? <a href="host-complete_42.html">Start the show →</a></p>
+
+    <p class="buy">Don't have the game yet? <a href="https://shop.foulplay.games/products/foul-play-the-football-party-game-show-digital-game-code">Get it for £10 →</a></p>
+  </div>
+
+  <script>
+    // If a code arrives via URL (?code=XXXX), go straight to the player page
+    (function() {
+      const params = new URLSearchParams(window.location.search);
+      const code = (params.get('code') || '').trim().toUpperCase();
+      if (!code) return;
+      const dest = (code.includes('-') || code.length > 8) ? 'host-complete_42.html' : 'player-complete_27.html';
+      window.location.replace(dest + '?code=' + encodeURIComponent(code));
+    })();
+
+    function joinGame() {
+      const code = document.getElementById('join-code').value.trim().toUpperCase();
+      if (!code || code.length < 3) {
+        document.getElementById('join-error').style.display = 'block';
+        return;
+      }
+      // Purchase codes (e.g. GSTQC-XXXX-XXXX / FP-XXXX) belong on the host screen
+      if (code.includes('-') || code.length > 8) {
+        window.location.href = 'host-complete_42.html?code=' + encodeURIComponent(code);
+        return;
+      }
+      window.location.href = 'player-complete_27.html?code=' + encodeURIComponent(code);
+    }
+
+    document.getElementById('join-code').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') joinGame();
+    });
+  </script>
 </body>
 </html>
