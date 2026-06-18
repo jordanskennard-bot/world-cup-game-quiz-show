@@ -1176,6 +1176,18 @@
             }
         })();
 
+        // A stable, anonymous id for THIS device/browser. Created once and
+        // reused, so the same device replaying never uses up extra slots.
+        function getDeviceId() {
+            let id = localStorage.getItem('fp_deviceId');
+            if (!id) {
+                id = (crypto.randomUUID && crypto.randomUUID()) ||
+                     ('d-' + Date.now() + '-' + Math.random().toString(36).slice(2));
+                localStorage.setItem('fp_deviceId', id);
+            }
+            return id;
+        }
+
         async function validateGateCode() {
             const input = document.getElementById('gate-input');
             const btn = document.getElementById('gate-btn');
@@ -1193,7 +1205,8 @@
             errorEl.style.display = 'none';
 
             try {
-                const res = await fetch(`https://foulplay-payments.vercel.app/api/validate-code?code=${encodeURIComponent(code)}`);
+                const device = getDeviceId();
+                const res = await fetch(`https://foulplay-payments.vercel.app/api/validate-code?code=${encodeURIComponent(code)}&device=${encodeURIComponent(device)}`);
                 const data = await res.json();
 
                 if (data.valid) {
@@ -1202,6 +1215,21 @@
                     gate.classList.add('access-granted');
                     setTimeout(() => gate.remove(), 850);
                     unlockAudio();
+                } else if (data.reason === 'device_limit') {
+                    const limit = data.limit || 5;
+                    const subject = encodeURIComponent('Foul Play – device limit reached');
+                    const body = encodeURIComponent(
+                        'Hi,\n\nMy code has reached its device limit but I think this is a mistake. ' +
+                        'Could you please reset or extend it?\n\nCode: ' + code + '\n\nThanks!'
+                    );
+                    errorEl.innerHTML =
+                        'This code has already been used on ' + limit + ' devices, which is the limit. ' +
+                        'You can keep playing on any device you\'ve already used.<br><br>' +
+                        'Think something\'s wrong? <a href="mailto:hello@foulplay.games?subject=' + subject +
+                        '&body=' + body + '" style="color:#4dd4e8;">Request more devices →</a>';
+                    errorEl.style.display = 'block';
+                    btn.innerHTML = '🎮 START GAME';
+                    btn.disabled = false;
                 } else {
                     errorEl.textContent = 'Invalid or unrecognised code. Check your email and try again.';
                     errorEl.style.display = 'block';
