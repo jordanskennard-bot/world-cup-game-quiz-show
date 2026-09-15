@@ -1308,6 +1308,7 @@ function listenForGameStart() {
       startPlaying();
       if (window._isPlayer1) {
         createPlayerPauseButton();
+        createPlayerFinalWhistleButton();
       }
     }
   });
@@ -1911,6 +1912,21 @@ function startPlaying() {
     if (snapshot.val() === true) {
       showPlayerGameComplete();
     }
+  });
+
+  // Player 1 blew the final whistle early. Stop long-running player-side
+  // timers and remove the floating referee buttons so nothing keeps firing
+  // behind the FULL TIME screen. The existing gameComplete listener above
+  // renders the UI once the host mirrors the flag.
+  gameRef.child('finalWhistleBlown').on('value', (snapshot) => {
+    if (snapshot.val() !== true) return;
+    try { if (window.offsideTrapTimer) { clearInterval(window.offsideTrapTimer); window.offsideTrapTimer = null; } } catch (e) {}
+    try { if (window._captionPlayerTimerInterval) { clearInterval(window._captionPlayerTimerInterval); window._captionPlayerTimerInterval = null; } } catch (e) {}
+    try { if (sabotageTimer) { clearInterval(sabotageTimer); sabotageTimer = null; } } catch (e) {}
+    const fwBtn = document.getElementById('player-final-whistle-btn');
+    if (fwBtn) fwBtn.remove();
+    const pBtn = document.getElementById('player-pause-btn');
+    if (pBtn) pBtn.remove();
   });
 }
 
@@ -6387,6 +6403,44 @@ function createPlayerPauseButton() {
   document.body.appendChild(btn);
 }
 
+// Player 1 final whistle button — end the game early with a confirmation.
+// Writes finalWhistleBlown: true, which the host listens for and mirrors by
+// running its normal end-of-game showVictoryScreen() flow (whistle SFX,
+// full-time scores, then gameComplete: true which cascades to every phone).
+function createPlayerFinalWhistleButton() {
+  if (document.getElementById('player-final-whistle-btn')) return;
+
+  const btn = document.createElement('button');
+  btn.id = 'player-final-whistle-btn';
+  btn.innerHTML = '🟨 Blow Final Whistle';
+  btn.style.cssText = [
+    'position: fixed',
+    'bottom: 20px',
+    'left: 20px',
+    'z-index: 19990',
+    'padding: 12px 20px',
+    'background: rgba(212,20,90,0.92)',
+    'color: #fff',
+    'border: none',
+    'border-radius: 10px',
+    "font-family: 'Bebas Neue', sans-serif",
+    'font-size: 18px',
+    'cursor: pointer',
+    'letter-spacing: 2px',
+    'box-shadow: 0 4px 16px rgba(0,0,0,0.4)',
+  ].join(';');
+
+  btn.onclick = () => {
+    if (!confirm('Blow the final whistle and end the game now?')) return;
+    gameRef.update({ finalWhistleBlown: true });
+    btn.disabled = true;
+    btn.style.opacity = '0.5';
+    btn.style.cursor = 'default';
+  };
+
+  document.body.appendChild(btn);
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // SESSION REJOIN
 // ═══════════════════════════════════════════════════════════════════════════
@@ -6503,7 +6557,10 @@ function rejoinGame(savedCode, savedPid, savedName) {
       // immediately fire with current values and restore the right screen.
       window._startPlayingCalled = false; // reset guard so startPlaying() runs
       startPlaying();
-      if (window._isPlayer1) createPlayerPauseButton();
+      if (window._isPlayer1) {
+        createPlayerPauseButton();
+        createPlayerFinalWhistleButton();
+      }
     } else {
       // Game hasn't started yet, wait as normal
       document.getElementById('waiting-screen').classList.add('active');
